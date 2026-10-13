@@ -112,3 +112,8 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# Project documents (specs, backlogs, status) are kept locally and shared outside git,
+# so they stay in place across branch switches (team decision 2026-10-26)
+/[Aa]ssets/[Dd]ocumentation/
+/[Aa]ssets/[Dd]ocumentation.meta

@@ -58,8 +58,8 @@ The project uses **Git Flow** (decided by Ivan, 2026-10-26):
 
 - `main` holds released versions only, one tagged release per sprint (`v0.1.0` = Sprint 1). Nobody commits to it directly.
 - `develop` is the integration branch, created from `main`.
-- `feature/CAM-<key>-<short-name>` is one branch per Jira issue, from `develop`, merged back into `develop` by a reviewed pull request (`--no-ff`).
-- `release/<version>` is cut from `develop` at sprint end; it only gets the version number, STATUS.md and release fixes, then merges into `main` (tagged `v<version>`) and back into `develop`.
+- `feature/CAM-<key>-<short-name>` is one branch per Jira issue, from `develop`. Ivan merges it back into `develop` himself with `git merge --no-ff`; the team uses no pull requests.
+- `release/<version>` is cut from `develop` at sprint end; it only gets the version number, the `CHANGELOG.md` entry and release fixes, then merges into `main` (tagged `v<version>`) and back into `develop`.
 - `hotfix/<version>` comes from `main` for urgent fixes only and merges into both `main` and `develop`.
 - Commit messages start with the Jira key: `CAM-23 Add wave state machine with arrivals, seats and queues`.
 - Every commit carries its real author and real time; teammates commit their own work from their own accounts.

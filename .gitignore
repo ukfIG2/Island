@@ -1,0 +1,13 @@
+.vibe/host-bridge/token.txt
+.vibe/host-bridge/ledger/
+.vibe/host-bridge/runtime/
+.vibe/host-bridge/extension/config.js
+node_modules/
+dist/
+coverage/
+# Resort machine-local / one-shot bootstrap artifacts
+/RESORT_*.ps1
+.vibe/rebind-backup/
+.vibe/host-bridge/extension-backup-*/
+.vibe/host-bridge/repair-backup-*/
+.vibe/host-bridge/vibego-mutation-canary-v1.txt

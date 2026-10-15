@@ -11,3 +11,5 @@ coverage/
 .vibe/host-bridge/extension-backup-*/
 .vibe/host-bridge/repair-backup-*/
 .vibe/host-bridge/vibego-mutation-canary-v1.txt
+.vibe/browser/profile/
+.vibe/browser/runtime/

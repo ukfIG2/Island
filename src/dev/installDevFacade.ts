@@ -33,6 +33,9 @@ export interface RrhDevFacade {
   snapshot():
     BootstrapState;
 
+  eventCount():
+    number;
+
   events():
     readonly DebugEvent[];
 }
@@ -79,6 +82,9 @@ export function installDevFacade(
           Object.freeze({
             ...core.getSnapshot()
           }),
+
+        eventCount: () =>
+          eventSink.size(),
 
         events: () =>
           eventSink.snapshot()

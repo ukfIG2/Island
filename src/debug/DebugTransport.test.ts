@@ -52,6 +52,10 @@ describe(
         ).not.toHaveBeenCalled();
 
         expect(
+          sink.size()
+        ).toBe(0);
+
+        expect(
           sink.snapshot()
         ).toEqual([]);
       }
@@ -106,6 +110,10 @@ describe(
 
         const events =
           ring.snapshot();
+
+        expect(
+          ring.size()
+        ).toBe(2);
 
         expect(events).toEqual([
           {

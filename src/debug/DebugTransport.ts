@@ -145,6 +145,10 @@ implements DebugSink {
     }
   };
 
+  readonly size = ():
+    number =>
+      this.items.length;
+
   readonly snapshot = ():
     readonly DebugEvent[] =>
       Object.freeze([

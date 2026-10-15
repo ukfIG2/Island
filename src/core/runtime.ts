@@ -1,40 +1,103 @@
+import type {
+  DebugTransport
+} from '../debug/DebugTransport';
+
 import {
   applyBootstrapCommand,
   type BootstrapCommand,
   type BootstrapState
 } from './state';
 
-export type BootstrapListener = () => void;
+export type BootstrapListener =
+  () => void;
+
+export interface BootstrapDebugEvents {
+  readonly 'core.transition':
+    Readonly<{
+      commandType:
+        BootstrapCommand['type'];
+
+      simulationTick:
+        number;
+
+      elapsedSimulationMs:
+        number;
+    }>;
+}
 
 export class BootstrapCore {
-  private state: BootstrapState;
-  private readonly listeners = new Set<BootstrapListener>();
+  private state:
+    BootstrapState;
 
-  constructor(initialState: BootstrapState) {
-    this.state = initialState;
+  private readonly listeners =
+    new Set<BootstrapListener>();
+
+  constructor(
+    initialState:
+      BootstrapState,
+
+    private readonly debug?:
+      DebugTransport<
+        BootstrapDebugEvents
+      >
+  ) {
+    this.state =
+      initialState;
   }
 
-  readonly getSnapshot = (): BootstrapState => this.state;
+  readonly getSnapshot =
+    (): BootstrapState =>
+      this.state;
 
   readonly subscribe = (
-    listener: BootstrapListener
+    listener:
+      BootstrapListener
   ): (() => void) => {
-    this.listeners.add(listener);
+    this.listeners.add(
+      listener
+    );
 
     return () => {
-      this.listeners.delete(listener);
+      this.listeners.delete(
+        listener
+      );
     };
   };
 
   readonly dispatch = (
-    command: BootstrapCommand
+    command:
+      BootstrapCommand
   ): BootstrapState => {
-    const next = applyBootstrapCommand(this.state, command);
+    const next =
+      applyBootstrapCommand(
+        this.state,
+        command
+      );
 
-    if (next !== this.state) {
-      this.state = next;
+    if (
+      next !== this.state
+    ) {
+      this.state =
+        next;
 
-      for (const listener of this.listeners) {
+      this.debug?.emit(
+        'core.transition',
+        () => ({
+          commandType:
+            command.type,
+
+          simulationTick:
+            next.simulationTick,
+
+          elapsedSimulationMs:
+            next.elapsedSimulationMs
+        })
+      );
+
+      for (
+        const listener
+        of this.listeners
+      ) {
         listener();
       }
     }

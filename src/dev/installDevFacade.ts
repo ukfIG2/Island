@@ -1,50 +1,99 @@
-import type { BootstrapCore } from '../core/runtime';
-import type { BootstrapState } from '../core/state';
-import type { SimulationClock } from '../runtime/SimulationClock';
+import type {
+  BootstrapCore
+} from '../core/runtime';
+
+import type {
+  BootstrapState
+} from '../core/state';
+
+import {
+  type DebugEvent,
+  DebugRingBufferSink
+} from '../debug/DebugTransport';
+
+import type {
+  SimulationClock
+} from '../runtime/SimulationClock';
 
 export interface RrhDevFacade {
   health(): Readonly<{
-    schema: 'rrh-dev-health/v1';
-    ok: true;
-    simulationRunning: boolean;
-    simulationPeriodMs: number;
+    schema:
+      'rrh-dev-health/v1';
+
+    ok:
+      true;
+
+    simulationRunning:
+      boolean;
+
+    simulationPeriodMs:
+      number;
   }>;
 
-  snapshot(): BootstrapState;
+  snapshot():
+    BootstrapState;
+
+  events():
+    readonly DebugEvent[];
 }
 
 declare global {
-  var __RRH_DEV__: RrhDevFacade | undefined;
+  var __RRH_DEV__:
+    RrhDevFacade |
+    undefined;
 }
 
 export function installDevFacade(
-  core: BootstrapCore,
-  clock: SimulationClock
+  core:
+    BootstrapCore,
+
+  clock:
+    SimulationClock,
+
+  eventSink:
+    DebugRingBufferSink
 ): RrhDevFacade {
-  const facade: RrhDevFacade = Object.freeze({
-    health: () => {
-      const status = clock.status();
-
-      return Object.freeze({
-        schema: 'rrh-dev-health/v1' as const,
-        ok: true as const,
-        simulationRunning: status.running,
-        simulationPeriodMs: status.periodMs
-      });
-    },
-
-    snapshot: () =>
+  const facade:
+    RrhDevFacade =
       Object.freeze({
-        ...core.getSnapshot()
-      })
-  });
+        health: () => {
+          const status =
+            clock.status();
 
-  Object.defineProperty(globalThis, '__RRH_DEV__', {
-    value: facade,
-    writable: false,
-    enumerable: false,
-    configurable: true
-  });
+          return Object.freeze({
+            schema:
+              'rrh-dev-health/v1' as const,
+
+            ok:
+              true as const,
+
+            simulationRunning:
+              status.running,
+
+            simulationPeriodMs:
+              status.periodMs
+          });
+        },
+
+        snapshot: () =>
+          Object.freeze({
+            ...core.getSnapshot()
+          }),
+
+        events: () =>
+          eventSink.snapshot()
+      });
+
+  Object.defineProperty(
+    globalThis,
+    '__RRH_DEV__',
+    {
+      value: facade,
+      writable: false,
+      enumerable: false,
+      configurable: true
+    }
+  );
 
   return facade;
 }

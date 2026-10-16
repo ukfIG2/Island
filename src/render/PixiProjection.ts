@@ -3,7 +3,17 @@ import {
   Graphics,
   Text
 } from 'pixi.js';
-import type { BootstrapState } from '../core/state';
+
+import {
+  NORMAL_WAVE_PROOF_WORKER_ID,
+  normalWaveServiceCapacity,
+  type BootstrapState,
+  type NormalWaveNeedId
+} from '../core/state';
+
+function labelNeed(need: NormalWaveNeedId): string {
+  return need === 'reception' ? 'Reception' : 'Food';
+}
 
 export class PixiProjection {
   private app: Application | null = null;
@@ -29,58 +39,120 @@ export class PixiProjection {
     this.app = app;
     host.replaceChildren(app.canvas);
 
-    const frame = new Graphics()
-      .roundRect(32, 32, 420, 180, 18)
+    const header = new Graphics()
+      .roundRect(32, 32, 560, 120, 18)
       .fill(0x183244);
 
+    const receptionFrame = new Graphics()
+      .roundRect(32, 176, 270, 220, 18)
+      .fill(0x152934);
+
+    const foodFrame = new Graphics()
+      .roundRect(322, 176, 270, 220, 18)
+      .fill(0x152934);
+
     const title = new Text({
-      text: 'Pixi render projection',
+      text: 'Resort service flow',
       style: {
         fill: 0xffffff,
         fontSize: 24
       }
     });
+    title.position.set(56, 52);
 
-    title.position.set(56, 56);
-
-    const status = new Text({
+    const waveStatus = new Text({
       text: '',
       style: {
         fill: 0xb7d9ec,
-        fontSize: 18
+        fontSize: 16
       }
     });
+    waveStatus.position.set(56, 96);
 
-    status.position.set(56, 108);
-
-    const note = new Text({
-      text: 'No gameplay content — bootstrap boundary only',
+    const receptionStatus = new Text({
+      text: '',
       style: {
-        fill: 0x8fa9b8,
-        fontSize: 14
+        fill: 0xe9f1f5,
+        fontSize: 18,
+        lineHeight: 30
       }
     });
+    receptionStatus.position.set(56, 202);
 
-    note.position.set(56, 154);
+    const foodStatus = new Text({
+      text: '',
+      style: {
+        fill: 0xe9f1f5,
+        fontSize: 18,
+        lineHeight: 30
+      }
+    });
+    foodStatus.position.set(346, 202);
 
-    app.stage.addChild(frame, title, status, note);
+    const resultStatus = new Text({
+      text: '',
+      style: {
+        fill: 0x92bed4,
+        fontSize: 17,
+        lineHeight: 27,
+        wordWrap: true,
+        wordWrapWidth: 536
+      }
+    });
+    resultStatus.position.set(56, 430);
 
-    let renderedTick = -1;
+    app.stage.addChild(
+      header,
+      receptionFrame,
+      foodFrame,
+      title,
+      waveStatus,
+      receptionStatus,
+      foodStatus,
+      resultStatus
+    );
+
+    let renderedSignature = '';
 
     app.ticker.add(() => {
       const snapshot = readState();
+      const wave = snapshot.normalWave;
+      const workerNeed = wave.workerAssignments[NORMAL_WAVE_PROOF_WORKER_ID];
+      const signature = JSON.stringify([
+        snapshot.simulationTick,
+        wave.phase,
+        wave.releasedDemand,
+        wave.queueByNeed.reception,
+        wave.queueByNeed.food,
+        wave.servedByNeed.reception,
+        wave.servedByNeed.food,
+        workerNeed,
+        wave.result?.rating ?? null
+      ]);
 
-      if (snapshot.simulationTick === renderedTick) {
+      if (signature === renderedSignature) {
         return;
       }
 
-      renderedTick = snapshot.simulationTick;
-      status.text =
-        'Simulation tick: ' +
-        snapshot.simulationTick +
-        ' · elapsed: ' +
-        snapshot.elapsedSimulationMs +
-        ' ms';
+      renderedSignature = signature;
+
+      waveStatus.text =
+        `Phase: ${wave.phase} · demand ${wave.releasedDemand}/${wave.tuning.totalDemand}`;
+
+      const serviceText = (need: NormalWaveNeedId): string => [
+        labelNeed(need),
+        `Queue: ${wave.queueByNeed[need]}`,
+        `Capacity: ${normalWaveServiceCapacity(snapshot, need)}/tick`,
+        `Served: ${wave.servedByNeed[need]}`,
+        workerNeed === need ? 'Worker assigned' : 'No Worker'
+      ].join('\n');
+
+      receptionStatus.text = serviceText('reception');
+      foodStatus.text = serviceText('food');
+
+      resultStatus.text = wave.result === null
+        ? 'Queues and Worker movement are projections of canonical core state.'
+        : `Result: ${wave.result.rating}★ · bottleneck ${labelNeed(wave.result.bottleneckNeed)}\n${wave.result.explanation.join(' ')}`;
     });
   }
 

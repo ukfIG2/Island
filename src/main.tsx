@@ -38,15 +38,12 @@ import {
   SimulationClock
 } from './runtime/SimulationClock';
 
-async function boot():
-  Promise<void> {
-  const persistence =
-    new DexieBootstrapPersistence();
+async function boot(): Promise<void> {
+  const persistence = new DexieBootstrapPersistence();
 
-  const restored =
-    await persistence
-      .load()
-      .catch(() => null);
+  const restored = await persistence
+    .load()
+    .catch(() => null);
 
   const initial =
     restored ??
@@ -54,44 +51,23 @@ async function boot():
       crypto.randomUUID()
     );
 
-  const debugEvents =
-    new DebugRingBufferSink(
-      64
-    );
+  const debugEvents = new DebugRingBufferSink(64);
 
-  const enabledDebugCategories:
-    Array<
-      keyof BootstrapDebugEvents
-    > =
-      import.meta.env.DEV
-        ? [
-            'core.transition'
-          ]
-        : [];
+  const enabledDebugCategories: Array<keyof BootstrapDebugEvents> =
+    import.meta.env.DEV
+      ? ['core.transition']
+      : [];
 
-  const debug =
-    new DebugTransport<
-      BootstrapDebugEvents
-    >({
-      enabledCategories:
-        enabledDebugCategories,
+  const debug = new DebugTransport<BootstrapDebugEvents>({
+    enabledCategories: enabledDebugCategories,
+    sinks: [debugEvents]
+  });
 
-      sinks: [
-        debugEvents
-      ]
-    });
+  const core = new BootstrapCore(initial, debug);
 
-  const core =
-    new BootstrapCore(
-      initial,
-      debug
-    );
-
-  const simulationClock =
-    new SimulationClock(
-      core,
-      200
-    );
+  // Prototype interaction cadence only; gameplay semantics remain delta-driven
+  // in the renderer-independent core and are not coupled to Pixi rendering.
+  const simulationClock = new SimulationClock(core, 1000);
 
   simulationClock.start();
 
@@ -107,34 +83,19 @@ async function boot():
       simulationClock.stop();
 
       void persistence
-        .save(
-          core.getSnapshot()
-        )
-        .catch(
-          () => undefined
-        );
+        .save(core.getSnapshot())
+        .catch(() => undefined);
     },
-    {
-      once: true
-    }
+    { once: true }
   );
 
-  const root =
-    document.getElementById(
-      'root'
-    );
+  const root = document.getElementById('root');
 
-  if (
-    root === null
-  ) {
-    throw new Error(
-      'ROOT_ELEMENT_MISSING'
-    );
+  if (root === null) {
+    throw new Error('ROOT_ELEMENT_MISSING');
   }
 
-  createRoot(
-    root
-  ).render(
+  createRoot(root).render(
     <StrictMode>
       <App core={core} />
     </StrictMode>

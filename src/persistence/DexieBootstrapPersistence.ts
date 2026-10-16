@@ -1,5 +1,8 @@
 import Dexie, { type Table } from 'dexie';
-import type { BootstrapState } from '../core/state';
+import {
+  createInitialBootstrapState,
+  type BootstrapState
+} from '../core/state';
 import type { BootstrapPersistence } from './PersistencePort';
 
 interface BootstrapRecord {
@@ -21,13 +24,44 @@ class ResortBootstrapDatabase extends Dexie {
   }
 }
 
+function normalizePersistedState(
+  persisted: BootstrapState
+): BootstrapState {
+  if (persisted.normalWave !== undefined) {
+    return persisted;
+  }
+
+  const current = createInitialBootstrapState(
+    typeof persisted.bootId === 'string'
+      ? persisted.bootId
+      : 'migrated-bootstrap'
+  );
+
+  return {
+    ...current,
+    simulationTick:
+      Number.isFinite(persisted.simulationTick)
+        ? persisted.simulationTick
+        : 0,
+    elapsedSimulationMs:
+      Number.isFinite(persisted.elapsedSimulationMs)
+        ? persisted.elapsedSimulationMs
+        : 0
+  };
+}
+
 export class DexieBootstrapPersistence
   implements BootstrapPersistence {
   private readonly db = new ResortBootstrapDatabase();
 
   async load(): Promise<BootstrapState | null> {
     const record = await this.db.bootstrap.get('singleton');
-    return record?.state ?? null;
+
+    if (record === undefined) {
+      return null;
+    }
+
+    return normalizePersistedState(record.state);
   }
 
   async save(state: BootstrapState): Promise<void> {

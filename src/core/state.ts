@@ -6,6 +6,36 @@ export const NORMAL_WAVE_PROOF_WORKER_ID = 'worker-1' as const;
 export type NormalWaveWorkerId = typeof NORMAL_WAVE_PROOF_WORKER_ID;
 export type NeedCounts = Readonly<Record<NormalWaveNeedId, number>>;
 export type NormalWaveBottleneckCause = 'staffing' | 'capacity';
+export type PrototypeBuildingLevel = 1 | 2 | 3;
+export type PrototypeUpgradeTargetLevel = 2 | 3;
+export type BuildingLevels = Readonly<Record<NormalWaveNeedId, PrototypeBuildingLevel>>;
+
+export interface PrototypeUpgradeTuning {
+  readonly startingCoins: number;
+  readonly startingResortValue: number;
+  readonly capacityBonusByLevel: Readonly<Record<PrototypeBuildingLevel, number>>;
+  readonly coinCostByTargetLevel: Readonly<Record<PrototypeUpgradeTargetLevel, number>>;
+  readonly resortValueGainByTargetLevel: Readonly<Record<PrototypeUpgradeTargetLevel, number>>;
+}
+
+// Prototype proof tuning only; these numbers are not product requirements.
+export const PROTOTYPE_UPGRADE_PROOF_TUNING: PrototypeUpgradeTuning = {
+  startingCoins: 30,
+  startingResortValue: 0,
+  capacityBonusByLevel: { 1: 0, 2: 1, 3: 2 },
+  coinCostByTargetLevel: { 2: 10, 3: 20 },
+  resortValueGainByTargetLevel: { 2: 1, 3: 2 }
+};
+
+export interface PrototypeUpgradeQuote {
+  readonly need: NormalWaveNeedId;
+  readonly fromLevel: PrototypeBuildingLevel;
+  readonly toLevel: PrototypeUpgradeTargetLevel;
+  readonly beforeCapacity: number;
+  readonly afterCapacity: number;
+  readonly coinCost: number;
+  readonly resortValueGain: number;
+}
 
 export interface NormalWaveProofTuning {
   readonly totalDemand: number;
@@ -49,6 +79,8 @@ export interface NormalWaveResult {
 export interface NormalWaveState {
   readonly phase: NormalWavePhase;
   readonly tuning: NormalWaveProofTuning;
+  readonly buildingLevelsByNeed: BuildingLevels;
+  readonly upgradeTuning: PrototypeUpgradeTuning;
   readonly releasedDemand: number;
   readonly queueByNeed: NeedCounts;
   readonly activeByNeed: NeedCounts;
@@ -69,6 +101,8 @@ export interface BootstrapState {
   readonly bootId: string;
   readonly simulationTick: number;
   readonly elapsedSimulationMs: number;
+  readonly coins: number;
+  readonly resortValue: number;
   readonly normalWave: NormalWaveState;
 }
 
@@ -76,10 +110,12 @@ export type BootstrapCommand =
   | { readonly type: 'ADVANCE_SIMULATION'; readonly deltaMs: number }
   | { readonly type: 'START_WAVE' }
   | { readonly type: 'CONTINUE_TO_NEXT_WAVE' }
+  | { readonly type: 'UPGRADE_BUILDING'; readonly need: NormalWaveNeedId }
   | { readonly type: 'REASSIGN_WORKER'; readonly workerId: NormalWaveWorkerId; readonly to: NormalWaveNeedId };
 
 const empty = (): Record<NormalWaveNeedId, number> => ({ reception: 0, food: 0 });
 const oneSlotEach = (): Record<NormalWaveNeedId, number> => ({ reception: 1, food: 1 });
+const initialBuildingLevels = (): Record<NormalWaveNeedId, PrototypeBuildingLevel> => ({ reception: 1, food: 1 });
 const copy = (v: NeedCounts): Record<NormalWaveNeedId, number> => ({ reception: v.reception, food: v.food });
 
 function validateTuning(t: NormalWaveProofTuning): void {
@@ -110,12 +146,21 @@ function awaiting(
   tuning: NormalWaveProofTuning,
   workerAssignments: Readonly<Record<NormalWaveWorkerId, NormalWaveNeedId>> = {
     [NORMAL_WAVE_PROOF_WORKER_ID]: 'reception'
-  }
+  },
+  buildingLevelsByNeed: BuildingLevels = initialBuildingLevels(),
+  upgradeTuning: PrototypeUpgradeTuning = PROTOTYPE_UPGRADE_PROOF_TUNING
 ): NormalWaveState {
   validateTuning(tuning);
   const wave: NormalWaveState = {
     phase: 'awaiting',
     tuning: { ...tuning, baseServiceCapacity: copy(tuning.baseServiceCapacity) },
+    buildingLevelsByNeed: { ...buildingLevelsByNeed },
+    upgradeTuning: {
+      ...upgradeTuning,
+      capacityBonusByLevel: { ...upgradeTuning.capacityBonusByLevel },
+      coinCostByTargetLevel: { ...upgradeTuning.coinCostByTargetLevel },
+      resortValueGainByTargetLevel: { ...upgradeTuning.resortValueGainByTargetLevel }
+    },
     releasedDemand: 0,
     queueByNeed: empty(),
     activeByNeed: empty(),
@@ -135,11 +180,39 @@ function awaiting(
 }
 
 function capacity(wave: NormalWaveState, need: NormalWaveNeedId): number {
-  return wave.tuning.baseServiceCapacity[need] + workerCount(wave, need);
+  return wave.tuning.baseServiceCapacity[need]
+    + wave.upgradeTuning.capacityBonusByLevel[wave.buildingLevelsByNeed[need]]
+    + workerCount(wave, need);
 }
 
 export function normalWaveServiceCapacity(state: BootstrapState, need: NormalWaveNeedId): number {
   return capacity(state.normalWave, need);
+}
+
+export function normalWaveUpgradeQuote(
+  state: BootstrapState,
+  need: NormalWaveNeedId
+): PrototypeUpgradeQuote | null {
+  const wave = state.normalWave;
+  if (wave.phase !== 'complete' || wave.result === null) return null;
+  if (wave.result.bottleneckCause !== 'capacity' || wave.result.bottleneckNeed !== need) return null;
+  const fromLevel = wave.buildingLevelsByNeed[need];
+  if (fromLevel >= 3) return null;
+  const toLevel = (fromLevel + 1) as PrototypeUpgradeTargetLevel;
+  const beforeCapacity = normalWaveServiceCapacity(state, need);
+  const upgradedWave: NormalWaveState = {
+    ...wave,
+    buildingLevelsByNeed: { ...wave.buildingLevelsByNeed, [need]: toLevel }
+  };
+  return {
+    need,
+    fromLevel,
+    toLevel,
+    beforeCapacity,
+    afterCapacity: capacity(upgradedWave, need),
+    coinCost: wave.upgradeTuning.coinCostByTargetLevel[toLevel],
+    resortValueGain: wave.upgradeTuning.resortValueGainByTargetLevel[toLevel]
+  };
 }
 
 function resultFor(wave: NormalWaveState): NormalWaveResult {
@@ -273,6 +346,8 @@ export function createInitialBootstrapState(
     bootId,
     simulationTick: 0,
     elapsedSimulationMs: 0,
+    coins: PROTOTYPE_UPGRADE_PROOF_TUNING.startingCoins,
+    resortValue: PROTOTYPE_UPGRADE_PROOF_TUNING.startingResortValue,
     normalWave: awaiting(tuning)
   };
 }
@@ -289,9 +364,28 @@ export function applyBootstrapCommand(state: BootstrapState, command: BootstrapC
         ...state,
         normalWave: awaiting(
           state.normalWave.tuning,
-          state.normalWave.workerAssignments
+          state.normalWave.workerAssignments,
+          state.normalWave.buildingLevelsByNeed,
+          state.normalWave.upgradeTuning
         )
       };
+
+    case 'UPGRADE_BUILDING': {
+      const quote = normalWaveUpgradeQuote(state, command.need);
+      if (quote === null || state.coins < quote.coinCost) return state;
+      return {
+        ...state,
+        coins: state.coins - quote.coinCost,
+        resortValue: state.resortValue + quote.resortValueGain,
+        normalWave: {
+          ...state.normalWave,
+          buildingLevelsByNeed: {
+            ...state.normalWave.buildingLevelsByNeed,
+            [command.need]: quote.toLevel
+          }
+        }
+      };
+    }
 
     case 'REASSIGN_WORKER': {
       const wave = state.normalWave;

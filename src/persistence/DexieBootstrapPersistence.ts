@@ -1,3 +1,4 @@
+import { PROTOTYPE_UPGRADE_PROOF_TUNING } from '../core/state';
 import Dexie, { type Table } from 'dexie';
 import {
   NORMAL_WAVE_NEEDS,
@@ -86,6 +87,31 @@ function legacyWorkerAssignment(value: unknown): NormalWaveNeedId | null {
 export function normalizePersistedState(
   persisted: BootstrapState
 ): BootstrapState {
+  const legacy = persisted as BootstrapState & { coins?: number; resortValue?: number; normalWave?: BootstrapState['normalWave'] & { buildingLevelsByNeed?: BootstrapState['normalWave']['buildingLevelsByNeed']; upgradeTuning?: BootstrapState['normalWave']['upgradeTuning'] } };
+  const legacyWave = legacy.normalWave;
+  const hasCurrentUpgradeShape =
+    Number.isInteger(legacy.coins) &&
+    Number.isInteger(legacy.resortValue) &&
+    legacyWave !== undefined &&
+    legacyWave.buildingLevelsByNeed !== undefined &&
+    NORMAL_WAVE_NEEDS.every(need => [1, 2, 3].includes(legacyWave.buildingLevelsByNeed![need])) &&
+    legacyWave.upgradeTuning !== undefined;
+
+  if (hasCurrentUpgradeShape && hasCanonicalWaveShape(persisted.normalWave)) {
+    return persisted;
+  }
+
+  persisted = {
+    ...persisted,
+    coins: Number.isInteger(legacy.coins) ? legacy.coins! : PROTOTYPE_UPGRADE_PROOF_TUNING.startingCoins,
+    resortValue: Number.isInteger(legacy.resortValue) ? legacy.resortValue! : PROTOTYPE_UPGRADE_PROOF_TUNING.startingResortValue,
+    normalWave: legacy.normalWave === undefined ? legacy.normalWave as BootstrapState['normalWave'] : {
+      ...legacy.normalWave,
+      buildingLevelsByNeed: legacy.normalWave.buildingLevelsByNeed ?? { reception: 1, food: 1 },
+      upgradeTuning: legacy.normalWave.upgradeTuning ?? PROTOTYPE_UPGRADE_PROOF_TUNING
+    }
+  };
+
   if (hasCanonicalWaveShape(persisted.normalWave)) {
     return persisted;
   }

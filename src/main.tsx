@@ -40,16 +40,30 @@ import {
 
 async function boot(): Promise<void> {
   const persistence = new DexieBootstrapPersistence();
+  const capacityUpgradeProof =
+    import.meta.env.DEV &&
+    new URLSearchParams(window.location.search).get('proof') === 'capacity-upgrade';
 
-  const restored = await persistence
-    .load()
-    .catch(() => null);
+  const restored = capacityUpgradeProof
+    ? null
+    : await persistence
+        .load()
+        .catch(() => null);
 
-  const initial =
-    restored ??
-    createInitialBootstrapState(
-      crypto.randomUUID()
-    );
+  const initial = capacityUpgradeProof
+    ? createInitialBootstrapState(
+        'capacity-upgrade-browser-proof',
+        {
+          totalDemand: 6,
+          releasePerTick: 3,
+          baseServiceCapacity: { reception: 10, food: 1 },
+          queuePressurePerLostStar: 4
+        }
+      )
+    : restored ??
+      createInitialBootstrapState(
+        crypto.randomUUID()
+      );
 
   const debugEvents = new DebugRingBufferSink(64);
 
@@ -82,9 +96,11 @@ async function boot(): Promise<void> {
     () => {
       simulationClock.stop();
 
-      void persistence
-        .save(core.getSnapshot())
-        .catch(() => undefined);
+      if (!capacityUpgradeProof) {
+        void persistence
+          .save(core.getSnapshot())
+          .catch(() => undefined);
+      }
     },
     { once: true }
   );

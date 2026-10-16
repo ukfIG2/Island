@@ -44,11 +44,11 @@ export class PixiProjection {
       .fill(0x183244);
 
     const receptionFrame = new Graphics()
-      .roundRect(32, 176, 270, 220, 18)
+      .roundRect(32, 176, 270, 240, 18)
       .fill(0x152934);
 
     const foodFrame = new Graphics()
-      .roundRect(322, 176, 270, 220, 18)
+      .roundRect(322, 176, 270, 240, 18)
       .fill(0x152934);
 
     const title = new Text({
@@ -99,7 +99,7 @@ export class PixiProjection {
         wordWrapWidth: 536
       }
     });
-    resultStatus.position.set(56, 430);
+    resultStatus.position.set(56, 446);
 
     app.stage.addChild(
       header,
@@ -124,10 +124,14 @@ export class PixiProjection {
         wave.releasedDemand,
         wave.queueByNeed.reception,
         wave.queueByNeed.food,
+        wave.activeByNeed.reception,
+        wave.activeByNeed.food,
         wave.servedByNeed.reception,
         wave.servedByNeed.food,
         workerNeed,
-        wave.result?.rating ?? null
+        wave.result?.rating ?? null,
+        wave.result?.bottleneckCause ?? null,
+        wave.result?.guidance ?? null
       ]);
 
       if (signature === renderedSignature) {
@@ -141,7 +145,8 @@ export class PixiProjection {
 
       const serviceText = (need: NormalWaveNeedId): string => [
         labelNeed(need),
-        `Queue: ${wave.queueByNeed[need]}`,
+        `Waiting: ${wave.queueByNeed[need]}`,
+        `Active: ${wave.activeByNeed[need]}`,
         `Capacity: ${normalWaveServiceCapacity(snapshot, need)}/tick`,
         `Served: ${wave.servedByNeed[need]}`,
         workerNeed === need ? 'Worker assigned' : 'No Worker'
@@ -151,8 +156,11 @@ export class PixiProjection {
       foodStatus.text = serviceText('food');
 
       resultStatus.text = wave.result === null
-        ? 'Queues and Worker movement are projections of canonical core state.'
-        : `Result: ${wave.result.rating}★ · bottleneck ${labelNeed(wave.result.bottleneckNeed)}\n${wave.result.explanation.join(' ')}`;
+        ? 'Waiting, active service and Worker movement project canonical core state.'
+        : [
+            `Result: ${wave.result.rating}★ · bottleneck ${labelNeed(wave.result.bottleneckNeed)}`,
+            `Cause: ${wave.result.bottleneckCause}. ${wave.result.guidance}`
+          ].join('\n');
     });
   }
 

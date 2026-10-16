@@ -33,9 +33,16 @@ export function App({ core }: AppProps) {
   const workerNeed = wave.workerAssignments[NORMAL_WAVE_PROOF_WORKER_ID];
   const reassignmentTarget: NormalWaveNeedId =
     workerNeed === 'reception' ? 'food' : 'reception';
-  const waveActive = wave.phase === 'incoming' || wave.phase === 'draining';
+  const canReassign =
+    wave.phase === 'awaiting' ||
+    wave.phase === 'incoming' ||
+    wave.phase === 'draining';
   const currentQueue = NORMAL_WAVE_NEEDS.reduce(
     (sum, need) => sum + wave.queueByNeed[need],
+    0
+  );
+  const currentActive = NORMAL_WAVE_NEEDS.reduce(
+    (sum, need) => sum + wave.activeByNeed[need],
     0
   );
 
@@ -61,8 +68,8 @@ export function App({ core }: AppProps) {
         <p className="shell__eyebrow">Resort Empire · Prototype</p>
         <h1>Normal wave</h1>
         <p className="shell__intro">
-          Start one aggregate guest wave, watch queues form, then move the Worker
-          to the current bottleneck. Gameplay state stays in the TypeScript core.
+          Prepare the Worker before the wave or move them while guests are arriving.
+          Waiting guests and guests in active service are separate core states.
         </p>
 
         <div className="shell__actions">
@@ -81,10 +88,19 @@ export function App({ core }: AppProps) {
               workerId: NORMAL_WAVE_PROOF_WORKER_ID,
               to: reassignmentTarget
             })}
-            disabled={!waveActive}
+            disabled={!canReassign}
           >
             Move Worker to {labelNeed(reassignmentTarget)}
           </button>
+
+          {wave.phase === 'complete' ? (
+            <button
+              type="button"
+              onClick={() => core.dispatch({ type: 'CONTINUE_TO_NEXT_WAVE' })}
+            >
+              Continue to next wave
+            </button>
+          ) : null}
         </div>
 
         <dl className="shell__facts">
@@ -101,6 +117,10 @@ export function App({ core }: AppProps) {
             <dd>{currentQueue}</dd>
           </div>
           <div>
+            <dt>Guests in service</dt>
+            <dd>{currentActive}</dd>
+          </div>
+          <div>
             <dt>Worker assignment</dt>
             <dd>{labelNeed(workerNeed)}</dd>
           </div>
@@ -115,8 +135,12 @@ export function App({ core }: AppProps) {
               </div>
               <dl>
                 <div>
-                  <dt>Queue</dt>
+                  <dt>Waiting</dt>
                   <dd>{wave.queueByNeed[need]}</dd>
+                </div>
+                <div>
+                  <dt>Active service</dt>
+                  <dd>{wave.activeByNeed[need]}</dd>
                 </div>
                 <div>
                   <dt>Capacity / tick</dt>
@@ -140,9 +164,10 @@ export function App({ core }: AppProps) {
             <p className="shell__eyebrow">Wave result</p>
             <h2>{wave.result.rating}★</h2>
             <p>
-              Bottleneck: {labelNeed(wave.result.bottleneckNeed)} · queue pressure:{' '}
-              {wave.result.totalQueuePressure}
+              Bottleneck: {labelNeed(wave.result.bottleneckNeed)} · cause:{' '}
+              {wave.result.bottleneckCause}
             </p>
+            <p>{wave.result.guidance}</p>
             <ul>
               {wave.result.explanation.map((line) => (
                 <li key={line}>{line}</li>

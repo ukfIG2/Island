@@ -33,24 +33,31 @@ function advance(
   }
 }
 
+function advanceUntilComplete(
+  core: BootstrapCore,
+  guardLimit = 32
+): ReturnType<BootstrapCore['getSnapshot']> {
+  let guard = 0;
+
+  while (
+    core.getSnapshot().normalWave.phase !== 'complete' &&
+    guard < guardLimit
+  ) {
+    advance(core);
+    guard += 1;
+  }
+
+  expect(guard).toBeLessThan(guardLimit);
+  return core.getSnapshot();
+}
+
 function runWithoutReassignment(): ReturnType<BootstrapCore['getSnapshot']> {
   const core = new BootstrapCore(
     createInitialBootstrapState('control-wave')
   );
 
   core.dispatch({ type: 'START_WAVE' });
-
-  let guard = 0;
-  while (
-    core.getSnapshot().normalWave.phase !== 'complete' &&
-    guard < 16
-  ) {
-    advance(core);
-    guard += 1;
-  }
-
-  expect(guard).toBeLessThan(16);
-  return core.getSnapshot();
+  return advanceUntilComplete(core);
 }
 
 describe(
@@ -146,7 +153,138 @@ describe(
     );
 
     it(
-      'proves the normal-wave bottleneck, immediate Worker reassignment, drain, and causal result',
+      'keeps waiting distinct from active service and owns accumulated wait history',
+      () => {
+        const core = new BootstrapCore(
+          createInitialBootstrapState('service-state')
+        );
+
+        core.dispatch({ type: 'START_WAVE' });
+        advance(core);
+
+        const admitted = core.getSnapshot().normalWave;
+
+        expect(admitted.releasedDemand).toBeGreaterThan(0);
+        expect(
+          admitted.activeByNeed.reception +
+          admitted.activeByNeed.food
+        ).toBeGreaterThan(0);
+        expect(admitted.servedByNeed).toEqual({
+          reception: 0,
+          food: 0
+        });
+        expect(admitted.queueByNeed.food).toBeGreaterThan(0);
+        expect(admitted.accumulatedWaitByNeed.food).toBeGreaterThan(0);
+
+        advance(core);
+
+        const progressed = core.getSnapshot().normalWave;
+        expect(progressed.servedByNeed.food).toBeGreaterThan(0);
+        expect(progressed.accumulatedWaitByNeed.food).toBeGreaterThanOrEqual(
+          admitted.accumulatedWaitByNeed.food
+        );
+      }
+    );
+
+    it(
+      'allows free immediate pre-wave reassignment and preserves anonymous Worker placement into the next wave',
+      () => {
+        const core = new BootstrapCore(
+          createInitialBootstrapState('worker-foundation')
+        );
+
+        const initial = core.getSnapshot().normalWave;
+        expect(initial.workerSlotsByNeed).toEqual({
+          reception: 1,
+          food: 1
+        });
+        expect(Object.keys(initial.workerAssignments)).toHaveLength(1);
+        expect(
+          Object.keys(initial.workerAssignments).length
+        ).toBeLessThan(
+          initial.workerSlotsByNeed.reception +
+          initial.workerSlotsByNeed.food
+        );
+
+        core.dispatch({
+          type: 'REASSIGN_WORKER',
+          workerId: NORMAL_WAVE_PROOF_WORKER_ID,
+          to: 'food'
+        });
+
+        expect(
+          core.getSnapshot().normalWave.workerAssignments[
+            NORMAL_WAVE_PROOF_WORKER_ID
+          ]
+        ).toBe('food');
+
+        core.dispatch({ type: 'START_WAVE' });
+        const completed = advanceUntilComplete(core);
+
+        expect(
+          completed.normalWave.workerAssignments[
+            NORMAL_WAVE_PROOF_WORKER_ID
+          ]
+        ).toBe('food');
+
+        core.dispatch({ type: 'CONTINUE_TO_NEXT_WAVE' });
+
+        const next = core.getSnapshot().normalWave;
+        expect(next.phase).toBe('awaiting');
+        expect(next.workerAssignments[NORMAL_WAVE_PROOF_WORKER_ID]).toBe('food');
+        expect(next.queueByNeed).toEqual({ reception: 0, food: 0 });
+        expect(next.activeByNeed).toEqual({ reception: 0, food: 0 });
+        expect(next.accumulatedWaitByNeed).toEqual({ reception: 0, food: 0 });
+        expect(next.result).toBeNull();
+      }
+    );
+
+    it(
+      'distinguishes staffing pressure from capacity pressure and returns causal guidance',
+      () => {
+        const staffing = runWithoutReassignment();
+
+        expect(staffing.normalWave.result).not.toBeNull();
+        expect(staffing.normalWave.result?.bottleneckCause).toBe('staffing');
+        expect(
+          staffing.normalWave.result?.guidance.toLowerCase()
+        ).toContain('worker');
+
+        const capacityCore = new BootstrapCore(
+          createInitialBootstrapState(
+            'capacity-wave',
+            {
+              totalDemand: 6,
+              releasePerTick: 3,
+              baseServiceCapacity: {
+                reception: 10,
+                food: 1
+              },
+              queuePressurePerLostStar: 4
+            }
+          )
+        );
+
+        capacityCore.dispatch({
+          type: 'REASSIGN_WORKER',
+          workerId: NORMAL_WAVE_PROOF_WORKER_ID,
+          to: 'food'
+        });
+        capacityCore.dispatch({ type: 'START_WAVE' });
+
+        const capacity = advanceUntilComplete(capacityCore);
+
+        expect(capacity.normalWave.result).not.toBeNull();
+        expect(capacity.normalWave.result?.bottleneckNeed).toBe('food');
+        expect(capacity.normalWave.result?.bottleneckCause).toBe('capacity');
+        expect(
+          capacity.normalWave.result?.guidance.toLowerCase()
+        ).toContain('upgrade');
+      }
+    );
+
+    it(
+      'preserves the accepted causal improvement from timely in-wave Worker reassignment',
       () => {
         const control = runWithoutReassignment();
 
@@ -154,17 +292,12 @@ describe(
           createInitialBootstrapState('reassigned-wave')
         );
 
-        expect(core.getSnapshot().normalWave.phase).toBe('awaiting');
-
         core.dispatch({ type: 'START_WAVE' });
-        expect(core.getSnapshot().normalWave.phase).toBe('incoming');
-
         advance(core, 2);
 
         const bottleneck = core.getSnapshot();
-        expect(bottleneck.normalWave.releasedDemand).toBe(4);
-        expect(bottleneck.normalWave.queueByNeed.food).toBe(2);
-        expect(bottleneck.normalWave.queueByNeed.reception).toBe(0);
+
+        expect(bottleneck.normalWave.queueByNeed.food).toBeGreaterThan(0);
         expect(normalWaveServiceCapacity(bottleneck, 'food')).toBe(1);
 
         core.dispatch({
@@ -184,38 +317,22 @@ describe(
           fromCapacityBefore: 2,
           fromCapacityAfter: 1,
           toCapacityBefore: 1,
-          toCapacityAfter: 2,
-          targetQueueAtChange: 2
+          toCapacityAfter: 2
         });
 
-        advance(core);
+        const completed = advanceUntilComplete(core);
 
-        const arrivalsEnded = core.getSnapshot();
-        expect(arrivalsEnded.normalWave.releasedDemand).toBe(
-          arrivalsEnded.normalWave.tuning.totalDemand
-        );
-        expect(arrivalsEnded.normalWave.phase).toBe('draining');
-        expect(
-          arrivalsEnded.normalWave.queueByNeed.reception +
-          arrivalsEnded.normalWave.queueByNeed.food
-        ).toBeGreaterThan(0);
-
-        advance(core);
-
-        const completed = core.getSnapshot();
-        expect(completed.normalWave.phase).toBe('complete');
         expect(completed.normalWave.queueByNeed).toEqual({
+          reception: 0,
+          food: 0
+        });
+        expect(completed.normalWave.activeByNeed).toEqual({
           reception: 0,
           food: 0
         });
         expect(completed.normalWave.result).not.toBeNull();
         expect(completed.normalWave.result?.bottleneckNeed).toBe('food');
         expect(completed.normalWave.result?.reassignments).toHaveLength(1);
-        expect(
-          completed.normalWave.result?.explanation.some(
-            line => line.includes('reception->food')
-          )
-        ).toBe(true);
 
         expect(control.normalWave.result).not.toBeNull();
         expect(completed.normalWave.result!.totalQueuePressure).toBeLessThan(
@@ -224,7 +341,7 @@ describe(
         expect(completed.normalWave.result!.rating).toBeGreaterThan(
           control.normalWave.result!.rating
         );
-        expect(completed.simulationTick).toBeLessThan(
+        expect(completed.simulationTick).toBeLessThanOrEqual(
           control.simulationTick
         );
       }

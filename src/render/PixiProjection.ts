@@ -5,6 +5,7 @@ import {
 } from 'pixi.js';
 
 import {
+  NORMAL_SERVICE_CATALOG,
   NORMAL_WAVE_PROOF_WORKER_ID,
   normalWaveServiceCapacity,
   type BootstrapState,
@@ -12,8 +13,10 @@ import {
 } from '../core/state';
 
 function labelNeed(need: NormalWaveNeedId): string {
-  return need === 'reception' ? 'Reception' : 'Food';
+  const service = NORMAL_SERVICE_CATALOG[need];
+  return `${service.buildingLabel} · ${service.needLabel}`;
 }
+
 
 export class PixiProjection {
   private app: Application | null = null;
@@ -43,13 +46,11 @@ export class PixiProjection {
       .roundRect(32, 32, 560, 120, 18)
       .fill(0x183244);
 
-    const receptionFrame = new Graphics()
-      .roundRect(32, 176, 270, 240, 18)
-      .fill(0x152934);
-
-    const foodFrame = new Graphics()
-      .roundRect(322, 176, 270, 240, 18)
-      .fill(0x152934);
+    const serviceFrames = readState().normalWave.activeNeedIds.map((_, index) =>
+      new Graphics()
+        .roundRect(32 + index * 190, 176, 175, 240, 18)
+        .fill(0x152934)
+    );
 
     const title = new Text({
       text: 'Resort service flow',
@@ -69,25 +70,14 @@ export class PixiProjection {
     });
     waveStatus.position.set(56, 96);
 
-    const receptionStatus = new Text({
-      text: '',
-      style: {
-        fill: 0xe9f1f5,
-        fontSize: 18,
-        lineHeight: 30
-      }
+    const serviceStatuses = readState().normalWave.activeNeedIds.map((need, index) => {
+      const status = new Text({
+        text: '',
+        style: { fill: 0xe9f1f5, fontSize: 15, lineHeight: 27 }
+      });
+      status.position.set(48 + index * 190, 202);
+      return { need, status };
     });
-    receptionStatus.position.set(56, 202);
-
-    const foodStatus = new Text({
-      text: '',
-      style: {
-        fill: 0xe9f1f5,
-        fontSize: 18,
-        lineHeight: 30
-      }
-    });
-    foodStatus.position.set(346, 202);
 
     const resultStatus = new Text({
       text: '',
@@ -103,12 +93,10 @@ export class PixiProjection {
 
     app.stage.addChild(
       header,
-      receptionFrame,
-      foodFrame,
+      ...serviceFrames,
       title,
       waveStatus,
-      receptionStatus,
-      foodStatus,
+      ...serviceStatuses.map(({ status }) => status),
       resultStatus
     );
 
@@ -122,12 +110,11 @@ export class PixiProjection {
         snapshot.simulationTick,
         wave.phase,
         wave.releasedDemand,
-        wave.queueByNeed.reception,
-        wave.queueByNeed.food,
-        wave.activeByNeed.reception,
-        wave.activeByNeed.food,
-        wave.servedByNeed.reception,
-        wave.servedByNeed.food,
+        ...wave.activeNeedIds.flatMap(need => [
+          wave.queueByNeed[need],
+          wave.activeByNeed[need],
+          wave.servedByNeed[need]
+        ]),
         workerNeed,
         wave.result?.rating ?? null,
         wave.result?.bottleneckCause ?? null,
@@ -152,8 +139,9 @@ export class PixiProjection {
         workerNeed === need ? 'Worker assigned' : 'No Worker'
       ].join('\n');
 
-      receptionStatus.text = serviceText('reception');
-      foodStatus.text = serviceText('food');
+      for (const { need, status } of serviceStatuses) {
+        status.text = serviceText(need);
+      }
 
       resultStatus.text = wave.result === null
         ? 'Waiting, active service and Worker movement project canonical core state.'

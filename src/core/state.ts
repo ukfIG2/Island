@@ -1,6 +1,26 @@
 export const BOOTSTRAP_STATE_SCHEMA = 'resort-bootstrap-state/v1' as const;
-export const NORMAL_WAVE_NEEDS = ['reception', 'food'] as const;
+export const NORMAL_WAVE_NEEDS = ['reception', 'food', 'drinks'] as const;
 export type NormalWaveNeedId = (typeof NORMAL_WAVE_NEEDS)[number];
+export type PrototypeWaveNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+export const PROTOTYPE_SCRIPTED_WAVES = [1, 2, 3, 4, 5, 6, 7, 8] as const;
+
+export interface NormalServiceDefinition {
+  readonly buildingLabel: string;
+  readonly needLabel: string;
+}
+
+export const NORMAL_SERVICE_CATALOG: Readonly<Record<NormalWaveNeedId, NormalServiceDefinition>> = {
+  reception: { buildingLabel: 'Reception', needLabel: 'Rooms' },
+  food: { buildingLabel: 'Restaurant', needLabel: 'Food' },
+  drinks: { buildingLabel: 'Beach Bar', needLabel: 'Drinks' }
+};
+
+export interface NormalWaveForecast {
+  readonly waveNumber: PrototypeWaveNumber;
+  readonly totalWaves: 8;
+  readonly needs: readonly NormalWaveNeedId[];
+  readonly totalDemand: number;
+}
 export type NormalWavePhase = 'awaiting' | 'incoming' | 'draining' | 'complete';
 export const NORMAL_WAVE_PROOF_WORKER_ID = 'worker-1' as const;
 export type NormalWaveWorkerId = typeof NORMAL_WAVE_PROOF_WORKER_ID;
@@ -48,7 +68,7 @@ export interface NormalWaveProofTuning {
 export const NORMAL_WAVE_PROOF_TUNING: NormalWaveProofTuning = {
   totalDemand: 6,
   releasePerTick: 2,
-  baseServiceCapacity: { reception: 1, food: 1 },
+  baseServiceCapacity: { reception: 1, food: 1, drinks: 1 },
   queuePressurePerLostStar: 4
 };
 
@@ -79,6 +99,7 @@ export interface NormalWaveResult {
 export interface NormalWaveState {
   readonly phase: NormalWavePhase;
   readonly tuning: NormalWaveProofTuning;
+  readonly activeNeedIds: readonly NormalWaveNeedId[];
   readonly buildingLevelsByNeed: BuildingLevels;
   readonly upgradeTuning: PrototypeUpgradeTuning;
   readonly releasedDemand: number;
@@ -103,6 +124,7 @@ export interface BootstrapState {
   readonly elapsedSimulationMs: number;
   readonly coins: number;
   readonly resortValue: number;
+  readonly currentWaveNumber: PrototypeWaveNumber;
   readonly normalWave: NormalWaveState;
 }
 
@@ -113,10 +135,10 @@ export type BootstrapCommand =
   | { readonly type: 'UPGRADE_BUILDING'; readonly need: NormalWaveNeedId }
   | { readonly type: 'REASSIGN_WORKER'; readonly workerId: NormalWaveWorkerId; readonly to: NormalWaveNeedId };
 
-const empty = (): Record<NormalWaveNeedId, number> => ({ reception: 0, food: 0 });
-const oneSlotEach = (): Record<NormalWaveNeedId, number> => ({ reception: 1, food: 1 });
-const initialBuildingLevels = (): Record<NormalWaveNeedId, PrototypeBuildingLevel> => ({ reception: 1, food: 1 });
-const copy = (v: NeedCounts): Record<NormalWaveNeedId, number> => ({ reception: v.reception, food: v.food });
+const empty = (): Record<NormalWaveNeedId, number> => ({ reception: 0, food: 0, drinks: 0 });
+const oneSlotEach = (): Record<NormalWaveNeedId, number> => ({ reception: 1, food: 1, drinks: 1 });
+const initialBuildingLevels = (): Record<NormalWaveNeedId, PrototypeBuildingLevel> => ({ reception: 1, food: 1, drinks: 1 });
+const copy = (v: NeedCounts): Record<NormalWaveNeedId, number> => ({ reception: v.reception, food: v.food, drinks: v.drinks });
 
 function validateTuning(t: NormalWaveProofTuning): void {
   const values = [
@@ -153,6 +175,7 @@ function awaiting(
   validateTuning(tuning);
   const wave: NormalWaveState = {
     phase: 'awaiting',
+    activeNeedIds: NORMAL_WAVE_NEEDS,
     tuning: { ...tuning, baseServiceCapacity: copy(tuning.baseServiceCapacity) },
     buildingLevelsByNeed: { ...buildingLevelsByNeed },
     upgradeTuning: {
@@ -183,6 +206,19 @@ function capacity(wave: NormalWaveState, need: NormalWaveNeedId): number {
   return wave.tuning.baseServiceCapacity[need]
     + wave.upgradeTuning.capacityBonusByLevel[wave.buildingLevelsByNeed[need]]
     + workerCount(wave, need);
+}
+
+export function normalWaveForecast(state: BootstrapState): NormalWaveForecast {
+  return {
+    waveNumber: state.currentWaveNumber,
+    totalWaves: 8,
+    needs: state.normalWave.activeNeedIds,
+    totalDemand: state.normalWave.tuning.totalDemand
+  };
+}
+
+function nextPrototypeWaveNumber(current: PrototypeWaveNumber): PrototypeWaveNumber {
+  return Math.min(8, current + 1) as PrototypeWaveNumber;
 }
 
 export function normalWaveServiceCapacity(state: BootstrapState, need: NormalWaveNeedId): number {
@@ -216,8 +252,8 @@ export function normalWaveUpgradeQuote(
 }
 
 function resultFor(wave: NormalWaveState): NormalWaveResult {
-  let bottleneckNeed: NormalWaveNeedId = NORMAL_WAVE_NEEDS[0];
-  for (const need of NORMAL_WAVE_NEEDS) {
+  let bottleneckNeed: NormalWaveNeedId = wave.activeNeedIds[0] ?? NORMAL_WAVE_NEEDS[0];
+  for (const need of wave.activeNeedIds) {
     if (wave.accumulatedWaitByNeed[need] > wave.accumulatedWaitByNeed[bottleneckNeed]) {
       bottleneckNeed = need;
     } else if (
@@ -283,7 +319,7 @@ function advanceWave(wave: NormalWaveState): NormalWaveState {
   const staffingWaitByNeed = copy(wave.staffingWaitByNeed);
   const capacityWaitByNeed = copy(wave.capacityWaitByNeed);
 
-  for (const need of NORMAL_WAVE_NEEDS) {
+  for (const need of wave.activeNeedIds) {
     servedByNeed[need] += wave.activeByNeed[need];
 
     const waitingBeforeAdmission = wave.queueByNeed[need] + releasedNow;
@@ -304,13 +340,13 @@ function advanceWave(wave: NormalWaveState): NormalWaveState {
     }
   }
 
-  const pressure = NORMAL_WAVE_NEEDS.reduce(
+  const pressure = wave.activeNeedIds.reduce(
     (sum, need) => sum + queueByNeed[need],
     0
   );
   const arrivalsFinished = releasedDemand >= wave.tuning.totalDemand;
-  const queuesDrained = NORMAL_WAVE_NEEDS.every(need => queueByNeed[need] === 0);
-  const serviceDrained = NORMAL_WAVE_NEEDS.every(need => activeByNeed[need] === 0);
+  const queuesDrained = wave.activeNeedIds.every(need => queueByNeed[need] === 0);
+  const serviceDrained = wave.activeNeedIds.every(need => activeByNeed[need] === 0);
 
   const phase: NormalWavePhase = arrivalsFinished
     ? queuesDrained && serviceDrained
@@ -348,6 +384,7 @@ export function createInitialBootstrapState(
     elapsedSimulationMs: 0,
     coins: PROTOTYPE_UPGRADE_PROOF_TUNING.startingCoins,
     resortValue: PROTOTYPE_UPGRADE_PROOF_TUNING.startingResortValue,
+    currentWaveNumber: 1,
     normalWave: awaiting(tuning)
   };
 }
@@ -362,6 +399,7 @@ export function applyBootstrapCommand(state: BootstrapState, command: BootstrapC
       if (state.normalWave.phase !== 'complete') throw new Error('NORMAL_WAVE_CONTINUE_INVALID');
       return {
         ...state,
+        currentWaveNumber: nextPrototypeWaveNumber(state.currentWaveNumber),
         normalWave: awaiting(
           state.normalWave.tuning,
           state.normalWave.workerAssignments,

@@ -167,7 +167,8 @@ describe(
         expect(admitted.releasedDemand).toBeGreaterThan(0);
         expect(
           admitted.activeByNeed.reception +
-          admitted.activeByNeed.food
+          admitted.activeByNeed.food +
+          admitted.activeByNeed.drinks
         ).toBeGreaterThan(0);
         expect(admitted.servedByNeed).toEqual({
           reception: 0,
@@ -203,7 +204,8 @@ describe(
           Object.keys(initial.workerAssignments).length
         ).toBeLessThan(
           initial.workerSlotsByNeed.reception +
-          initial.workerSlotsByNeed.food
+          initial.workerSlotsByNeed.food +
+          initial.workerSlotsByNeed.drinks
         );
 
         core.dispatch({
@@ -232,9 +234,9 @@ describe(
         const next = core.getSnapshot().normalWave;
         expect(next.phase).toBe('awaiting');
         expect(next.workerAssignments[NORMAL_WAVE_PROOF_WORKER_ID]).toBe('food');
-        expect(next.queueByNeed).toEqual({ reception: 0, food: 0 });
-        expect(next.activeByNeed).toEqual({ reception: 0, food: 0 });
-        expect(next.accumulatedWaitByNeed).toEqual({ reception: 0, food: 0 });
+        expect(next.queueByNeed).toEqual({ reception: 0, food: 0, drinks: 0 });
+        expect(next.activeByNeed).toEqual({ reception: 0, food: 0, drinks: 0 });
+        expect(next.accumulatedWaitByNeed).toEqual({ reception: 0, food: 0, drinks: 0 });
         expect(next.result).toBeNull();
       }
     );
@@ -256,10 +258,7 @@ describe(
             {
               totalDemand: 6,
               releasePerTick: 3,
-              baseServiceCapacity: {
-                reception: 10,
-                food: 1
-              },
+              baseServiceCapacity: { reception: 10, food: 1, drinks: 10 },
               queuePressurePerLostStar: 4
             }
           )

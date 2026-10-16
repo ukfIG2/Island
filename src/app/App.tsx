@@ -1,4 +1,4 @@
-import { normalWaveUpgradeQuote } from '../core/state';
+import { normalWaveForecast, normalWaveUpgradeQuote } from '../core/state';
 import {
   useEffect,
   useRef,
@@ -7,7 +7,7 @@ import {
 
 import type { BootstrapCore } from '../core/runtime';
 import {
-  NORMAL_WAVE_NEEDS,
+  NORMAL_SERVICE_CATALOG,
   NORMAL_WAVE_PROOF_WORKER_ID,
   normalWaveServiceCapacity,
   type NormalWaveNeedId
@@ -19,8 +19,10 @@ export interface AppProps {
 }
 
 function labelNeed(need: NormalWaveNeedId): string {
-  return need === 'reception' ? 'Reception' : 'Food';
+  const service = NORMAL_SERVICE_CATALOG[need];
+  return `${service.buildingLabel} · ${service.needLabel}`;
 }
+
 
 export function App({ core }: AppProps) {
   const snapshot = useSyncExternalStore(
@@ -33,17 +35,16 @@ export function App({ core }: AppProps) {
   const wave = snapshot.normalWave;
   const upgradeQuote = wave.result ? normalWaveUpgradeQuote(snapshot, wave.result.bottleneckNeed) : null;
   const workerNeed = wave.workerAssignments[NORMAL_WAVE_PROOF_WORKER_ID];
-  const reassignmentTarget: NormalWaveNeedId =
-    workerNeed === 'reception' ? 'food' : 'reception';
+  const forecast = normalWaveForecast(snapshot);
   const canReassign =
     wave.phase === 'awaiting' ||
     wave.phase === 'incoming' ||
     wave.phase === 'draining';
-  const currentQueue = NORMAL_WAVE_NEEDS.reduce(
+  const currentQueue = wave.activeNeedIds.reduce(
     (sum, need) => sum + wave.queueByNeed[need],
     0
   );
-  const currentActive = NORMAL_WAVE_NEEDS.reduce(
+  const currentActive = wave.activeNeedIds.reduce(
     (sum, need) => sum + wave.activeByNeed[need],
     0
   );
@@ -84,17 +85,16 @@ export function App({ core }: AppProps) {
             Start wave
           </button>
 
-          <button
-            type="button"
-            onClick={() => core.dispatch({
-              type: 'REASSIGN_WORKER',
-              workerId: NORMAL_WAVE_PROOF_WORKER_ID,
-              to: reassignmentTarget
-            })}
-            disabled={!canReassign}
-          >
-            Move Worker to {labelNeed(reassignmentTarget)}
-          </button>
+          {wave.activeNeedIds.filter((need) => need !== workerNeed).map((need) => (
+            <button
+              type="button"
+              key={need}
+              onClick={() => core.dispatch({ type: 'REASSIGN_WORKER', workerId: NORMAL_WAVE_PROOF_WORKER_ID, to: need })}
+              disabled={!canReassign}
+            >
+              Move Worker to {labelNeed(need)}
+            </button>
+          ))}
 
           {wave.phase === 'complete' ? (
             <button
@@ -105,6 +105,14 @@ export function App({ core }: AppProps) {
             </button>
           ) : null}
         </div>
+
+        {wave.phase === 'awaiting' ? (
+          <section aria-label="Wave forecast">
+            <p className="shell__eyebrow">Wave {forecast.waveNumber} of {forecast.totalWaves} forecast</p>
+            <p>Expected needs: {forecast.needs.map(labelNeed).join(' · ')}</p>
+            <p>Expected demand: {forecast.totalDemand} guests</p>
+          </section>
+        ) : null}
 
         <dl className="shell__facts">
           <div>
@@ -130,7 +138,7 @@ export function App({ core }: AppProps) {
         </dl>
 
         <div className="shell__services" aria-label="Service status">
-          {NORMAL_WAVE_NEEDS.map((need) => (
+          {wave.activeNeedIds.map((need) => (
             <article className="service-card" key={need}>
               <div className="service-card__heading">
                 <strong>{labelNeed(need)}</strong>

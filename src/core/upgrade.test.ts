@@ -13,7 +13,7 @@ function capacityInitial(bootId: string): BootstrapState {
   return createInitialBootstrapState(bootId, {
     totalDemand: 6,
     releasePerTick: 3,
-    baseServiceCapacity: { reception: 10, food: 1 },
+    baseServiceCapacity: { reception: 10, food: 1, drinks: 10 },
     queuePressurePerLostStar: 4
   });
 }

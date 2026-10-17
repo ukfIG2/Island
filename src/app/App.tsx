@@ -62,6 +62,7 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
   );
   const areaUnlocks = PROTOTYPE_AREA_IDS.map(areaId => prototypeAreaUnlockView(snapshot, areaId));
   const forecast = normalWaveForecast(snapshot);
+  const finalWaveComplete = wave.phase === 'complete' && forecast.waveNumber === forecast.totalWaves;
   const selectedUnlock = areaUnlocks.find((unlock) => unlock.need === selectedNeed) ?? null;
   const selectedWorkers = workers.filter(([, need]) => need === selectedNeed).map(([workerId]) => workerId);
   const selectedCapacity = normalWaveServiceCapacity(snapshot, selectedNeed);
@@ -115,7 +116,7 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
               </button>
             ) : null}
 
-            {wave.phase === 'complete' ? (
+            {wave.phase === 'complete' && !finalWaveComplete ? (
               <button className="hud-primary-action" type="button" onClick={() => core.dispatch({ type: 'CONTINUE_TO_NEXT_WAVE' })}>
                 Continue to next wave
               </button>
@@ -175,9 +176,9 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
         ) : null}
 
         {wave.result !== null ? (
-          <section className="wave-result-toast" aria-live="polite">
-            <span>Wave complete</span><strong>{wave.result.rating}★</strong>
-            <p>{NORMAL_SERVICE_CATALOG[wave.result.bottleneckNeed].buildingLabel} needs attention</p>
+          <section className={'wave-result-toast' + (finalWaveComplete ? ' wave-result-toast--final' : '')} aria-live="polite">
+            <span>{finalWaveComplete ? 'Resort complete' : 'Wave complete'}</span><strong>{wave.result.rating}★</strong>
+            <p>{finalWaveComplete ? forecast.totalWaves + '/' + forecast.totalWaves + ' waves cleared · final pressure: ' + NORMAL_SERVICE_CATALOG[wave.result.bottleneckNeed].buildingLabel : NORMAL_SERVICE_CATALOG[wave.result.bottleneckNeed].buildingLabel + ' needs attention'}</p>
           </section>
         ) : null}
 

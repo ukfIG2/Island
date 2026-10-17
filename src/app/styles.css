@@ -438,3 +438,10 @@ button:disabled {
 .context-card{background:linear-gradient(180deg,rgba(7,31,34,.93),rgba(5,20,25,.91))}
 .hud-primary-action{background:#c9843e;border-color:#e5ab64;color:#fff8e9;font-weight:800}.hud-primary-action:hover:not(:disabled){background:#db9850}
 @media(max-width:900px){.context-card{width:236px}.context-card__stats{gap:4px}.context-card__stats span{padding:6px}.world-status__building{min-width:72px;padding:7px 8px}}
+
+
+/* Final progression polish v1 */
+.world-status__building.is-selected{transform:translateY(-3px);box-shadow:0 8px 24px rgba(0,0,0,.24),0 0 0 2px rgba(245,217,120,.32)}
+.world-status__building.is-selected strong{color:#fff2b8}
+.wave-result-toast--final{min-width:250px;border-color:rgba(245,217,120,.48);background:linear-gradient(145deg,rgba(78,69,35,.94),rgba(5,31,31,.94));box-shadow:0 18px 60px rgba(0,0,0,.34),0 0 0 1px rgba(245,217,120,.12)}
+.wave-result-toast--final span{color:#f5d978;font-weight:800;letter-spacing:.12em}.wave-result-toast--final strong{font-size:28px}.wave-result-toast--final p{opacity:1;color:#f5ead0}

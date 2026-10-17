@@ -1,6 +1,7 @@
 export const BOOTSTRAP_STATE_SCHEMA = 'resort-bootstrap-state/v1' as const;
+export const NORMAL_SERVICE_IDS = ['reception', 'food', 'drinks', 'relax', 'oceanView'] as const;
 export const NORMAL_WAVE_NEEDS = ['reception', 'food', 'drinks'] as const;
-export type NormalWaveNeedId = (typeof NORMAL_WAVE_NEEDS)[number];
+export type NormalWaveNeedId = (typeof NORMAL_SERVICE_IDS)[number];
 export type PrototypeWaveNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 export const PROTOTYPE_SCRIPTED_WAVES = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 
@@ -12,7 +13,9 @@ export interface NormalServiceDefinition {
 export const NORMAL_SERVICE_CATALOG: Readonly<Record<NormalWaveNeedId, NormalServiceDefinition>> = {
   reception: { buildingLabel: 'Reception', needLabel: 'Rooms' },
   food: { buildingLabel: 'Restaurant', needLabel: 'Food' },
-  drinks: { buildingLabel: 'Beach Bar', needLabel: 'Drinks' }
+  drinks: { buildingLabel: 'Beach Bar', needLabel: 'Drinks' },
+  relax: { buildingLabel: 'Pool', needLabel: 'Relax' },
+  oceanView: { buildingLabel: 'Bungalows', needLabel: 'Ocean View' }
 };
 
 export interface NormalWaveForecast {
@@ -23,7 +26,27 @@ export interface NormalWaveForecast {
 }
 export type NormalWavePhase = 'awaiting' | 'incoming' | 'draining' | 'complete';
 export const NORMAL_WAVE_PROOF_WORKER_ID = 'worker-1' as const;
-export type NormalWaveWorkerId = typeof NORMAL_WAVE_PROOF_WORKER_ID;
+export const PROTOTYPE_AREA_IDS = ['pool', 'bungalows'] as const;
+export type PrototypeAreaId = (typeof PROTOTYPE_AREA_IDS)[number];
+export const PROTOTYPE_AREA_WORKER_IDS = { pool: 'worker-2', bungalows: 'worker-3' } as const;
+export type NormalWaveWorkerId = typeof NORMAL_WAVE_PROOF_WORKER_ID | (typeof PROTOTYPE_AREA_WORKER_IDS)[PrototypeAreaId];
+export type NormalWaveWorkerAssignments = Readonly<Partial<Record<NormalWaveWorkerId, NormalWaveNeedId>>>;
+export type PrototypeAreaPurchases = Readonly<Record<PrototypeAreaId, boolean>>;
+export type PrototypeAreaStatus = 'locked' | 'available' | 'not_affordable' | 'unlocked';
+export const PROTOTYPE_AREA_CATALOG = {
+  pool: { buildingLabel: 'Pool', need: 'relax', eligibilityAfterWave: 3, includedWorkerId: 'worker-2' },
+  bungalows: { buildingLabel: 'Bungalows', need: 'oceanView', eligibilityAfterWave: 6, includedWorkerId: 'worker-3' }
+} as const;
+export const PROTOTYPE_AREA_PROOF_TUNING: Readonly<Record<PrototypeAreaId, number>> = { pool: 10, bungalows: 20 };
+export interface PrototypeAreaUnlockView {
+  readonly areaId: PrototypeAreaId;
+  readonly buildingLabel: string;
+  readonly need: NormalWaveNeedId;
+  readonly eligibilityAfterWave: 3 | 6;
+  readonly includedWorkerId: NormalWaveWorkerId;
+  readonly coinCost: number;
+  readonly status: PrototypeAreaStatus;
+}
 export type NeedCounts = Readonly<Record<NormalWaveNeedId, number>>;
 export type NormalWaveBottleneckCause = 'staffing' | 'capacity';
 export type PrototypeBuildingLevel = 1 | 2 | 3;
@@ -68,7 +91,7 @@ export interface NormalWaveProofTuning {
 export const NORMAL_WAVE_PROOF_TUNING: NormalWaveProofTuning = {
   totalDemand: 6,
   releasePerTick: 2,
-  baseServiceCapacity: { reception: 1, food: 1, drinks: 1 },
+  baseServiceCapacity: { reception: 1, food: 1, drinks: 1, relax: 1, oceanView: 1 },
   queuePressurePerLostStar: 4
 };
 
@@ -100,6 +123,9 @@ export interface NormalWaveState {
   readonly phase: NormalWavePhase;
   readonly tuning: NormalWaveProofTuning;
   readonly activeNeedIds: readonly NormalWaveNeedId[];
+  readonly debutNeedIds: readonly NormalWaveNeedId[];
+  readonly demandTargetByNeed: NeedCounts;
+  readonly releasedByNeed: NeedCounts;
   readonly buildingLevelsByNeed: BuildingLevels;
   readonly upgradeTuning: PrototypeUpgradeTuning;
   readonly releasedDemand: number;
@@ -112,7 +138,7 @@ export interface NormalWaveState {
   readonly capacityWaitByNeed: NeedCounts;
   readonly totalQueuePressure: number;
   readonly workerSlotsByNeed: NeedCounts;
-  readonly workerAssignments: Readonly<Record<NormalWaveWorkerId, NormalWaveNeedId>>;
+  readonly workerAssignments: NormalWaveWorkerAssignments;
   readonly reassignments: readonly WorkerReassignmentImpact[];
   readonly result: NormalWaveResult | null;
 }
@@ -125,6 +151,7 @@ export interface BootstrapState {
   readonly coins: number;
   readonly resortValue: number;
   readonly currentWaveNumber: PrototypeWaveNumber;
+  readonly purchasedAreas: PrototypeAreaPurchases;
   readonly normalWave: NormalWaveState;
 }
 
@@ -132,20 +159,21 @@ export type BootstrapCommand =
   | { readonly type: 'ADVANCE_SIMULATION'; readonly deltaMs: number }
   | { readonly type: 'START_WAVE' }
   | { readonly type: 'CONTINUE_TO_NEXT_WAVE' }
+  | { readonly type: 'PURCHASE_AREA'; readonly areaId: PrototypeAreaId }
   | { readonly type: 'UPGRADE_BUILDING'; readonly need: NormalWaveNeedId }
   | { readonly type: 'REASSIGN_WORKER'; readonly workerId: NormalWaveWorkerId; readonly to: NormalWaveNeedId };
 
-const empty = (): Record<NormalWaveNeedId, number> => ({ reception: 0, food: 0, drinks: 0 });
-const oneSlotEach = (): Record<NormalWaveNeedId, number> => ({ reception: 1, food: 1, drinks: 1 });
-const initialBuildingLevels = (): Record<NormalWaveNeedId, PrototypeBuildingLevel> => ({ reception: 1, food: 1, drinks: 1 });
-const copy = (v: NeedCounts): Record<NormalWaveNeedId, number> => ({ reception: v.reception, food: v.food, drinks: v.drinks });
+const empty = (): Record<NormalWaveNeedId, number> => ({ reception: 0, food: 0, drinks: 0, relax: 0, oceanView: 0 });
+const oneSlotEach = (): Record<NormalWaveNeedId, number> => ({ reception: 1, food: 1, drinks: 1, relax: 1, oceanView: 1 });
+const initialBuildingLevels = (): Record<NormalWaveNeedId, PrototypeBuildingLevel> => ({ reception: 1, food: 1, drinks: 1, relax: 1, oceanView: 1 });
+const copy = (v: NeedCounts): Record<NormalWaveNeedId, number> => ({ reception: v.reception, food: v.food, drinks: v.drinks, relax: v.relax, oceanView: v.oceanView });
 
 function validateTuning(t: NormalWaveProofTuning): void {
   const values = [
     t.totalDemand,
     t.releasePerTick,
     t.queuePressurePerLostStar,
-    ...NORMAL_WAVE_NEEDS.map(n => t.baseServiceCapacity[n])
+    ...NORMAL_SERVICE_IDS.map(n => t.baseServiceCapacity[n])
   ];
   if (values.some(v => !Number.isInteger(v) || v <= 0)) throw new Error('NORMAL_WAVE_PROOF_TUNING_INVALID');
 }
@@ -156,9 +184,11 @@ function workerCount(wave: NormalWaveState, need: NormalWaveNeedId): number {
 
 function validateWorkerModel(wave: NormalWaveState): void {
   const workers = Object.keys(wave.workerAssignments).length;
-  const slots = NORMAL_WAVE_NEEDS.reduce((sum, need) => sum + wave.workerSlotsByNeed[need], 0);
+  const assignedNeeds = Object.values(wave.workerAssignments).filter((value): value is NormalWaveNeedId => value !== undefined);
+  const eligibleNeedIds = new Set<NormalWaveNeedId>([...wave.activeNeedIds, ...assignedNeeds]);
+  const slots = [...eligibleNeedIds].reduce((sum, need) => sum + wave.workerSlotsByNeed[need], 0);
   if (workers <= 0 || workers >= slots) throw new Error('NORMAL_WAVE_WORKER_SCARCITY_INVALID');
-  for (const need of NORMAL_WAVE_NEEDS) {
+  for (const need of NORMAL_SERVICE_IDS) {
     if (wave.workerSlotsByNeed[need] !== 1) throw new Error('NORMAL_WAVE_SLOT_MODEL_INVALID');
     if (workerCount(wave, need) > wave.workerSlotsByNeed[need]) throw new Error('NORMAL_WAVE_SLOT_OCCUPIED');
   }
@@ -166,37 +196,25 @@ function validateWorkerModel(wave: NormalWaveState): void {
 
 function awaiting(
   tuning: NormalWaveProofTuning,
-  workerAssignments: Readonly<Record<NormalWaveWorkerId, NormalWaveNeedId>> = {
-    [NORMAL_WAVE_PROOF_WORKER_ID]: 'reception'
-  },
+  workerAssignments: NormalWaveWorkerAssignments = { [NORMAL_WAVE_PROOF_WORKER_ID]: 'reception' },
   buildingLevelsByNeed: BuildingLevels = initialBuildingLevels(),
-  upgradeTuning: PrototypeUpgradeTuning = PROTOTYPE_UPGRADE_PROOF_TUNING
+  upgradeTuning: PrototypeUpgradeTuning = PROTOTYPE_UPGRADE_PROOF_TUNING,
+  activeNeedIds: readonly NormalWaveNeedId[] = NORMAL_WAVE_NEEDS,
+  debutNeedIds: readonly NormalWaveNeedId[] = []
 ): NormalWaveState {
   validateTuning(tuning);
+  const demandTargetByNeed = empty();
+  for (const need of activeNeedIds) {
+    demandTargetByNeed[need] = debutNeedIds.includes(need) ? Math.max(1, Math.ceil(tuning.totalDemand / 2)) : tuning.totalDemand;
+  }
   const wave: NormalWaveState = {
-    phase: 'awaiting',
-    activeNeedIds: NORMAL_WAVE_NEEDS,
-    tuning: { ...tuning, baseServiceCapacity: copy(tuning.baseServiceCapacity) },
+    phase: 'awaiting', activeNeedIds: [...activeNeedIds], debutNeedIds: [...debutNeedIds], demandTargetByNeed,
+    releasedByNeed: empty(), tuning: { ...tuning, baseServiceCapacity: copy(tuning.baseServiceCapacity) },
     buildingLevelsByNeed: { ...buildingLevelsByNeed },
-    upgradeTuning: {
-      ...upgradeTuning,
-      capacityBonusByLevel: { ...upgradeTuning.capacityBonusByLevel },
-      coinCostByTargetLevel: { ...upgradeTuning.coinCostByTargetLevel },
-      resortValueGainByTargetLevel: { ...upgradeTuning.resortValueGainByTargetLevel }
-    },
-    releasedDemand: 0,
-    queueByNeed: empty(),
-    activeByNeed: empty(),
-    servedByNeed: empty(),
-    peakQueueByNeed: empty(),
-    accumulatedWaitByNeed: empty(),
-    staffingWaitByNeed: empty(),
-    capacityWaitByNeed: empty(),
-    totalQueuePressure: 0,
-    workerSlotsByNeed: oneSlotEach(),
-    workerAssignments: { ...workerAssignments },
-    reassignments: [],
-    result: null
+    upgradeTuning: { ...upgradeTuning, capacityBonusByLevel: { ...upgradeTuning.capacityBonusByLevel }, coinCostByTargetLevel: { ...upgradeTuning.coinCostByTargetLevel }, resortValueGainByTargetLevel: { ...upgradeTuning.resortValueGainByTargetLevel } },
+    releasedDemand: 0, queueByNeed: empty(), activeByNeed: empty(), servedByNeed: empty(), peakQueueByNeed: empty(),
+    accumulatedWaitByNeed: empty(), staffingWaitByNeed: empty(), capacityWaitByNeed: empty(), totalQueuePressure: 0,
+    workerSlotsByNeed: oneSlotEach(), workerAssignments: { ...workerAssignments }, reassignments: [], result: null
   };
   validateWorkerModel(wave);
   return wave;
@@ -219,6 +237,23 @@ export function normalWaveForecast(state: BootstrapState): NormalWaveForecast {
 
 function nextPrototypeWaveNumber(current: PrototypeWaveNumber): PrototypeWaveNumber {
   return Math.min(8, current + 1) as PrototypeWaveNumber;
+}
+
+function activeNeedIdsForAreas(purchasedAreas: PrototypeAreaPurchases): NormalWaveNeedId[] {
+  const needs: NormalWaveNeedId[] = [...NORMAL_WAVE_NEEDS];
+  for (const areaId of PROTOTYPE_AREA_IDS) if (purchasedAreas[areaId]) needs.push(PROTOTYPE_AREA_CATALOG[areaId].need);
+  return needs;
+}
+
+function completedWaveNumber(state: BootstrapState): number {
+  return state.normalWave.phase === 'complete' ? state.currentWaveNumber : Math.max(0, state.currentWaveNumber - 1);
+}
+
+export function prototypeAreaUnlockView(state: BootstrapState, areaId: PrototypeAreaId): PrototypeAreaUnlockView {
+  const definition = PROTOTYPE_AREA_CATALOG[areaId];
+  const coinCost = PROTOTYPE_AREA_PROOF_TUNING[areaId];
+  const status: PrototypeAreaStatus = state.purchasedAreas[areaId] ? 'unlocked' : completedWaveNumber(state) < definition.eligibilityAfterWave ? 'locked' : state.coins < coinCost ? 'not_affordable' : 'available';
+  return { areaId, ...definition, coinCost, status };
 }
 
 export function normalWaveServiceCapacity(state: BootstrapState, need: NormalWaveNeedId): number {
@@ -308,6 +343,7 @@ function advanceWave(wave: NormalWaveState): NormalWaveState {
     ? Math.min(wave.tuning.releasePerTick, wave.tuning.totalDemand - wave.releasedDemand)
     : 0;
   const releasedDemand = wave.releasedDemand + releasedNow;
+  const releasedByNeed = copy(wave.releasedByNeed);
 
   // Active service lasts one simulation step. Finish prior active service first,
   // then release demand, queue it, and admit new active service up to capacity.
@@ -322,7 +358,9 @@ function advanceWave(wave: NormalWaveState): NormalWaveState {
   for (const need of wave.activeNeedIds) {
     servedByNeed[need] += wave.activeByNeed[need];
 
-    const waitingBeforeAdmission = wave.queueByNeed[need] + releasedNow;
+    const releaseForNeed = Math.min(releasedNow, Math.max(0, wave.demandTargetByNeed[need] - releasedByNeed[need]));
+    releasedByNeed[need] += releaseForNeed;
+    const waitingBeforeAdmission = wave.queueByNeed[need] + releaseForNeed;
     const admitted = Math.min(waitingBeforeAdmission, capacity(wave, need));
     const remaining = waitingBeforeAdmission - admitted;
 
@@ -358,6 +396,7 @@ function advanceWave(wave: NormalWaveState): NormalWaveState {
     ...wave,
     phase,
     releasedDemand,
+    releasedByNeed,
     queueByNeed,
     activeByNeed,
     servedByNeed,
@@ -385,6 +424,7 @@ export function createInitialBootstrapState(
     coins: PROTOTYPE_UPGRADE_PROOF_TUNING.startingCoins,
     resortValue: PROTOTYPE_UPGRADE_PROOF_TUNING.startingResortValue,
     currentWaveNumber: 1,
+    purchasedAreas: { pool: false, bungalows: false },
     normalWave: awaiting(tuning)
   };
 }
@@ -395,18 +435,26 @@ export function applyBootstrapCommand(state: BootstrapState, command: BootstrapC
       if (state.normalWave.phase !== 'awaiting') throw new Error('NORMAL_WAVE_START_INVALID');
       return { ...state, normalWave: { ...state.normalWave, phase: 'incoming' } };
 
-    case 'CONTINUE_TO_NEXT_WAVE':
+    case 'CONTINUE_TO_NEXT_WAVE': {
       if (state.normalWave.phase !== 'complete') throw new Error('NORMAL_WAVE_CONTINUE_INVALID');
-      return {
-        ...state,
-        currentWaveNumber: nextPrototypeWaveNumber(state.currentWaveNumber),
-        normalWave: awaiting(
-          state.normalWave.tuning,
-          state.normalWave.workerAssignments,
-          state.normalWave.buildingLevelsByNeed,
-          state.normalWave.upgradeTuning
-        )
-      };
+      const activeNeedIds = activeNeedIdsForAreas(state.purchasedAreas);
+      const debutNeedIds = activeNeedIds.filter(need => !state.normalWave.activeNeedIds.includes(need));
+      return { ...state, currentWaveNumber: nextPrototypeWaveNumber(state.currentWaveNumber), normalWave: awaiting(state.normalWave.tuning, state.normalWave.workerAssignments, state.normalWave.buildingLevelsByNeed, state.normalWave.upgradeTuning, activeNeedIds, debutNeedIds) };
+    }
+
+    case 'PURCHASE_AREA': {
+      if (state.normalWave.phase !== 'awaiting' && state.normalWave.phase !== 'complete') throw new Error('PROTOTYPE_AREA_PURCHASE_PHASE_INVALID');
+      const view = prototypeAreaUnlockView(state, command.areaId);
+      if (view.status !== 'available') return state;
+      const purchasedAreas: PrototypeAreaPurchases = { ...state.purchasedAreas, [command.areaId]: true };
+      const workerAssignments: NormalWaveWorkerAssignments = { ...state.normalWave.workerAssignments, [view.includedWorkerId]: view.need };
+      const nextNeeds = activeNeedIdsForAreas(purchasedAreas);
+      const normalWave = state.normalWave.phase === 'awaiting'
+        ? awaiting(state.normalWave.tuning, workerAssignments, state.normalWave.buildingLevelsByNeed, state.normalWave.upgradeTuning, nextNeeds, nextNeeds.filter(need => state.normalWave.debutNeedIds.includes(need) || !state.normalWave.activeNeedIds.includes(need)))
+        : { ...state.normalWave, workerAssignments };
+      validateWorkerModel(normalWave);
+      return { ...state, coins: state.coins - view.coinCost, purchasedAreas, normalWave };
+    }
 
     case 'UPGRADE_BUILDING': {
       const quote = normalWaveUpgradeQuote(state, command.need);
@@ -435,6 +483,7 @@ export function applyBootstrapCommand(state: BootstrapState, command: BootstrapC
         throw new Error('NORMAL_WAVE_REASSIGN_INVALID');
       }
 
+      if (!wave.activeNeedIds.includes(command.to)) throw new Error('NORMAL_WAVE_TARGET_INACTIVE');
       const from = wave.workerAssignments[command.workerId];
       if (from === undefined) throw new Error('NORMAL_WAVE_WORKER_UNKNOWN');
       if (from === command.to) return state;

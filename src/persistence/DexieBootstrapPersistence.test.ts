@@ -52,7 +52,7 @@ describe('normalizePersistedState', () => {
       simulationTick: 17,
       elapsedSimulationMs: 3400,
       normalWave: {
-        phase: 'awaiting',
+        phase: 'incoming',
         activeByNeed: { reception: 0, food: 0 },
         accumulatedWaitByNeed: { reception: 0, food: 0 },
         staffingWaitByNeed: { reception: 0, food: 0 },

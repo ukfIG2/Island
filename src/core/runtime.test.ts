@@ -53,7 +53,12 @@ function advanceUntilComplete(
 
 function runWithoutReassignment(): ReturnType<BootstrapCore['getSnapshot']> {
   const core = new BootstrapCore(
-    createInitialBootstrapState('control-wave')
+    createInitialBootstrapState('control-wave', {
+      totalDemand: 6,
+      releasePerTick: 2,
+      baseServiceCapacity: { reception: 1, food: 1, drinks: 10, relax: 1, oceanView: 1 },
+      queuePressurePerLostStar: 4
+    })
   );
 
   core.dispatch({ type: 'START_WAVE' });
@@ -172,7 +177,10 @@ describe(
         ).toBeGreaterThan(0);
         expect(admitted.servedByNeed).toEqual({
           reception: 0,
-          food: 0
+          food: 0,
+          drinks: 0,
+          relax: 0,
+          oceanView: 0
         });
         expect(admitted.queueByNeed.food).toBeGreaterThan(0);
         expect(admitted.accumulatedWaitByNeed.food).toBeGreaterThan(0);
@@ -197,7 +205,10 @@ describe(
         const initial = core.getSnapshot().normalWave;
         expect(initial.workerSlotsByNeed).toEqual({
           reception: 1,
-          food: 1
+          food: 1,
+          drinks: 1,
+          relax: 1,
+          oceanView: 1
         });
         expect(Object.keys(initial.workerAssignments)).toHaveLength(1);
         expect(
@@ -234,9 +245,9 @@ describe(
         const next = core.getSnapshot().normalWave;
         expect(next.phase).toBe('awaiting');
         expect(next.workerAssignments[NORMAL_WAVE_PROOF_WORKER_ID]).toBe('food');
-        expect(next.queueByNeed).toEqual({ reception: 0, food: 0, drinks: 0 });
-        expect(next.activeByNeed).toEqual({ reception: 0, food: 0, drinks: 0 });
-        expect(next.accumulatedWaitByNeed).toEqual({ reception: 0, food: 0, drinks: 0 });
+        expect(next.queueByNeed).toEqual({ reception: 0, food: 0, drinks: 0, relax: 0, oceanView: 0 });
+        expect(next.activeByNeed).toEqual({ reception: 0, food: 0, drinks: 0, relax: 0, oceanView: 0 });
+        expect(next.accumulatedWaitByNeed).toEqual({ reception: 0, food: 0, drinks: 0, relax: 0, oceanView: 0 });
         expect(next.result).toBeNull();
       }
     );
@@ -258,7 +269,7 @@ describe(
             {
               totalDemand: 6,
               releasePerTick: 3,
-              baseServiceCapacity: { reception: 10, food: 1, drinks: 10 },
+              baseServiceCapacity: { reception: 10, food: 1, drinks: 10, relax: 1, oceanView: 1 },
               queuePressurePerLostStar: 4
             }
           )
@@ -288,7 +299,12 @@ describe(
         const control = runWithoutReassignment();
 
         const core = new BootstrapCore(
-          createInitialBootstrapState('reassigned-wave')
+          createInitialBootstrapState('reassigned-wave', {
+            totalDemand: 6,
+            releasePerTick: 2,
+            baseServiceCapacity: { reception: 1, food: 1, drinks: 10, relax: 1, oceanView: 1 },
+            queuePressurePerLostStar: 4
+          })
         );
 
         core.dispatch({ type: 'START_WAVE' });
@@ -323,11 +339,17 @@ describe(
 
         expect(completed.normalWave.queueByNeed).toEqual({
           reception: 0,
-          food: 0
+          food: 0,
+          drinks: 0,
+          relax: 0,
+          oceanView: 0
         });
         expect(completed.normalWave.activeByNeed).toEqual({
           reception: 0,
-          food: 0
+          food: 0,
+          drinks: 0,
+          relax: 0,
+          oceanView: 0
         });
         expect(completed.normalWave.result).not.toBeNull();
         expect(completed.normalWave.result?.bottleneckNeed).toBe('food');

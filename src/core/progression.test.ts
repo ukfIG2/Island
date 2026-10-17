@@ -31,7 +31,9 @@ describe('Prototype progression spine', () => {
     expect(NORMAL_SERVICE_CATALOG).toEqual({
       reception: { buildingLabel: 'Reception', needLabel: 'Rooms' },
       food: { buildingLabel: 'Restaurant', needLabel: 'Food' },
-      drinks: { buildingLabel: 'Beach Bar', needLabel: 'Drinks' }
+      drinks: { buildingLabel: 'Beach Bar', needLabel: 'Drinks' },
+      relax: { buildingLabel: 'Pool', needLabel: 'Relax' },
+      oceanView: { buildingLabel: 'Bungalows', needLabel: 'Ocean View' }
     });
   });
 

@@ -1,6 +1,7 @@
 import { PROTOTYPE_UPGRADE_PROOF_TUNING } from '../core/state';
 import Dexie, { type Table } from 'dexie';
 import {
+  NORMAL_SERVICE_IDS,
   NORMAL_WAVE_NEEDS,
   NORMAL_WAVE_PROOF_WORKER_ID,
   createInitialBootstrapState,
@@ -33,16 +34,35 @@ function finiteNonNegative(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0;
 }
 
-function extendNeedRecord(value: unknown, drinksDefault: number): Record<string, number> {
+function extendNeedRecord(value: unknown, fallback: number): Record<NormalWaveNeedId, number> {
   const source = value !== null && typeof value === 'object' ? value as Record<string, unknown> : {};
-  const n = (key: string, fallback: number) => finiteNonNegative(source[key]) ? source[key] as number : fallback;
-  return { reception: n('reception', 0), food: n('food', 0), drinks: n('drinks', drinksDefault) };
+  const n = (key: NormalWaveNeedId, defaultValue: number) => finiteNonNegative(source[key]) ? source[key] as number : defaultValue;
+  return {
+    reception: n('reception', fallback),
+    food: n('food', fallback),
+    drinks: n('drinks', fallback),
+    relax: n('relax', fallback),
+    oceanView: n('oceanView', fallback)
+  };
+}
+
+function isNeedId(value: unknown): value is NormalWaveNeedId {
+  return typeof value === 'string' && (NORMAL_SERVICE_IDS as readonly string[]).includes(value);
 }
 
 function extendLegacyWave(value: unknown): unknown {
   if (value === null || typeof value !== 'object') return value;
   const wave = value as Record<string, any>;
   const hadDrinks = wave.queueByNeed && typeof wave.queueByNeed === 'object' && finiteNonNegative(wave.queueByNeed.drinks);
+  const activeNeedIds: NormalWaveNeedId[] = Array.isArray(wave.activeNeedIds)
+    ? wave.activeNeedIds.filter(isNeedId)
+    : (hadDrinks || wave.phase === 'awaiting' ? [...NORMAL_WAVE_NEEDS] : ['reception', 'food']);
+  const totalDemand = finiteNonNegative(wave.tuning?.totalDemand) ? wave.tuning.totalDemand : 0;
+  const releasedDemand = finiteNonNegative(wave.releasedDemand) ? wave.releasedDemand : 0;
+  const demandTargetByNeed = extendNeedRecord(wave.demandTargetByNeed, 0);
+  const releasedByNeed = extendNeedRecord(wave.releasedByNeed, 0);
+  if (wave.demandTargetByNeed === undefined) for (const need of activeNeedIds) demandTargetByNeed[need] = totalDemand;
+  if (wave.releasedByNeed === undefined) for (const need of activeNeedIds) releasedByNeed[need] = releasedDemand;
   const result = wave.result && typeof wave.result === 'object' ? {
     ...wave.result,
     accumulatedWaitByNeed: extendNeedRecord(wave.result.accumulatedWaitByNeed, 0),
@@ -50,7 +70,10 @@ function extendLegacyWave(value: unknown): unknown {
   } : wave.result;
   return {
     ...wave,
-    activeNeedIds: Array.isArray(wave.activeNeedIds) ? wave.activeNeedIds : (hadDrinks || wave.phase === 'awaiting' ? NORMAL_WAVE_NEEDS : ['reception', 'food']),
+    activeNeedIds,
+    debutNeedIds: Array.isArray(wave.debutNeedIds) ? wave.debutNeedIds.filter(isNeedId) : [],
+    demandTargetByNeed,
+    releasedByNeed,
     tuning: wave.tuning && typeof wave.tuning === 'object' ? { ...wave.tuning, baseServiceCapacity: extendNeedRecord(wave.tuning.baseServiceCapacity, 1) } : wave.tuning,
     queueByNeed: extendNeedRecord(wave.queueByNeed, 0),
     activeByNeed: extendNeedRecord(wave.activeByNeed, 0),
@@ -71,7 +94,7 @@ function hasNeedCounts(value: unknown): boolean {
   }
 
   const counts = value as Partial<Record<NormalWaveNeedId, unknown>>;
-  return NORMAL_WAVE_NEEDS.every(need => finiteNonNegative(counts[need]));
+  return NORMAL_SERVICE_IDS.every(need => finiteNonNegative(counts[need]));
 }
 
 function hasCanonicalWaveShape(value: unknown): value is NormalWaveState {
@@ -81,6 +104,10 @@ function hasCanonicalWaveShape(value: unknown): value is NormalWaveState {
 
   const wave = value as Partial<NormalWaveState>;
   return (
+    Array.isArray(wave.activeNeedIds) && wave.activeNeedIds.every(isNeedId) &&
+    Array.isArray(wave.debutNeedIds) && wave.debutNeedIds.every(isNeedId) &&
+    hasNeedCounts(wave.demandTargetByNeed) &&
+    hasNeedCounts(wave.releasedByNeed) &&
     hasNeedCounts(wave.queueByNeed) &&
     hasNeedCounts(wave.activeByNeed) &&
     hasNeedCounts(wave.servedByNeed) &&
@@ -111,15 +138,38 @@ function legacyWorkerAssignment(value: unknown): NormalWaveNeedId | null {
   };
   const assigned = wave.workerAssignments?.[NORMAL_WAVE_PROOF_WORKER_ID];
 
-  return assigned === 'reception' || assigned === 'food' || assigned === 'drinks'
-    ? assigned
-    : null;
+  return isNeedId(assigned) ? assigned : null;
 }
 
 export function normalizePersistedState(
   persisted: BootstrapState
 ): BootstrapState {
   const raw = persisted as any;
+  const rawWave = raw.normalWave;
+  const alreadyCanonical =
+    Number.isInteger(raw.currentWaveNumber) &&
+    raw.currentWaveNumber >= 1 &&
+    raw.currentWaveNumber <= 8 &&
+    typeof raw.purchasedAreas?.pool === 'boolean' &&
+    typeof raw.purchasedAreas?.bungalows === 'boolean' &&
+    Number.isInteger(raw.coins) &&
+    Number.isInteger(raw.resortValue) &&
+    hasCanonicalWaveShape(rawWave) &&
+    rawWave?.buildingLevelsByNeed !== undefined &&
+    NORMAL_SERVICE_IDS.every(need => [1, 2, 3].includes(rawWave.buildingLevelsByNeed[need])) &&
+    rawWave?.upgradeTuning !== undefined;
+
+  if (alreadyCanonical) {
+    return persisted;
+  }
+
+  persisted = {
+    ...persisted,
+    purchasedAreas: {
+      pool: raw.purchasedAreas?.pool === true,
+      bungalows: raw.purchasedAreas?.bungalows === true
+    }
+  };
   if (!(Number.isInteger(raw.currentWaveNumber) && raw.currentWaveNumber >= 1 && raw.currentWaveNumber <= 8 && hasCanonicalWaveShape(raw.normalWave) && raw.normalWave?.buildingLevelsByNeed?.drinks !== undefined)) {
     persisted = {
       ...persisted,
@@ -134,7 +184,7 @@ export function normalizePersistedState(
     Number.isInteger(legacy.resortValue) &&
     legacyWave !== undefined &&
     legacyWave.buildingLevelsByNeed !== undefined &&
-    NORMAL_WAVE_NEEDS.every(need => [1, 2, 3].includes(legacyWave.buildingLevelsByNeed![need])) &&
+    NORMAL_SERVICE_IDS.every(need => [1, 2, 3].includes(legacyWave.buildingLevelsByNeed![need])) &&
     legacyWave.upgradeTuning !== undefined;
 
   if (hasCurrentUpgradeShape && hasCanonicalWaveShape(persisted.normalWave)) {
@@ -147,7 +197,7 @@ export function normalizePersistedState(
     resortValue: Number.isInteger(legacy.resortValue) ? legacy.resortValue! : PROTOTYPE_UPGRADE_PROOF_TUNING.startingResortValue,
     normalWave: legacy.normalWave === undefined ? legacy.normalWave as BootstrapState['normalWave'] : {
       ...legacy.normalWave,
-      buildingLevelsByNeed: legacy.normalWave.buildingLevelsByNeed ?? { reception: 1, food: 1, drinks: 1 },
+      buildingLevelsByNeed: legacy.normalWave.buildingLevelsByNeed ?? { reception: 1, food: 1, drinks: 1, relax: 1, oceanView: 1 },
       upgradeTuning: legacy.normalWave.upgradeTuning ?? PROTOTYPE_UPGRADE_PROOF_TUNING
     }
   };

@@ -56,7 +56,7 @@ async function boot(): Promise<void> {
         {
           totalDemand: 6,
           releasePerTick: 3,
-          baseServiceCapacity: { reception: 10, food: 1, drinks: 10 },
+          baseServiceCapacity: { reception: 10, food: 1, drinks: 10, relax: 10, oceanView: 10 },
           queuePressurePerLostStar: 4
         }
       )

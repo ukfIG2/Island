@@ -1,4 +1,4 @@
-import { normalWaveForecast, normalWaveUpgradeQuote } from '../core/state';
+import { normalWaveForecast, normalWaveUpgradeQuote, prototypeAreaUnlockView } from '../core/state';
 import {
   useEffect,
   useRef,
@@ -8,9 +8,10 @@ import {
 import type { BootstrapCore } from '../core/runtime';
 import {
   NORMAL_SERVICE_CATALOG,
-  NORMAL_WAVE_PROOF_WORKER_ID,
+  PROTOTYPE_AREA_IDS,
   normalWaveServiceCapacity,
-  type NormalWaveNeedId
+  type NormalWaveNeedId,
+  type NormalWaveWorkerId
 } from '../core/state';
 import { PixiProjection } from '../render/PixiProjection';
 
@@ -34,7 +35,10 @@ export function App({ core }: AppProps) {
   const worldHost = useRef<HTMLDivElement | null>(null);
   const wave = snapshot.normalWave;
   const upgradeQuote = wave.result ? normalWaveUpgradeQuote(snapshot, wave.result.bottleneckNeed) : null;
-  const workerNeed = wave.workerAssignments[NORMAL_WAVE_PROOF_WORKER_ID];
+  const workers = Object.entries(wave.workerAssignments).filter(
+    (entry): entry is [NormalWaveWorkerId, NormalWaveNeedId] => entry[1] !== undefined
+  );
+  const areaUnlocks = PROTOTYPE_AREA_IDS.map(areaId => prototypeAreaUnlockView(snapshot, areaId));
   const forecast = normalWaveForecast(snapshot);
   const canReassign =
     wave.phase === 'awaiting' ||
@@ -85,16 +89,18 @@ export function App({ core }: AppProps) {
             Start wave
           </button>
 
-          {wave.activeNeedIds.filter((need) => need !== workerNeed).map((need) => (
-            <button
-              type="button"
-              key={need}
-              onClick={() => core.dispatch({ type: 'REASSIGN_WORKER', workerId: NORMAL_WAVE_PROOF_WORKER_ID, to: need })}
-              disabled={!canReassign}
-            >
-              Move Worker to {labelNeed(need)}
-            </button>
-          ))}
+          {workers.flatMap(([workerId, workerNeed]) =>
+            wave.activeNeedIds.filter((need) => need !== workerNeed).map((need) => (
+              <button
+                type="button"
+                key={workerId + ':' + need}
+                onClick={() => core.dispatch({ type: 'REASSIGN_WORKER', workerId, to: need })}
+                disabled={!canReassign}
+              >
+                Move {workerId} to {labelNeed(need)}
+              </button>
+            ))
+          )}
 
           {wave.phase === 'complete' ? (
             <button
@@ -111,6 +117,31 @@ export function App({ core }: AppProps) {
             <p className="shell__eyebrow">Wave {forecast.waveNumber} of {forecast.totalWaves} forecast</p>
             <p>Expected needs: {forecast.needs.map(labelNeed).join(' · ')}</p>
             <p>Expected demand: {forecast.totalDemand} guests</p>
+          </section>
+        ) : null}
+
+        {wave.phase === 'awaiting' || wave.phase === 'complete' ? (
+          <section aria-label="Area unlocks">
+            <p className="shell__eyebrow">Area unlocks</p>
+            <div className="shell__services">
+              {areaUnlocks.map((unlock) => (
+                <article className="service-card" key={unlock.areaId}>
+                  <div className="service-card__heading">
+                    <strong>{unlock.buildingLabel} · {NORMAL_SERVICE_CATALOG[unlock.need].needLabel}</strong>
+                    <span>{unlock.status}</span>
+                  </div>
+                  <p>Eligible after Wave {unlock.eligibilityAfterWave}</p>
+                  <p>{unlock.coinCost} Coins · includes {unlock.includedWorkerId}</p>
+                  <button
+                    type="button"
+                    onClick={() => core.dispatch({ type: 'PURCHASE_AREA', areaId: unlock.areaId })}
+                    disabled={unlock.status !== 'available'}
+                  >
+                    Unlock {unlock.buildingLabel}
+                  </button>
+                </article>
+              ))}
+            </div>
           </section>
         ) : null}
 
@@ -132,8 +163,8 @@ export function App({ core }: AppProps) {
             <dd>{currentActive}</dd>
           </div>
           <div>
-            <dt>Worker assignment</dt>
-            <dd>{labelNeed(workerNeed)}</dd>
+            <dt>Worker assignments</dt>
+            <dd>{workers.map(([workerId, need]) => workerId + ' → ' + labelNeed(need)).join(' · ')}</dd>
           </div>
         </dl>
 
@@ -142,7 +173,10 @@ export function App({ core }: AppProps) {
             <article className="service-card" key={need}>
               <div className="service-card__heading">
                 <strong>{labelNeed(need)}</strong>
-                {workerNeed === need ? <span>Worker here</span> : null}
+                {workers.filter(([, assigned]) => assigned === need).map(([workerId]) => (
+                  <span key={workerId}>{workerId} here</span>
+                ))}
+                {wave.debutNeedIds.includes(need) ? <span>New need · soft debut</span> : null}
               </div>
               <dl>
                 <div>

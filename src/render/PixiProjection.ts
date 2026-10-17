@@ -1,12 +1,12 @@
 import {
   Application,
+  Container,
   Graphics,
   Text
 } from 'pixi.js';
 
 import {
   NORMAL_SERVICE_CATALOG,
-  NORMAL_WAVE_PROOF_WORKER_ID,
   normalWaveServiceCapacity,
   type BootstrapState,
   type NormalWaveNeedId
@@ -46,11 +46,28 @@ export class PixiProjection {
       .roundRect(32, 32, 560, 120, 18)
       .fill(0x183244);
 
-    const serviceFrames = readState().normalWave.activeNeedIds.map((_, index) =>
-      new Graphics()
-        .roundRect(32 + index * 190, 176, 175, 240, 18)
-        .fill(0x152934)
-    );
+    const serviceLayer = new Container();
+    let serviceNeedKey = '';
+    let serviceStatuses: Array<{ need: NormalWaveNeedId; status: Text }> = [];
+    const reconcileServices = (needs: readonly NormalWaveNeedId[]) => {
+      const key = needs.join('|');
+      if (key === serviceNeedKey) return;
+      for (const child of serviceLayer.removeChildren()) child.destroy();
+      serviceStatuses = needs.map((need, index) => {
+        const frame = new Graphics()
+          .roundRect(32 + index * 190, 176, 175, 240, 18)
+          .fill(0x152934);
+        const status = new Text({
+          text: '',
+          style: { fill: 0xe9f1f5, fontSize: 15, lineHeight: 27 }
+        });
+        status.position.set(48 + index * 190, 202);
+        serviceLayer.addChild(frame, status);
+        return { need, status };
+      });
+      serviceNeedKey = key;
+    };
+    reconcileServices(readState().normalWave.activeNeedIds);
 
     const title = new Text({
       text: 'Resort service flow',
@@ -70,14 +87,6 @@ export class PixiProjection {
     });
     waveStatus.position.set(56, 96);
 
-    const serviceStatuses = readState().normalWave.activeNeedIds.map((need, index) => {
-      const status = new Text({
-        text: '',
-        style: { fill: 0xe9f1f5, fontSize: 15, lineHeight: 27 }
-      });
-      status.position.set(48 + index * 190, 202);
-      return { need, status };
-    });
 
     const resultStatus = new Text({
       text: '',
@@ -93,10 +102,9 @@ export class PixiProjection {
 
     app.stage.addChild(
       header,
-      ...serviceFrames,
+      serviceLayer,
       title,
       waveStatus,
-      ...serviceStatuses.map(({ status }) => status),
       resultStatus
     );
 
@@ -105,7 +113,8 @@ export class PixiProjection {
     app.ticker.add(() => {
       const snapshot = readState();
       const wave = snapshot.normalWave;
-      const workerNeed = wave.workerAssignments[NORMAL_WAVE_PROOF_WORKER_ID];
+      reconcileServices(wave.activeNeedIds);
+      const workerAssignments = Object.entries(wave.workerAssignments);
       const signature = JSON.stringify([
         snapshot.simulationTick,
         wave.phase,
@@ -115,7 +124,7 @@ export class PixiProjection {
           wave.activeByNeed[need],
           wave.servedByNeed[need]
         ]),
-        workerNeed,
+        ...workerAssignments.flat(),
         wave.result?.rating ?? null,
         wave.result?.bottleneckCause ?? null,
         wave.result?.guidance ?? null
@@ -136,7 +145,7 @@ export class PixiProjection {
         `Active: ${wave.activeByNeed[need]}`,
         `Capacity: ${normalWaveServiceCapacity(snapshot, need)}/tick`,
         `Served: ${wave.servedByNeed[need]}`,
-        workerNeed === need ? 'Worker assigned' : 'No Worker'
+        (() => { const ids = workerAssignments.filter(([, assigned]) => assigned === need).map(([workerId]) => workerId); return ids.length > 0 ? 'Workers: ' + ids.join(', ') : 'Workers: none'; })()
       ].join('\n');
 
       for (const { need, status } of serviceStatuses) {

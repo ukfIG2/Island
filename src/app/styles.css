@@ -437,7 +437,7 @@ button:disabled {
 .world-status__building.has-pressure strong{color:#ffe1a1}
 .context-card{background:linear-gradient(180deg,rgba(7,31,34,.93),rgba(5,20,25,.91))}
 .hud-primary-action{background:#c9843e;border-color:#e5ab64;color:#fff8e9;font-weight:800}.hud-primary-action:hover:not(:disabled){background:#db9850}
-@media(max-width:900px){.context-card{width:236px}.context-card__stats{gap:4px}.context-card__stats span{padding:6px}.world-status__building{min-width:72px;padding:7px 8px}}
+@media(max-width:900px){.context-card{width:214px}.context-card__stats{gap:4px}.context-card__stats span{padding:6px}.world-status__building{min-width:72px;padding:7px 8px}}
 
 
 /* Final progression polish v1 */

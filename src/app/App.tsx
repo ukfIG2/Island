@@ -1,4 +1,4 @@
-import { normalWaveForecast, normalWaveUpgradeQuote, prototypeAreaUnlockView } from '../core/state';
+import { normalWaveForecast, normalWaveServiceCapacity, normalWaveUpgradeQuote, prototypeAreaUnlockView } from '../core/state';
 import {
   useEffect,
   useRef,
@@ -9,6 +9,7 @@ import {
 import type { BootstrapCore } from '../core/runtime';
 import {
   NORMAL_SERVICE_CATALOG,
+  NORMAL_SERVICE_IDS,
   PROTOTYPE_AREA_IDS,
   type NormalWaveNeedId,
   type NormalWaveWorkerId
@@ -35,6 +36,7 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
 
   const worldHost = useRef<HTMLDivElement | null>(null);
   const [workerSheetOpen, setWorkerSheetOpen] = useState(false);
+  const [selectedNeed, setSelectedNeed] = useState<NormalWaveNeedId>('reception');
   const [visibleComebackReward, setVisibleComebackReward] = useState(comebackRewardCoins);
 
   useEffect(() => {
@@ -53,6 +55,9 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
   );
   const areaUnlocks = PROTOTYPE_AREA_IDS.map(areaId => prototypeAreaUnlockView(snapshot, areaId));
   const forecast = normalWaveForecast(snapshot);
+  const selectedUnlock = areaUnlocks.find((unlock) => unlock.need === selectedNeed) ?? null;
+  const selectedWorkers = workers.filter(([, need]) => need === selectedNeed).map(([workerId]) => workerId);
+  const selectedCapacity = normalWaveServiceCapacity(snapshot, selectedNeed);
   const canReassign =
     wave.phase === 'awaiting' ||
     wave.phase === 'incoming' ||
@@ -75,7 +80,7 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
 
     const projection = new PixiProjection();
 
-    void projection.mount(host, core.getSnapshot);
+    void projection.mount(host, core.getSnapshot, setSelectedNeed);
 
     return () => {
       projection.destroy();
@@ -88,7 +93,7 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
         <header className="hud-top">
           <div className="hud-brand">
             <p className="shell__eyebrow">Resort Empire</p>
-            <h1>Normal wave</h1>
+            <h1>Wave {forecast.waveNumber}</h1>
             <p className="hud-economy">Coins: {snapshot.coins} | Energy: {snapshot.energy} | Resort Value: {snapshot.resortValue}</p>
           </div>
 
@@ -125,113 +130,65 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
           </section>
         ) : null}
 
-        <aside className="hud-context-tray" aria-label="Resort actions">
-        <section className="wave-needs" aria-label="Wave needs">
-          <span className="wave-needs__label">Wave needs</span>
-          <div className="wave-needs__items">
-            {wave.activeNeedIds.map((need) => (
-              <span className={'wave-need' + (wave.debutNeedIds.includes(need) ? ' wave-need--new' : '')} key={need}>
-                <strong>{NORMAL_SERVICE_CATALOG[need].needLabel}</strong>
-                <small>{wave.queueByNeed[need]} waiting</small>
-              </span>
-            ))}
-          </div>
-        </section>
+        <nav className="world-status" aria-label="Resort buildings">
+          {NORMAL_SERVICE_IDS.filter((need) => need !== 'relax' && need !== 'oceanView' || need === 'relax' && snapshot.purchasedAreas.pool || need === 'oceanView' && snapshot.purchasedAreas.bungalows).map((need) => (
+            <button
+              type="button"
+              key={need}
+              className={'world-status__building' + (selectedNeed === need ? ' is-selected' : '') + (wave.queueByNeed[need] > 0 ? ' has-pressure' : '')}
+              onClick={() => setSelectedNeed(need)}
+            >
+              <strong>{NORMAL_SERVICE_CATALOG[need].buildingLabel}</strong>
+              <span>{wave.queueByNeed[need] > 0 ? wave.queueByNeed[need] + ' waiting' : 'Flowing'}</span>
+            </button>
+          ))}
+        </nav>
 
-        {wave.phase === 'incoming' || wave.phase === 'draining' ? (
-          <section className="energy-actions" aria-label="Energy boost">
-            <span className="wave-needs__label">Energy boost</span>
-            <div className="energy-actions__buttons">
-              {wave.activeNeedIds.map((need) => (
-                <button
-                  key={need}
-                  type="button"
-                  disabled={snapshot.energy <= 0 || wave.energyMode !== null}
-                  onClick={() => core.dispatch({ type: 'ACTIVATE_ENERGY_MODE', need })}
-                >
-                  Boost {NORMAL_SERVICE_CATALOG[need].buildingLabel}
-                </button>
-              ))}
-            </div>
-            <small>
-              {wave.energyMode !== null
-                ? `Speed boost active: ${NORMAL_SERVICE_CATALOG[wave.energyMode.need].buildingLabel} · ${wave.energyMode.ticksRemaining} ticks left`
-                : 'Temporary service-speed boost; simultaneous capacity does not change.'}
-            </small>
+        {wave.phase === 'awaiting' ? (
+          <section className="phase-card" aria-label="Next wave">
+            <span>Wave {forecast.waveNumber} / {forecast.totalWaves}</span>
+            <strong>{forecast.totalDemand} guests incoming</strong>
+            <small>{forecast.needs.map((need) => NORMAL_SERVICE_CATALOG[need].needLabel).join(' · ')}</small>
           </section>
         ) : null}
 
         {wave.suddenRush.triggered ? (
-          <section className="rush-alert" aria-live="polite">
-            <strong>Sudden Rush</strong>
-            <span>Extra demand +{wave.suddenRush.extraDemand}; the normal wave keeps running.</span>
-          </section>
+          <section className="world-event world-event--rush" aria-live="polite"><strong>Sudden Rush</strong><span>+{wave.suddenRush.extraDemand} guests</span></section>
         ) : null}
 
-        {wave.phase === 'awaiting' ? (
-          <section aria-label="Wave forecast">
-            <p className="shell__eyebrow">Wave {forecast.waveNumber} of {forecast.totalWaves} forecast</p>
-            <p>Expected needs: {forecast.needs.map(labelNeed).join(' · ')}</p>
-            <p>Expected demand: {forecast.totalDemand} guests</p>
-          </section>
-        ) : null}
-
-        {wave.phase === 'awaiting' || wave.phase === 'complete' ? (
-          <section aria-label="Area unlocks">
-            <p className="shell__eyebrow">Area unlocks</p>
-            <div className="shell__services">
-              {areaUnlocks.map((unlock) => (
-                <article className="service-card" key={unlock.areaId}>
-                  <div className="service-card__heading">
-                    <strong>{unlock.buildingLabel} · {NORMAL_SERVICE_CATALOG[unlock.need].needLabel}</strong>
-                    <span>{unlock.status}</span>
-                  </div>
-                  <p>Eligible after Wave {unlock.eligibilityAfterWave}</p>
-                  <p>{unlock.coinCost} Coins · includes {unlock.includedWorkerId}</p>
-                  <button
-                    type="button"
-                    onClick={() => core.dispatch({ type: 'PURCHASE_AREA', areaId: unlock.areaId })}
-                    disabled={unlock.status !== 'available'}
-                  >
-                    Unlock {unlock.buildingLabel}
-                  </button>
-                </article>
-              ))}
-            </div>
+        {areaUnlocks.some((unlock) => unlock.status === 'available') && (wave.phase === 'awaiting' || wave.phase === 'complete') ? (
+          <section className="unlock-ribbon" aria-label="New resort area">
+            <span>New area available</span>
+            {areaUnlocks.filter((unlock) => unlock.status === 'available').map((unlock) => (
+              <button key={unlock.areaId} type="button" onClick={() => { setSelectedNeed(unlock.need); core.dispatch({ type: 'PURCHASE_AREA', areaId: unlock.areaId }); }}>Open {unlock.buildingLabel} · {unlock.coinCost} Coins</button>
+            ))}
           </section>
         ) : null}
 
         {wave.result !== null ? (
-          <section className="result-card" aria-live="polite">
-            <p className="shell__eyebrow">Wave result</p>
-            <h2>{wave.result.rating}★</h2>
-            <p>
-              Bottleneck: {labelNeed(wave.result.bottleneckNeed)} · cause:{' '}
-              {wave.result.bottleneckCause}
-            </p>
-            <p>{wave.result.guidance}</p>
-              {upgradeQuote && (
-                <section aria-label="Upgrade suggestion">
-                  <strong>Upgrade suggestion</strong>
-                  <p>{labelNeed(upgradeQuote.need)} Lv{upgradeQuote.fromLevel} → Lv{upgradeQuote.toLevel}</p>
-                  <p>Capacity {upgradeQuote.beforeCapacity} → {upgradeQuote.afterCapacity}</p>
-                  <p>Price: {upgradeQuote.coinCost} Coins · Resort Value +{upgradeQuote.resortValueGain}</p>
-                  <button
-                    type="button"
-                    disabled={snapshot.coins < upgradeQuote.coinCost}
-                    onClick={() => core.dispatch({ type: 'UPGRADE_BUILDING', need: upgradeQuote.need })}
-                  >
-                    Upgrade {labelNeed(upgradeQuote.need)}
-                  </button>
-                </section>
-              )}
-            <ul>
-              {wave.result.explanation.map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-            </ul>
+          <section className="wave-result-toast" aria-live="polite">
+            <span>Wave complete</span><strong>{wave.result.rating}★</strong>
+            <p>{NORMAL_SERVICE_CATALOG[wave.result.bottleneckNeed].buildingLabel} needs attention</p>
           </section>
         ) : null}
+
+        <aside className="context-card" aria-label="Selected building actions">
+          <div className="context-card__heading">
+            <div><span>{NORMAL_SERVICE_CATALOG[selectedNeed].needLabel}</span><h2>{NORMAL_SERVICE_CATALOG[selectedNeed].buildingLabel}</h2></div>
+            <strong>{selectedCapacity}/tick</strong>
+          </div>
+          <div className="context-card__stats">
+            <span><b>{wave.queueByNeed[selectedNeed]}</b> waiting</span>
+            <span><b>{selectedCapacity}</b>/tick</span>
+            <span><b>{selectedWorkers.length}</b> worker{selectedWorkers.length === 1 ? '' : 's'}</span>
+          </div>
+          {wave.result?.bottleneckNeed === selectedNeed ? <p className="context-card__guidance">{wave.result.guidance}</p> : null}
+          <div className="context-card__actions">
+            {canReassign ? <button type="button" onClick={() => setWorkerSheetOpen(true)}>Move worker</button> : null}
+            {(wave.phase === 'incoming' || wave.phase === 'draining') && wave.activeNeedIds.includes(selectedNeed) ? <button type="button" disabled={snapshot.energy <= 0 || wave.energyMode !== null} onClick={() => core.dispatch({ type: 'ACTIVATE_ENERGY_MODE', need: selectedNeed })}>{wave.energyMode?.need === selectedNeed ? 'Boost active' : 'Boost · 1 Energy'}</button> : null}
+            {upgradeQuote?.need === selectedNeed ? <button type="button" disabled={snapshot.coins < upgradeQuote.coinCost} onClick={() => core.dispatch({ type: 'UPGRADE_BUILDING', need: selectedNeed })}>Upgrade · {upgradeQuote.coinCost} Coins</button> : null}
+            {selectedUnlock?.status === 'available' ? <button type="button" onClick={() => core.dispatch({ type: 'PURCHASE_AREA', areaId: selectedUnlock.areaId })}>Open area · {selectedUnlock.coinCost} Coins</button> : null}
+          </div>
         </aside>
 
         {workerSheetOpen ? (

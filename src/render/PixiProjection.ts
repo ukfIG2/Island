@@ -27,7 +27,8 @@ export class PixiProjection {
 
   async mount(
     host: HTMLElement,
-    readState: () => BootstrapState
+    readState: () => BootstrapState,
+    onSelectNeed?: (need: NormalWaveNeedId) => void
   ): Promise<void> {
     const app = new Application();
     const maxBackingPixels = 1_500_000;
@@ -84,7 +85,7 @@ export class PixiProjection {
       reception: [520, 180], food: [310, 330], drinks: [735, 330], relax: [420, 475], oceanView: [720, 505]
     };
     let serviceNeedKey = '';
-    let serviceStatuses: Array<{ need: NormalWaveNeedId; status: Text }> = [];
+    let serviceStatuses: Array<{ need: NormalWaveNeedId; frame: Graphics; status: Text }> = [];
     const reconcileServices = (needs: readonly NormalWaveNeedId[]) => {
       const key = needs.join('|');
       if (key === serviceNeedKey) return;
@@ -99,18 +100,21 @@ export class PixiProjection {
           .rect(-44, -56, 88, 16)
           .fill(0xd8c59a);
         frame.position.set(x, y);
+        frame.eventMode = 'static';
+        frame.cursor = 'pointer';
+        frame.on('pointertap', () => onSelectNeed?.(need));
         const status = new Text({ text: '', style: { fill: 0xf7fbf4, fontSize: 14, lineHeight: 20, align: 'center' } });
         status.anchor.set(0.5, 0);
         status.position.set(x, y - 30);
         serviceLayer.addChild(frame, status);
-        return { need, status };
+        return { need, frame, status };
       });
       serviceNeedKey = key;
     };
     reconcileServices(NORMAL_SERVICE_IDS);
 
     const title = new Text({
-      text: 'Resort service flow',
+      text: 'SUNSHORE RESORT',
       style: {
         fill: 0xffffff,
         fontSize: 24
@@ -180,27 +184,34 @@ export class PixiProjection {
       renderedSignature = signature;
 
       waveStatus.text =
-        `Phase: ${wave.phase} · demand ${wave.releasedDemand}/${wave.tuning.totalDemand}`;
+        `${wave.phase === 'awaiting' ? 'Ready for guests' : wave.phase === 'complete' ? 'Day complete' : `Guests ${wave.releasedDemand}/${wave.tuning.totalDemand}`}`;
 
       const serviceText = (need: NormalWaveNeedId): string => {
         const unlocked = need === 'relax' ? snapshot.purchasedAreas.pool : need === 'oceanView' ? snapshot.purchasedAreas.bungalows : true;
-        if (!unlocked) return [labelNeed(need), 'Locked area'].join('\n');
+        if (!unlocked) return [NORMAL_SERVICE_CATALOG[need].buildingLabel, 'LOCKED'].join('\n');
+        const assigned = workerAssignments.filter(([, assignedNeed]) => assignedNeed === need).length;
+        const waiting = wave.queueByNeed[need];
         return [
-        labelNeed(need),
-        `Waiting: ${wave.queueByNeed[need]}`,
-        `Active: ${wave.activeByNeed[need]}`,
-        `Capacity: ${normalWaveServiceCapacity(snapshot, need)}/tick`,
-        `Served: ${wave.servedByNeed[need]}`,
-        (() => { const ids = workerAssignments.filter(([, assigned]) => assigned === need).map(([workerId]) => workerId); return ids.length > 0 ? 'Workers: ' + ids.join(', ') : 'Workers: none'; })()
-      ].join('\n');
+          NORMAL_SERVICE_CATALOG[need].buildingLabel.toUpperCase(),
+          NORMAL_SERVICE_CATALOG[need].needLabel,
+          waiting > 0 ? waiting + ' waiting' : 'Flowing',
+          assigned + ' worker' + (assigned === 1 ? '' : 's')
+        ].join('\n');
       };
 
-      for (const { need, status } of serviceStatuses) {
+      for (const { need, frame, status } of serviceStatuses) {
+        const unlocked = need === 'relax' ? snapshot.purchasedAreas.pool : need === 'oceanView' ? snapshot.purchasedAreas.bungalows : true;
+        const waiting = wave.queueByNeed[need];
+        const bottleneck = wave.result?.bottleneckNeed === need;
+        frame.alpha = unlocked ? 1 : 0.38;
+        frame.tint = bottleneck ? 0xffc857 : waiting >= 3 ? 0xff8066 : waiting > 0 ? 0xffcf70 : 0xffffff;
+        frame.scale.set(bottleneck ? 1.08 : waiting > 0 ? 1.035 : 1);
         status.text = serviceText(need);
+        status.alpha = unlocked ? 1 : 0.55;
       }
 
       resultStatus.text = wave.result === null
-        ? 'Waiting, active service and Worker movement project canonical core state.'
+        ? 'Tap a resort building to manage it.'
         : [
             `Result: ${wave.result.rating}★ · bottleneck ${labelNeed(wave.result.bottleneckNeed)}`,
             `Cause: ${wave.result.bottleneckCause}. ${wave.result.guidance}`

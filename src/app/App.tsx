@@ -189,7 +189,7 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
           </div>
           <div className="context-card__stats">
             <span><b>{wave.queueByNeed[selectedNeed]}</b> waiting</span>
-            <span><b>{selectedCapacity}</b>/tick</span>
+            <span><b>Lv.{wave.buildingLevelsByNeed[selectedNeed]}</b> building</span>
             <span><b>{selectedWorkers.length}</b> worker{selectedWorkers.length === 1 ? '' : 's'}</span>
           </div>
           {wave.result?.bottleneckNeed === selectedNeed ? <p className="context-card__guidance">{wave.result.guidance}</p> : null}

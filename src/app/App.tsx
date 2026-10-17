@@ -48,6 +48,13 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
     window.addEventListener('resort-empire:comeback-reward', handleComebackReward);
     return () => window.removeEventListener('resort-empire:comeback-reward', handleComebackReward);
   }, [comebackRewardCoins]);
+
+  useEffect(() => {
+    if (visibleComebackReward <= 0) return;
+    const timeout = window.setTimeout(() => setVisibleComebackReward(0), 3600);
+    return () => window.clearTimeout(timeout);
+  }, [visibleComebackReward]);
+
   const wave = snapshot.normalWave;
   const upgradeQuote = wave.result ? normalWaveUpgradeQuote(snapshot, wave.result.bottleneckNeed) : null;
   const workers = Object.entries(wave.workerAssignments).filter(
@@ -70,6 +77,10 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
     (sum, need) => sum + wave.activeByNeed[need],
     0
   );
+
+  useEffect(() => {
+    if (wave.result !== null) setSelectedNeed(wave.result.bottleneckNeed);
+  }, [wave.result?.bottleneckNeed]);
 
   useEffect(() => {
     const host = worldHost.current;
@@ -110,15 +121,6 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
               </button>
             ) : null}
 
-            {canReassign ? (
-              <button
-                type="button"
-                className={wave.phase === 'incoming' || wave.phase === 'draining' ? 'hud-primary-action' : 'hud-secondary-action'}
-                onClick={() => setWorkerSheetOpen(true)}
-              >
-                Manage workers
-              </button>
-            ) : null}
           </div>
         </header>
 
@@ -143,6 +145,13 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
             </button>
           ))}
         </nav>
+
+        {wave.phase === 'incoming' || wave.phase === 'draining' ? (
+          <section className={'wave-live-banner wave-live-banner--' + wave.phase} aria-live="polite">
+            <span>{wave.phase === 'incoming' ? 'Guests arriving' : 'Resort in motion'}</span>
+            <strong>{currentQueue > 0 ? currentQueue + ' waiting' : currentActive > 0 ? currentActive + ' being served' : 'Everything is flowing'}</strong>
+          </section>
+        ) : null}
 
         {wave.phase === 'awaiting' ? (
           <section className="phase-card" aria-label="Next wave">

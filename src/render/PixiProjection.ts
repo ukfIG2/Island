@@ -28,7 +28,8 @@ export class PixiProjection {
   async mount(
     host: HTMLElement,
     readState: () => BootstrapState,
-    onSelectNeed?: (need: NormalWaveNeedId) => void
+    onSelectNeed?: (need: NormalWaveNeedId) => void,
+    readSelectedNeed?: () => NormalWaveNeedId
   ): Promise<void> {
     const app = new Application();
     const maxBackingPixels = 1_500_000;
@@ -227,7 +228,9 @@ export class PixiProjection {
       reconcileServices(visibleNeeds);
       reconcileAreas(snapshot);
       const workerAssignments = Object.entries(wave.workerAssignments);
+    const selectedNeed = readSelectedNeed?.() ?? null;
       const signature = JSON.stringify([
+      selectedNeed,
         wave.phase,
         wave.releasedDemand,
         ...wave.activeNeedIds.flatMap(need => [
@@ -267,9 +270,11 @@ export class PixiProjection {
         const unlocked = need === 'relax' ? snapshot.purchasedAreas.pool : need === 'oceanView' ? snapshot.purchasedAreas.bungalows : true;
         const waiting = wave.queueByNeed[need];
         const bottleneck = wave.result?.bottleneckNeed === need;
+      const selected = selectedNeed === need;
         frame.alpha = unlocked ? 1 : 0.38;
-        frame.tint = bottleneck ? 0xffc857 : waiting >= 3 ? 0xff8066 : waiting > 0 ? 0xffcf70 : 0xffffff;
-        frame.scale.set(bottleneck ? 1.08 : waiting > 0 ? 1.035 : 1);
+      frame.tint = bottleneck ? 0xffc857 : selected ? 0xffe7a0 : waiting >= 3 ? 0xff8066 : waiting > 0 ? 0xffcf70 : 0xffffff;
+      frame.scale.set(bottleneck ? 1.08 : selected ? 1.065 : waiting > 0 ? 1.035 : 1);
+      status.scale.set(selected ? 1.04 : 1);
         status.text = serviceText(need);
         status.alpha = unlocked ? 1 : 0.55;
       }

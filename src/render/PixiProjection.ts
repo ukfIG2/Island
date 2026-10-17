@@ -142,7 +142,9 @@ export class PixiProjection {
       serviceStatuses = needs.map((need) => {
         const [x, y] = servicePositions[need];
         const frame = new Graphics();
-        if (need === 'reception') {
+        const texture = serviceAssetTextures[need];
+        if (!texture) {
+          if (need === 'reception') {
           frame.roundRect(-62,-38,124,78,14).fill(0xf2dfb1)
             .poly([-72,-38,0,-78,72,-38]).fill(0xb96348)
             .roundRect(-15,4,30,36,6).fill(0x755943)
@@ -170,9 +172,9 @@ export class PixiProjection {
             .rect(-15,2,30,34).fill(0x76513c)
             .rect(-43,-11,22,20).fill(0x67aebb)
             .rect(21,-11,22,20).fill(0x67aebb);
+          }
         }
         let art: Sprite | undefined;
-        const texture = serviceAssetTextures[need];
         if (texture) {
           art = new Sprite(texture);
           art.anchor.set(0.5);

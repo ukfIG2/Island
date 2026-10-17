@@ -23,7 +23,7 @@ export interface AppProps {
 
 function labelNeed(need: NormalWaveNeedId): string {
   const service = NORMAL_SERVICE_CATALOG[need];
-  return `${service.buildingLabel} · ${service.needLabel}`;
+  return `${service.buildingLabel} / ${service.needLabel}`;
 }
 
 
@@ -160,7 +160,7 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
           <section className="phase-card" aria-label="Next wave">
             <span>Wave {forecast.waveNumber} / {forecast.totalWaves}</span>
             <strong>{forecast.totalDemand} guests incoming</strong>
-            <small>{forecast.needs.map((need) => NORMAL_SERVICE_CATALOG[need].needLabel).join(' · ')}</small>
+            <small>{forecast.needs.map((need) => NORMAL_SERVICE_CATALOG[need].needLabel).join(' / ')}</small>
           </section>
         ) : null}
 
@@ -172,16 +172,16 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
           <section className="unlock-ribbon" aria-label="New resort area">
             <span>New area available</span>
             {areaUnlocks.filter((unlock) => unlock.status === 'available').map((unlock) => (
-              <button key={unlock.areaId} type="button" onClick={() => { setSelectedNeed(unlock.need); core.dispatch({ type: 'PURCHASE_AREA', areaId: unlock.areaId }); }}>Open {unlock.buildingLabel} · {unlock.coinCost} Coins</button>
+              <button key={unlock.areaId} type="button" onClick={() => { setSelectedNeed(unlock.need); core.dispatch({ type: 'PURCHASE_AREA', areaId: unlock.areaId }); }}>Open {unlock.buildingLabel} - {unlock.coinCost} Coins</button>
             ))}
           </section>
         ) : null}
 
         {wave.result !== null ? (
           <section className={'wave-result-toast' + (finalWaveComplete ? ' wave-result-toast--final' : '')} aria-live="polite">
-            <span>{finalWaveComplete ? 'Resort complete' : 'Wave complete'}</span><strong>{wave.result.rating}★</strong>
-            <p className="wave-result-toast__reward">+{normalWaveCoinReward(wave)} Coins · +{PROTOTYPE_ENERGY_PROOF_TUNING.earnedPerCompletedWave} Energy</p>
-            <p>{finalWaveComplete ? forecast.totalWaves + '/' + forecast.totalWaves + ' waves cleared · final pressure: ' + NORMAL_SERVICE_CATALOG[wave.result.bottleneckNeed].buildingLabel : NORMAL_SERVICE_CATALOG[wave.result.bottleneckNeed].buildingLabel + ' needs attention'}</p>
+            <span>{finalWaveComplete ? 'Resort complete' : 'Wave complete'}</span><strong>{wave.result.rating}/5</strong>
+            <p className="wave-result-toast__reward">+{normalWaveCoinReward(wave)} Coins | +{PROTOTYPE_ENERGY_PROOF_TUNING.earnedPerCompletedWave} Energy</p>
+            <p>{finalWaveComplete ? forecast.totalWaves + '/' + forecast.totalWaves + ' waves cleared | final pressure: ' + NORMAL_SERVICE_CATALOG[wave.result.bottleneckNeed].buildingLabel : NORMAL_SERVICE_CATALOG[wave.result.bottleneckNeed].buildingLabel + ' needs attention'}</p>
           </section>
         ) : null}
 
@@ -198,9 +198,9 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
           {wave.result?.bottleneckNeed === selectedNeed ? <p className="context-card__guidance">{wave.result.guidance}</p> : null}
           <div className="context-card__actions">
             {canReassign ? <button type="button" onClick={() => setWorkerSheetOpen(true)}>Move worker</button> : null}
-            {(wave.phase === 'incoming' || wave.phase === 'draining') && wave.activeNeedIds.includes(selectedNeed) ? <button type="button" disabled={snapshot.energy <= 0 || wave.energyMode !== null} onClick={() => core.dispatch({ type: 'ACTIVATE_ENERGY_MODE', need: selectedNeed })}>{wave.energyMode?.need === selectedNeed ? 'Boost active' : 'Boost · 1 Energy'}</button> : null}
-            {upgradeQuote?.need === selectedNeed ? <button type="button" disabled={snapshot.coins < upgradeQuote.coinCost} onClick={() => core.dispatch({ type: 'UPGRADE_BUILDING', need: selectedNeed })}>Upgrade · {upgradeQuote.coinCost} Coins</button> : null}
-            {selectedUnlock?.status === 'available' ? <button type="button" onClick={() => core.dispatch({ type: 'PURCHASE_AREA', areaId: selectedUnlock.areaId })}>Open area · {selectedUnlock.coinCost} Coins</button> : null}
+            {(wave.phase === 'incoming' || wave.phase === 'draining') && wave.activeNeedIds.includes(selectedNeed) ? <button type="button" disabled={snapshot.energy <= 0 || wave.energyMode !== null} onClick={() => core.dispatch({ type: 'ACTIVATE_ENERGY_MODE', need: selectedNeed })}>{wave.energyMode?.need === selectedNeed ? 'Boost active' : 'Boost - 1 Energy'}</button> : null}
+            {upgradeQuote?.need === selectedNeed ? <button type="button" disabled={snapshot.coins < upgradeQuote.coinCost} onClick={() => core.dispatch({ type: 'UPGRADE_BUILDING', need: selectedNeed })}>Upgrade - {upgradeQuote.coinCost} Coins</button> : null}
+            {selectedUnlock?.status === 'available' ? <button type="button" onClick={() => core.dispatch({ type: 'PURCHASE_AREA', areaId: selectedUnlock.areaId })}>Open area - {selectedUnlock.coinCost} Coins</button> : null}
           </div>
         </aside>
 

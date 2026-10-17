@@ -15,7 +15,7 @@ import {
 
 function labelNeed(need: NormalWaveNeedId): string {
   const service = NORMAL_SERVICE_CATALOG[need];
-  return `${service.buildingLabel} · ${service.needLabel}`;
+  return `${service.buildingLabel} / ${service.needLabel}`;
 }
 
 
@@ -335,7 +335,7 @@ export class PixiProjection {
         const assigned = workerAssignments.filter(([, assignedNeed]) => assignedNeed === need).length;
         const waiting = wave.queueByNeed[need];
         const level = wave.buildingLevelsByNeed[need];
-        return [building, 'LV' + level + ' · ' + (waiting > 0 ? waiting + ' WAITING' : 'FLOWING') + ' · ' + assigned + 'W'].join('\n');
+        return [building, 'LV' + level + ' | ' + (waiting > 0 ? waiting + ' WAITING' : 'FLOWING') + ' | ' + assigned + 'W'].join('\n');
       };
 
       for (const { need, frame, status, levelDecor } of serviceStatuses) {
@@ -373,7 +373,7 @@ export class PixiProjection {
       resultStatus.text = wave.result === null
         ? 'Tap a resort building to manage it.'
         : [
-            `Result: ${wave.result.rating}★ · bottleneck ${labelNeed(wave.result.bottleneckNeed)}`,
+            `Result: ${wave.result.rating}/5 | bottleneck ${labelNeed(wave.result.bottleneckNeed)}`,
             `Cause: ${wave.result.bottleneckCause}. ${wave.result.guidance}`
           ].join('\n');
 

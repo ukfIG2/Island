@@ -94,6 +94,21 @@ export class PixiProjection {
       .ellipse(450, 430, 150, 72)
       .fill(0x38a8ba);
 
+    const sceneryLayer = new Container();
+    const vegetation = new Graphics()
+      .rect(168,205,7,30).fill(0x765d3e).circle(171,198,19).fill(0x2f7b58).circle(157,205,13).fill(0x3b8c63).circle(185,207,13).fill(0x3b8c63)
+      .rect(858,236,7,31).fill(0x765d3e).circle(861,228,20).fill(0x2f7b58).circle(846,236,13).fill(0x3b8c63).circle(876,237,13).fill(0x3b8c63)
+      .rect(174,486,7,29).fill(0x765d3e).circle(177,479,18).fill(0x2f7b58).circle(164,486,12).fill(0x3b8c63).circle(190,487,12).fill(0x3b8c63)
+      .rect(855,500,7,30).fill(0x765d3e).circle(858,492,19).fill(0x2f7b58).circle(844,500,12).fill(0x3b8c63).circle(873,501,12).fill(0x3b8c63);
+    vegetation.alpha = 0.92;
+    const shoreAccents = new Graphics()
+      .ellipse(520,592,250,10).fill(0xf4e5b4)
+      .ellipse(515,606,190,5).fill(0xfff0c8)
+      .ellipse(92,130,58,5).fill(0x6dc8cc)
+      .ellipse(930,188,64,5).fill(0x6dc8cc);
+    shoreAccents.alpha = 0.48;
+    sceneryLayer.addChild(vegetation, shoreAccents);
+
     const header = new Graphics()
       .roundRect(32, 32, 560, 120, 18)
       .fill(0x183244);
@@ -140,14 +155,20 @@ export class PixiProjection {
             .rect(-43,-11,22,20).fill(0x67aebb)
             .rect(21,-11,22,20).fill(0x67aebb);
         }
+        const plot = new Graphics().ellipse(0, 34, 82, 24).fill(0x315f51);
+        plot.alpha = 0.34;
+        plot.position.set(x, y);
+        const plate = new Graphics().roundRect(-76, -22, 152, 44, 10).fill(0x102f3a);
+        plate.alpha = 0.92;
+        plate.position.set(x, y - 82);
         frame.position.set(x, y);
         frame.eventMode = 'static';
         frame.cursor = 'pointer';
         frame.on('pointertap', () => onSelectNeed?.(need));
-        const status = new Text({ text: '', style: { fill: 0xf7fbf4, fontSize: 14, lineHeight: 20, align: 'center' } });
-        status.anchor.set(0.5, 0);
-        status.position.set(x, y - 30);
-        serviceLayer.addChild(frame, status);
+        const status = new Text({ text: '', style: { fill: 0xf7fbf4, fontSize: 13, lineHeight: 16, fontWeight: '700', align: 'center' } });
+        status.anchor.set(0.5);
+        status.position.set(x, y - 82);
+        serviceLayer.addChild(plot, frame, plate, status);
         return { need, frame, status };
       });
       serviceNeedKey = key;
@@ -175,14 +196,19 @@ export class PixiProjection {
       const key = phase+'|'+active.join('|'); if(key===motionKey)return;
       for(const child of motionLayer.removeChildren())child.destroy(); movers=[];
       const count=active.length===0?0:Math.min(10,Math.max(4,active.length*2));
-      for(let i=0;i<count;i++){const need=active[i%active.length];const node=new Graphics().ellipse(0,1,6,8).fill(i%2?0xf8ede0:0xffd086).ellipse(0,-9,4,4).fill(0xe9b58f);motionLayer.addChild(node);movers.push({node,need,offset:i/count,speed:0.055+(i%4)*0.008});}
+      const guestColors=[0xffd086,0xf8ede0,0x8fd0c7,0xe99a7a];
+      for(let i=0;i<count;i++){
+        const need=active[i%active.length];
+        const node=new Graphics().ellipse(0,8,7,3).fill(0x164855).ellipse(0,0,7,9).fill(guestColors[i%guestColors.length]).circle(0,-10,4).fill(0xe9b58f);
+        motionLayer.addChild(node); movers.push({node,need,offset:i/count,speed:0.055+(i%4)*0.008});
+      }
       motionKey=key;
     };
     const animateWorld = (now: number, wave: BootstrapState['normalWave'], selected: NormalWaveNeedId | null) => {
       const sec=now/1000;
       for(const m of movers){const [tx,ty]=servicePositions[m.need],p=(sec*m.speed+m.offset)%1,arc=Math.sin(p*Math.PI),sx=520+Math.sin(m.offset*Math.PI*2)*54;m.node.position.set(sx+(tx-sx)*p+Math.sin(p*Math.PI*2+m.offset*9)*5,610+(ty-610)*p-arc*20);m.node.alpha=Math.min(.9,Math.min(p*5,(1-p)*5));m.node.scale.set(.85+arc*.18);}
       queueLayer.position.y=Math.sin(sec*3.2)*2;
-      for(const {need,frame,status} of serviceStatuses){const q=wave.queueByNeed[need],base=wave.result?.bottleneckNeed===need?1.08:selected===need?1.065:q>0?1.035:1,pulse=q>0?1+Math.sin(sec*4.5+NORMAL_SERVICE_IDS.indexOf(need))*Math.min(.025,.009+q*.003):1;frame.scale.set(base*pulse);status.y=servicePositions[need][1]-30+(q>0?Math.sin(sec*3.3+NORMAL_SERVICE_IDS.indexOf(need))*1.6:0);}
+      for(const {need,frame} of serviceStatuses){const q=wave.queueByNeed[need],base=wave.result?.bottleneckNeed===need?1.08:selected===need?1.065:q>0?1.035:1,pulse=q>0?1+Math.sin(sec*4.5+NORMAL_SERVICE_IDS.indexOf(need))*Math.min(.025,.009+q*.003):1;frame.scale.set(base*pulse);}
       for(let i=effects.length-1;i>=0;i--){const e=effects[i],p=(now-e.at)/900;if(p>=1){effectLayer.removeChild(e.node);e.node.destroy({children:true});effects.splice(i,1);}else{e.node.position.set(e.x,e.y-p*22);e.node.alpha=1-p;e.node.scale.set(.88+Math.sin(p*Math.PI)*.22);}}
     };
     const reconcileAreas = (state: BootstrapState) => {
@@ -239,6 +265,7 @@ export class PixiProjection {
       island,
       paths,
       lagoon,
+      sceneryLayer,
       areaLayer,
       motionLayer,
       queueLayer,
@@ -297,15 +324,11 @@ export class PixiProjection {
 
       const serviceText = (need: NormalWaveNeedId): string => {
         const unlocked = need === 'relax' ? snapshot.purchasedAreas.pool : need === 'oceanView' ? snapshot.purchasedAreas.bungalows : true;
-        if (!unlocked) return [NORMAL_SERVICE_CATALOG[need].buildingLabel, 'LOCKED'].join('\n');
+        const building = NORMAL_SERVICE_CATALOG[need].buildingLabel.toUpperCase();
+        if (!unlocked) return [building, 'LOCKED'].join('\n');
         const assigned = workerAssignments.filter(([, assignedNeed]) => assignedNeed === need).length;
         const waiting = wave.queueByNeed[need];
-        return [
-          NORMAL_SERVICE_CATALOG[need].buildingLabel.toUpperCase(),
-          NORMAL_SERVICE_CATALOG[need].needLabel,
-          waiting > 0 ? waiting + ' waiting' : 'Flowing',
-          assigned + ' worker' + (assigned === 1 ? '' : 's')
-        ].join('\n');
+        return [building, waiting > 0 ? waiting + ' WAITING · ' + assigned + 'W' : 'FLOWING · ' + assigned + 'W'].join('\n');
       };
 
       for (const { need, frame, status } of serviceStatuses) {
@@ -328,7 +351,7 @@ export class PixiProjection {
           const waiting = Math.min(8, wave.queueByNeed[need]);
           const pos = servicePositions[need];
           for (let i = 0; i < waiting; i += 1) {
-            const guest = new Graphics().ellipse(0,0,7,9).fill(i % 2 === 0 ? 0xffd086 : 0xf8ede0).ellipse(0,-11,4,4).fill(0xe9b58f);
+            const guest = new Graphics().ellipse(0,8,7,3).fill(0x164855).ellipse(0,0,7,9).fill(i % 2 === 0 ? 0xffd086 : 0xf8ede0).circle(0,-11,4).fill(0xe9b58f);
             guest.position.set(pos[0] - 30 + (i % 4) * 20, pos[1] + 58 + Math.floor(i / 4) * 24);
             queueLayer.addChild(guest);
           }

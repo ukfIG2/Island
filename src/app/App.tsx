@@ -185,7 +185,7 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
           </section>
         ) : null}
 
-        <aside className="context-card" aria-label="Selected building actions">
+        <aside key={selectedNeed} className="context-card context-card--entered" aria-label="Selected building actions">
           <div className="context-card__heading">
             <div><span>{NORMAL_SERVICE_CATALOG[selectedNeed].needLabel}</span><h2>{NORMAL_SERVICE_CATALOG[selectedNeed].buildingLabel}</h2></div>
             <strong>{selectedCapacity}/tick</strong>

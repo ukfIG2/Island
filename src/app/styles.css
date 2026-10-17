@@ -449,3 +449,41 @@ button:disabled {
 
 /* Reward feedback polish v1 */
 .wave-result-toast__reward{grid-column:1/-1!important;margin:2px 0 0!important;padding:5px 8px;border-radius:10px;background:rgba(245,217,120,.12);color:#ffe59b!important;font-size:12px!important;font-weight:800;opacity:1!important}
+
+/* tactile interaction polish */
+button {
+  transition: transform .09s ease, box-shadow .14s ease, background-color .14s ease, border-color .14s ease, opacity .14s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+button:active:not(:disabled) {
+  transform: translateY(1px) scale(.965);
+  box-shadow: inset 0 2px 7px rgba(0,0,0,.22);
+}
+.hud-primary-action:active:not(:disabled),
+.context-card__actions button:active:not(:disabled),
+.unlock-ribbon button:active:not(:disabled),
+.worker-row__destinations button:active:not(:disabled) {
+  transform: translateY(2px) scale(.96);
+}
+.world-status__building:active:not(:disabled) {
+  transform: translateY(0) scale(.96);
+}
+.world-status__building.is-selected {
+  transition: transform .16s cubic-bezier(.2,.9,.25,1.25), box-shadow .16s ease, background .14s ease, border-color .14s ease;
+}
+.context-card--entered {
+  animation: context-card-enter .18s cubic-bezier(.2,.85,.25,1);
+}
+@keyframes context-card-enter {
+  from { opacity: .72; transform: translateY(5px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.context-card__actions button:not(:disabled),
+.unlock-ribbon button:not(:disabled),
+.worker-row__destinations button:not(:disabled) {
+  box-shadow: 0 4px 12px rgba(0,0,0,.16);
+}
+button:disabled {
+  cursor: default;
+  filter: saturate(.55);
+}

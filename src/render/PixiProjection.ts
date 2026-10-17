@@ -164,7 +164,11 @@ export class PixiProjection {
         frame.position.set(x, y);
         frame.eventMode = 'static';
         frame.cursor = 'pointer';
-        frame.on('pointertap', () => onSelectNeed?.(need));
+        frame.on('pointerdown', () => frame.scale.set(0.96));
+        frame.on('pointerup', () => frame.scale.set(1));
+        frame.on('pointerupoutside', () => frame.scale.set(1));
+        frame.on('pointerout', () => frame.scale.set(1));
+        frame.on('pointertap', () => { burst('SELECT', need, 0xffe08a); onSelectNeed?.(need); });
         const status = new Text({ text: '', style: { fill: 0xf7fbf4, fontSize: 13, lineHeight: 16, fontWeight: '700', align: 'center' } });
         status.anchor.set(0.5);
         status.position.set(x, y - 82);

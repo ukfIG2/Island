@@ -1,7 +1,9 @@
 import {
   Application,
+  Assets,
   Container,
   Graphics,
+  Sprite,
   Text
 } from 'pixi.js';
 
@@ -113,12 +115,26 @@ export class PixiProjection {
       .roundRect(32, 32, 560, 120, 18)
       .fill(0x183244);
 
+    const loadWorldTexture = async (path: string) => {
+      try { return await Assets.load(path); } catch { return null; }
+    };
+    const [receptionTexture, restaurantTexture, beachBarTexture, poolTexture, bungalowsTexture] = await Promise.all([
+      loadWorldTexture('/assets/world/buildings/reception.svg'),
+      loadWorldTexture('/assets/world/buildings/restaurant.svg'),
+      loadWorldTexture('/assets/world/buildings/beach-bar.svg'),
+      loadWorldTexture('/assets/world/areas/pool.svg'),
+      loadWorldTexture('/assets/world/areas/bungalows.svg')
+    ]);
+    const serviceAssetTextures: Partial<Record<NormalWaveNeedId, typeof receptionTexture>> = {
+      reception: receptionTexture, food: restaurantTexture, drinks: beachBarTexture
+    };
+
     const serviceLayer = new Container();
     const servicePositions: Record<NormalWaveNeedId, readonly [number, number]> = {
       reception: [520, 180], food: [310, 330], drinks: [735, 330], relax: [420, 475], oceanView: [720, 505]
     };
     let serviceNeedKey = '';
-    let serviceStatuses: Array<{ need: NormalWaveNeedId; frame: Graphics; status: Text; levelDecor: Graphics }> = [];
+    let serviceStatuses: Array<{ need: NormalWaveNeedId; frame: Graphics; status: Text; levelDecor: Graphics; art?: Sprite }> = [];
     const reconcileServices = (needs: readonly NormalWaveNeedId[]) => {
       const key = needs.join('|');
       if (key === serviceNeedKey) return;
@@ -155,6 +171,17 @@ export class PixiProjection {
             .rect(-43,-11,22,20).fill(0x67aebb)
             .rect(21,-11,22,20).fill(0x67aebb);
         }
+        let art: Sprite | undefined;
+        const texture = serviceAssetTextures[need];
+        if (texture) {
+          art = new Sprite(texture);
+          art.anchor.set(0.5);
+          art.position.set(0, -7);
+          art.width = 154;
+          art.height = 109;
+          art.eventMode = 'none';
+          frame.addChild(art);
+        }
         const levelDecor = new Graphics();
         levelDecor.position.set(x, y);
         const plot = new Graphics().ellipse(0, 34, 82, 24).fill(0x315f51);
@@ -175,7 +202,7 @@ export class PixiProjection {
         status.anchor.set(0.5);
         status.position.set(x, y - 82);
         serviceLayer.addChild(plot, levelDecor, frame, plate, status);
-        return { need, frame, status, levelDecor };
+        return { need, frame, status, levelDecor, art };
       });
       serviceNeedKey = key;
     };
@@ -222,12 +249,16 @@ export class PixiProjection {
       if (key === areaKey) return;
       for (const child of areaLayer.removeChildren()) child.destroy();
       if (state.purchasedAreas.pool) {
-        areaLayer.addChild(new Graphics().roundRect(320,402,206,142,28).fill(0xd8c79a).ellipse(422,472,72,42).fill(0x48bfd0).ellipse(422,472,54,30).fill(0x79dce7).rect(342,430,34,8).fill(0xf6e8ba).rect(468,430,34,8).fill(0xf6e8ba).circle(352,421,12).fill(0xe8906f).circle(492,421,12).fill(0xe8906f).rect(349,422,6,25).fill(0x8b6948).rect(489,422,6,25).fill(0x8b6948));
+        if (poolTexture) {
+          const poolArt = new Sprite(poolTexture); poolArt.anchor.set(0.5); poolArt.position.set(423,473); poolArt.width=206; poolArt.height=144; poolArt.eventMode='none'; areaLayer.addChild(poolArt);
+        } else areaLayer.addChild(new Graphics().roundRect(320,402,206,142,28).fill(0xd8c79a).ellipse(422,472,72,42).fill(0x48bfd0).ellipse(422,472,54,30).fill(0x79dce7).rect(342,430,34,8).fill(0xf6e8ba).rect(468,430,34,8).fill(0xf6e8ba).circle(352,421,12).fill(0xe8906f).circle(492,421,12).fill(0xe8906f).rect(349,422,6,25).fill(0x8b6948).rect(489,422,6,25).fill(0x8b6948));
       } else {
         areaLayer.addChild(new Graphics().roundRect(332,414,180,124,24).stroke({width:3,color:0xffffff,alpha:0.18}));
       }
       if (state.purchasedAreas.bungalows) {
-        areaLayer.addChild(new Graphics().roundRect(620,406,232,158,26).fill(0xd8c79a).roundRect(638,448,82,54,10).fill(0xf0d8a9).poly([630,448,679,412,728,448]).fill(0xb96f4d).roundRect(744,486,82,54,10).fill(0xf0d8a9).poly([736,486,785,450,834,486]).fill(0xb96f4d).roundRect(730,414,72,46,9).fill(0xf4dfb8).poly([723,414,766,383,809,414]).fill(0xc17855).circle(662,526,12).fill(0x3b8c63).circle(815,443,13).fill(0x3b8c63).circle(826,527,11).fill(0x3b8c63));
+        if (bungalowsTexture) {
+          const bungalowArt = new Sprite(bungalowsTexture); bungalowArt.anchor.set(0.5); bungalowArt.position.set(736,485); bungalowArt.width=240; bungalowArt.height=155; bungalowArt.eventMode='none'; areaLayer.addChild(bungalowArt);
+        } else areaLayer.addChild(new Graphics().roundRect(620,406,232,158,26).fill(0xd8c79a).roundRect(638,448,82,54,10).fill(0xf0d8a9).poly([630,448,679,412,728,448]).fill(0xb96f4d).roundRect(744,486,82,54,10).fill(0xf0d8a9).poly([736,486,785,450,834,486]).fill(0xb96f4d).roundRect(730,414,72,46,9).fill(0xf4dfb8).poly([723,414,766,383,809,414]).fill(0xc17855).circle(662,526,12).fill(0x3b8c63).circle(815,443,13).fill(0x3b8c63).circle(826,527,11).fill(0x3b8c63));
       } else {
         areaLayer.addChild(new Graphics().roundRect(632,424,214,138,24).stroke({width:3,color:0xffffff,alpha:0.18}));
       }

@@ -3,6 +3,7 @@ import {
   Assets,
   Container,
   Graphics,
+  Rectangle,
   Sprite,
   Text
 } from 'pixi.js';
@@ -143,6 +144,7 @@ export class PixiProjection {
         const [x, y] = servicePositions[need];
         const frame = new Graphics();
         const texture = serviceAssetTextures[need];
+        if (texture) frame.hitArea = new Rectangle(-77, -61.5, 154, 109);
         if (!texture) {
           if (need === 'reception') {
           frame.roundRect(-62,-38,124,78,14).fill(0xf2dfb1)

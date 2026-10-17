@@ -155,9 +155,36 @@ export class PixiProjection {
     reconcileServices(NORMAL_SERVICE_IDS);
 
     const areaLayer = new Container();
+    const motionLayer = new Container();
     const queueLayer = new Container();
+    const effectLayer = new Container();
     let areaKey = '';
     let queueKey = '';
+    let motionKey = '';
+    let movers: Array<{ node: Graphics; need: NormalWaveNeedId; offset: number; speed: number }> = [];
+    const effects: Array<{ node: Container; x: number; y: number; at: number }> = [];
+    const burst = (label: string, need: NormalWaveNeedId | null, color = 0xffe08a) => {
+      const [x,y] = need === null ? [520,270] : servicePositions[need];
+      const node = new Container();
+      const ring = new Graphics().circle(0,0,28).stroke({width:3,color,alpha:0.9});
+      const text = new Text({text:label,style:{fill:color,fontSize:15,fontWeight:'700'}}); text.anchor.set(0.5); text.y=-40;
+      node.position.set(x,y); node.addChild(ring,text); effectLayer.addChild(node); effects.push({node,x,y,at:performance.now()});
+    };
+    const syncMovers = (phase: string, needs: readonly NormalWaveNeedId[]) => {
+      const active = phase === 'incoming' || phase === 'draining' ? needs : [];
+      const key = phase+'|'+active.join('|'); if(key===motionKey)return;
+      for(const child of motionLayer.removeChildren())child.destroy(); movers=[];
+      const count=active.length===0?0:Math.min(10,Math.max(4,active.length*2));
+      for(let i=0;i<count;i++){const need=active[i%active.length];const node=new Graphics().ellipse(0,1,6,8).fill(i%2?0xf8ede0:0xffd086).ellipse(0,-9,4,4).fill(0xe9b58f);motionLayer.addChild(node);movers.push({node,need,offset:i/count,speed:0.055+(i%4)*0.008});}
+      motionKey=key;
+    };
+    const animateWorld = (now: number, wave: BootstrapState['normalWave'], selected: NormalWaveNeedId | null) => {
+      const sec=now/1000;
+      for(const m of movers){const [tx,ty]=servicePositions[m.need],p=(sec*m.speed+m.offset)%1,arc=Math.sin(p*Math.PI),sx=520+Math.sin(m.offset*Math.PI*2)*54;m.node.position.set(sx+(tx-sx)*p+Math.sin(p*Math.PI*2+m.offset*9)*5,610+(ty-610)*p-arc*20);m.node.alpha=Math.min(.9,Math.min(p*5,(1-p)*5));m.node.scale.set(.85+arc*.18);}
+      queueLayer.position.y=Math.sin(sec*3.2)*2;
+      for(const {need,frame,status} of serviceStatuses){const q=wave.queueByNeed[need],base=wave.result?.bottleneckNeed===need?1.08:selected===need?1.065:q>0?1.035:1,pulse=q>0?1+Math.sin(sec*4.5+NORMAL_SERVICE_IDS.indexOf(need))*Math.min(.025,.009+q*.003):1;frame.scale.set(base*pulse);status.y=servicePositions[need][1]-30+(q>0?Math.sin(sec*3.3+NORMAL_SERVICE_IDS.indexOf(need))*1.6:0);}
+      for(let i=effects.length-1;i>=0;i--){const e=effects[i],p=(now-e.at)/900;if(p>=1){effectLayer.removeChild(e.node);e.node.destroy({children:true});effects.splice(i,1);}else{e.node.position.set(e.x,e.y-p*22);e.node.alpha=1-p;e.node.scale.set(.88+Math.sin(p*Math.PI)*.22);}}
+    };
     const reconcileAreas = (state: BootstrapState) => {
       const key = (state.purchasedAreas.pool ? '1' : '0') + (state.purchasedAreas.bungalows ? '1' : '0');
       if (key === areaKey) return;
@@ -213,10 +240,20 @@ export class PixiProjection {
       paths,
       lagoon,
       areaLayer,
+      motionLayer,
       queueLayer,
-      serviceLayer
+      serviceLayer,
+      effectLayer
     );
 
+    type VisualState = { phase:string; pool:boolean; bungalows:boolean; energy:NormalWaveNeedId|null; workers:Record<string,NormalWaveNeedId|undefined>; levels:Record<NormalWaveNeedId,number>; queues:Record<NormalWaveNeedId,number> };
+    let previousVisual: VisualState | null = null;
+    const visual = (state: BootstrapState): VisualState => ({phase:state.normalWave.phase,pool:state.purchasedAreas.pool,bungalows:state.purchasedAreas.bungalows,energy:state.normalWave.energyMode?.need??null,workers:{...state.normalWave.workerAssignments},levels:{...state.normalWave.buildingLevelsByNeed},queues:{...state.normalWave.queueByNeed}});
+    const emitChanges = (before: VisualState, after: VisualState) => {
+      if(!before.pool&&after.pool)burst('POOL OPEN','relax',0x8ce7ef); if(!before.bungalows&&after.bungalows)burst('BUNGALOWS OPEN','oceanView',0xffd99b); if(before.energy!==after.energy&&after.energy)burst('BOOST',after.energy,0x8ce7ef);
+      for(const need of NORMAL_SERVICE_IDS){const bw=Object.values(before.workers).filter(v=>v===need).length,aw=Object.values(after.workers).filter(v=>v===need).length;if(aw>bw)burst('WORKER +1',need,0xa7f3b4);if(after.levels[need]>before.levels[need])burst('LEVEL UP',need);if(before.queues[need]===0&&after.queues[need]>0)burst('QUEUE',need,0xff9b7f);}
+      if(before.phase!=='complete'&&after.phase==='complete')burst('WAVE CLEAR',null,0xa7f3b4);
+    };
     let renderedSignature = '';
 
     const renderFrame = () => {
@@ -231,8 +268,13 @@ export class PixiProjection {
     const selectedNeed = readSelectedNeed?.() ?? null;
       const signature = JSON.stringify([
       selectedNeed,
+        snapshot.currentWaveNumber,
+        snapshot.purchasedAreas.pool,
+        snapshot.purchasedAreas.bungalows,
         wave.phase,
         wave.releasedDemand,
+        wave.energyMode?.need ?? null,
+        ...NORMAL_SERVICE_IDS.map(need => wave.buildingLevelsByNeed[need]),
         ...wave.activeNeedIds.flatMap(need => [
           wave.queueByNeed[need],
           wave.activeByNeed[need],
@@ -244,11 +286,11 @@ export class PixiProjection {
         wave.result?.guidance ?? null
       ]);
 
-      if (signature === renderedSignature) {
-        return;
-      }
-
-      renderedSignature = signature;
+      if (signature !== renderedSignature) {
+        const currentVisual = visual(snapshot);
+        if (previousVisual !== null) emitChanges(previousVisual, currentVisual);
+        previousVisual = currentVisual;
+        renderedSignature = signature;
 
       waveStatus.text =
         `${wave.phase === 'awaiting' ? 'Ready for guests' : wave.phase === 'complete' ? 'Day complete' : `Guests ${wave.releasedDemand}/${wave.tuning.totalDemand}`}`;
@@ -301,6 +343,10 @@ export class PixiProjection {
             `Cause: ${wave.result.bottleneckCause}. ${wave.result.guidance}`
           ].join('\n');
 
+      }
+
+      syncMovers(wave.phase, visibleNeeds.filter(need => wave.activeNeedIds.includes(need)));
+      animateWorld(performance.now(), wave, selectedNeed);
       app.renderer.render(app.stage);
     };
 

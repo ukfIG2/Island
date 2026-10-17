@@ -18,7 +18,8 @@ import {
 } from './core/runtime';
 
 import {
-  createInitialBootstrapState
+  createInitialBootstrapState,
+  PROTOTYPE_ECONOMY_PROOF_TUNING
 } from './core/state';
 
 import {
@@ -37,6 +38,11 @@ import {
 import {
   SimulationClock
 } from './runtime/SimulationClock';
+
+import {
+  consumePrototypeComebackEligibility,
+  recordPrototypeInactivity
+} from './runtime/PrototypeInactivity';
 
 async function boot(): Promise<void> {
   const persistence = new DexieBootstrapPersistence();
@@ -79,11 +85,21 @@ async function boot(): Promise<void> {
 
   const core = new BootstrapCore(initial, debug);
 
+  const claimComebackReward = (): boolean => {
+    if (capacityUpgradeProof || !consumePrototypeComebackEligibility(window.localStorage, Date.now())) return false;
+    core.dispatch({ type: 'CLAIM_COMEBACK_REWARD' });
+    return true;
+  };
+
+  const comebackRewardGranted = document.visibilityState === 'visible' && claimComebackReward();
+
   // Prototype interaction cadence only; gameplay semantics remain delta-driven
   // in the renderer-independent core and are not coupled to Pixi rendering.
   const simulationClock = new SimulationClock(core, 1000);
 
-  simulationClock.start();
+  if (document.visibilityState === 'visible') {
+    simulationClock.start();
+  }
 
   installDevFacade(
     core,
@@ -91,16 +107,34 @@ async function boot(): Promise<void> {
     debugEvents
   );
 
+  const persistSnapshot = (): void => {
+    if (!capacityUpgradeProof) {
+      void persistence.save(core.getSnapshot()).catch(() => undefined);
+    }
+  };
+
+  const handleVisibilityChange = (): void => {
+    if (document.visibilityState !== 'visible') {
+      simulationClock.stop();
+      if (!capacityUpgradeProof) recordPrototypeInactivity(window.localStorage, Date.now());
+      persistSnapshot();
+      return;
+    }
+
+    if (claimComebackReward()) {
+      window.dispatchEvent(new CustomEvent<number>('resort-empire:comeback-reward', { detail: PROTOTYPE_ECONOMY_PROOF_TUNING.comebackRewardCoins }));
+    }
+    simulationClock.start();
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+
   window.addEventListener(
     'pagehide',
     () => {
       simulationClock.stop();
-
-      if (!capacityUpgradeProof) {
-        void persistence
-          .save(core.getSnapshot())
-          .catch(() => undefined);
-      }
+      if (!capacityUpgradeProof) recordPrototypeInactivity(window.localStorage, Date.now());
+      persistSnapshot();
     },
     { once: true }
   );
@@ -113,7 +147,10 @@ async function boot(): Promise<void> {
 
   createRoot(root).render(
     <StrictMode>
-      <App core={core} />
+      <App
+        core={core}
+        comebackRewardCoins={comebackRewardGranted ? PROTOTYPE_ECONOMY_PROOF_TUNING.comebackRewardCoins : 0}
+      />
     </StrictMode>
   );
 }

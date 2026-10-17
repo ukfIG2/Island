@@ -72,7 +72,8 @@ describe('Prototype area unlock progression', () => {
     const wave3Complete = completeThrough(createInitialBootstrapState('pool-purchase'), 3);
     const wave4 = applyBootstrapCommand(wave3Complete, { type: 'CONTINUE_TO_NEXT_WAVE' });
     const purchased = applyBootstrapCommand(wave4, { type: 'PURCHASE_AREA', areaId: 'pool' });
-    expect(purchased.coins).toBe(20);
+    const poolCost = prototypeAreaUnlockView(wave4, 'pool').coinCost;
+    expect(purchased.coins).toBe(wave4.coins - poolCost);
     expect(purchased.purchasedAreas.pool).toBe(true);
     expect(purchased.normalWave.activeNeedIds).toEqual(['reception', 'food', 'drinks', 'relax']);
     expect(purchased.normalWave.debutNeedIds).toEqual(['relax']);

@@ -80,6 +80,35 @@ export interface PrototypeUpgradeQuote {
   readonly resortValueGain: number;
 }
 
+export interface PrototypeEnergyProofTuning {
+  readonly startingEnergy: number;
+  readonly earnedPerCompletedWave: number;
+  readonly boostedServiceCycles: number;
+  readonly boostDurationTicks: number;
+}
+
+// Deterministic proof tuning only; these values are not product requirements.
+export const PROTOTYPE_ENERGY_PROOF_TUNING: PrototypeEnergyProofTuning = {
+  startingEnergy: 0, earnedPerCompletedWave: 1, boostedServiceCycles: 2, boostDurationTicks: 2
+};
+
+export interface PrototypeEconomyProofTuning {
+  readonly perUnitCoinValue: number;
+  readonly ratingModifierByRating: Readonly<Record<number, number>>;
+  readonly comebackRewardCoins: number;
+}
+
+// Deterministic proof tuning only; canonical requirements define reward structure, not these numeric values.
+export const PROTOTYPE_ECONOMY_PROOF_TUNING: PrototypeEconomyProofTuning = {
+  perUnitCoinValue: 5,
+  ratingModifierByRating: { 1: 0.2, 2: 0.4, 3: 0.6, 4: 0.8, 5: 1 },
+  comebackRewardCoins: 5
+};
+export interface PrototypeEnergyMode { readonly need: NormalWaveNeedId; readonly ticksRemaining: number; }
+export interface PrototypeSuddenRushState { readonly scheduled: boolean; readonly triggered: boolean; readonly triggerAfterReleasedDemand: number; readonly extraDemand: number; }
+// Deterministic playtest fixture; exact Rush timing/volume is not a product requirement.
+export const PROTOTYPE_SUDDEN_RUSH_PROOF_TUNING = { earliestWave: 5 as PrototypeWaveNumber, triggerAfterReleasedDemand: 2, extraDemand: 2 } as const;
+
 export interface NormalWaveProofTuning {
   readonly totalDemand: number;
   readonly releasePerTick: number;
@@ -140,6 +169,8 @@ export interface NormalWaveState {
   readonly workerSlotsByNeed: NeedCounts;
   readonly workerAssignments: NormalWaveWorkerAssignments;
   readonly reassignments: readonly WorkerReassignmentImpact[];
+  readonly energyMode: PrototypeEnergyMode | null;
+  readonly suddenRush: PrototypeSuddenRushState;
   readonly result: NormalWaveResult | null;
 }
 
@@ -148,6 +179,8 @@ export interface BootstrapState {
   readonly bootId: string;
   readonly simulationTick: number;
   readonly elapsedSimulationMs: number;
+  readonly energy: number;
+  readonly suddenRushOccurred: boolean;
   readonly coins: number;
   readonly resortValue: number;
   readonly currentWaveNumber: PrototypeWaveNumber;
@@ -161,7 +194,9 @@ export type BootstrapCommand =
   | { readonly type: 'CONTINUE_TO_NEXT_WAVE' }
   | { readonly type: 'PURCHASE_AREA'; readonly areaId: PrototypeAreaId }
   | { readonly type: 'UPGRADE_BUILDING'; readonly need: NormalWaveNeedId }
-  | { readonly type: 'REASSIGN_WORKER'; readonly workerId: NormalWaveWorkerId; readonly to: NormalWaveNeedId };
+  | { readonly type: 'REASSIGN_WORKER'; readonly workerId: NormalWaveWorkerId; readonly to: NormalWaveNeedId }
+  | { readonly type: 'ACTIVATE_ENERGY_MODE'; readonly need: NormalWaveNeedId }
+  | { readonly type: 'CLAIM_COMEBACK_REWARD' };
 
 const empty = (): Record<NormalWaveNeedId, number> => ({ reception: 0, food: 0, drinks: 0, relax: 0, oceanView: 0 });
 const oneSlotEach = (): Record<NormalWaveNeedId, number> => ({ reception: 1, food: 1, drinks: 1, relax: 1, oceanView: 1 });
@@ -194,13 +229,17 @@ function validateWorkerModel(wave: NormalWaveState): void {
   }
 }
 
+function noSuddenRush(): PrototypeSuddenRushState { return { scheduled: false, triggered: false, triggerAfterReleasedDemand: 0, extraDemand: 0 }; }
+function scheduledSuddenRush(): PrototypeSuddenRushState { return { scheduled: true, triggered: false, triggerAfterReleasedDemand: PROTOTYPE_SUDDEN_RUSH_PROOF_TUNING.triggerAfterReleasedDemand, extraDemand: PROTOTYPE_SUDDEN_RUSH_PROOF_TUNING.extraDemand }; }
+
 function awaiting(
   tuning: NormalWaveProofTuning,
   workerAssignments: NormalWaveWorkerAssignments = { [NORMAL_WAVE_PROOF_WORKER_ID]: 'reception' },
   buildingLevelsByNeed: BuildingLevels = initialBuildingLevels(),
   upgradeTuning: PrototypeUpgradeTuning = PROTOTYPE_UPGRADE_PROOF_TUNING,
   activeNeedIds: readonly NormalWaveNeedId[] = NORMAL_WAVE_NEEDS,
-  debutNeedIds: readonly NormalWaveNeedId[] = []
+  debutNeedIds: readonly NormalWaveNeedId[] = [],
+  suddenRush: PrototypeSuddenRushState = noSuddenRush()
 ): NormalWaveState {
   validateTuning(tuning);
   const demandTargetByNeed = empty();
@@ -214,7 +253,7 @@ function awaiting(
     upgradeTuning: { ...upgradeTuning, capacityBonusByLevel: { ...upgradeTuning.capacityBonusByLevel }, coinCostByTargetLevel: { ...upgradeTuning.coinCostByTargetLevel }, resortValueGainByTargetLevel: { ...upgradeTuning.resortValueGainByTargetLevel } },
     releasedDemand: 0, queueByNeed: empty(), activeByNeed: empty(), servedByNeed: empty(), peakQueueByNeed: empty(),
     accumulatedWaitByNeed: empty(), staffingWaitByNeed: empty(), capacityWaitByNeed: empty(), totalQueuePressure: 0,
-    workerSlotsByNeed: oneSlotEach(), workerAssignments: { ...workerAssignments }, reassignments: [], result: null
+    workerSlotsByNeed: oneSlotEach(), workerAssignments: { ...workerAssignments }, reassignments: [], energyMode: null, suddenRush: { ...suddenRush }, result: null
   };
   validateWorkerModel(wave);
   return wave;
@@ -336,80 +375,45 @@ function resultFor(wave: NormalWaveState): NormalWaveResult {
   };
 }
 
+export function normalWaveCoinReward(wave: NormalWaveState): number {
+  if (wave.phase !== 'complete' || wave.result === null) return 0;
+  const ratingModifier = PROTOTYPE_ECONOMY_PROOF_TUNING.ratingModifierByRating[wave.result.rating] ?? 0;
+  return Math.round(wave.releasedDemand * PROTOTYPE_ECONOMY_PROOF_TUNING.perUnitCoinValue * ratingModifier);
+}
+
 function advanceWave(wave: NormalWaveState): NormalWaveState {
   if (wave.phase !== 'incoming' && wave.phase !== 'draining') return wave;
-
-  const releasedNow = wave.phase === 'incoming'
-    ? Math.min(wave.tuning.releasePerTick, wave.tuning.totalDemand - wave.releasedDemand)
-    : 0;
+  const rushNow = wave.phase === 'incoming' && wave.suddenRush.scheduled && !wave.suddenRush.triggered && wave.releasedDemand >= wave.suddenRush.triggerAfterReleasedDemand;
+  const suddenRush = rushNow ? { ...wave.suddenRush, triggered: true } : wave.suddenRush;
+  const demandTargetByNeed = copy(wave.demandTargetByNeed);
+  if (rushNow) for (const need of wave.activeNeedIds) demandTargetByNeed[need] += suddenRush.extraDemand;
+  const totalDemandTarget = wave.tuning.totalDemand + (suddenRush.triggered ? suddenRush.extraDemand : 0);
+  const releasedNow = wave.phase === 'incoming' ? Math.min(wave.tuning.releasePerTick, totalDemandTarget - wave.releasedDemand) : 0;
   const releasedDemand = wave.releasedDemand + releasedNow;
   const releasedByNeed = copy(wave.releasedByNeed);
-
-  // Active service lasts one simulation step. Finish prior active service first,
-  // then release demand, queue it, and admit new active service up to capacity.
-  const servedByNeed = copy(wave.servedByNeed);
-  const queueByNeed = empty();
-  const activeByNeed = empty();
-  const peakQueueByNeed = copy(wave.peakQueueByNeed);
-  const accumulatedWaitByNeed = copy(wave.accumulatedWaitByNeed);
-  const staffingWaitByNeed = copy(wave.staffingWaitByNeed);
-  const capacityWaitByNeed = copy(wave.capacityWaitByNeed);
-
+  const servedByNeed = copy(wave.servedByNeed), queueByNeed = empty(), activeByNeed = empty();
+  const peakQueueByNeed = copy(wave.peakQueueByNeed), accumulatedWaitByNeed = copy(wave.accumulatedWaitByNeed);
+  const staffingWaitByNeed = copy(wave.staffingWaitByNeed), capacityWaitByNeed = copy(wave.capacityWaitByNeed);
   for (const need of wave.activeNeedIds) {
     servedByNeed[need] += wave.activeByNeed[need];
-
-    const releaseForNeed = Math.min(releasedNow, Math.max(0, wave.demandTargetByNeed[need] - releasedByNeed[need]));
+    const releaseForNeed = Math.min(releasedNow, Math.max(0, demandTargetByNeed[need] - releasedByNeed[need]));
     releasedByNeed[need] += releaseForNeed;
-    const waitingBeforeAdmission = wave.queueByNeed[need] + releaseForNeed;
-    const admitted = Math.min(waitingBeforeAdmission, capacity(wave, need));
-    const remaining = waitingBeforeAdmission - admitted;
-
-    activeByNeed[need] = admitted;
-    queueByNeed[need] = remaining;
-    peakQueueByNeed[need] = Math.max(peakQueueByNeed[need], remaining);
-    accumulatedWaitByNeed[need] += remaining;
-
-    if (remaining > 0) {
-      if (workerCount(wave, need) === 0) {
-        staffingWaitByNeed[need] += remaining;
-      } else {
-        capacityWaitByNeed[need] += remaining;
-      }
-    }
+    let waiting = wave.queueByNeed[need] + releaseForNeed;
+    const simultaneousCapacity = capacity(wave, need);
+    const cycles = wave.energyMode?.need === need ? PROTOTYPE_ENERGY_PROOF_TUNING.boostedServiceCycles : 1;
+    for (let cycle = 1; cycle < cycles; cycle += 1) { const fast = Math.min(waiting, simultaneousCapacity); servedByNeed[need] += fast; waiting -= fast; }
+    const admitted = Math.min(waiting, simultaneousCapacity), remaining = waiting - admitted;
+    activeByNeed[need] = admitted; queueByNeed[need] = remaining; peakQueueByNeed[need] = Math.max(peakQueueByNeed[need], remaining); accumulatedWaitByNeed[need] += remaining;
+    if (remaining > 0) { if (workerCount(wave, need) === 0) staffingWaitByNeed[need] += remaining; else capacityWaitByNeed[need] += remaining; }
   }
-
-  const pressure = wave.activeNeedIds.reduce(
-    (sum, need) => sum + queueByNeed[need],
-    0
-  );
-  const arrivalsFinished = releasedDemand >= wave.tuning.totalDemand;
+  const pressure = wave.activeNeedIds.reduce((sum, need) => sum + queueByNeed[need], 0);
+  const arrivalsFinished = releasedDemand >= totalDemandTarget;
   const queuesDrained = wave.activeNeedIds.every(need => queueByNeed[need] === 0);
   const serviceDrained = wave.activeNeedIds.every(need => activeByNeed[need] === 0);
-
-  const phase: NormalWavePhase = arrivalsFinished
-    ? queuesDrained && serviceDrained
-      ? 'complete'
-      : 'draining'
-    : 'incoming';
-
-  const next: NormalWaveState = {
-    ...wave,
-    phase,
-    releasedDemand,
-    releasedByNeed,
-    queueByNeed,
-    activeByNeed,
-    servedByNeed,
-    peakQueueByNeed,
-    accumulatedWaitByNeed,
-    staffingWaitByNeed,
-    capacityWaitByNeed,
-    totalQueuePressure: wave.totalQueuePressure + pressure
-  };
-
-  return phase === 'complete'
-    ? { ...next, result: resultFor(next) }
-    : next;
+  const phase: NormalWavePhase = arrivalsFinished ? (queuesDrained && serviceDrained ? 'complete' : 'draining') : 'incoming';
+  const energyMode = wave.energyMode === null ? null : wave.energyMode.ticksRemaining <= 1 ? null : { ...wave.energyMode, ticksRemaining: wave.energyMode.ticksRemaining - 1 };
+  const next: NormalWaveState = { ...wave, phase, demandTargetByNeed, suddenRush, energyMode, releasedDemand, releasedByNeed, queueByNeed, activeByNeed, servedByNeed, peakQueueByNeed, accumulatedWaitByNeed, staffingWaitByNeed, capacityWaitByNeed, totalQueuePressure: wave.totalQueuePressure + pressure };
+  return phase === 'complete' ? { ...next, result: resultFor(next) } : next;
 }
 
 export function createInitialBootstrapState(
@@ -421,6 +425,8 @@ export function createInitialBootstrapState(
     bootId,
     simulationTick: 0,
     elapsedSimulationMs: 0,
+    energy: PROTOTYPE_ENERGY_PROOF_TUNING.startingEnergy,
+    suddenRushOccurred: false,
     coins: PROTOTYPE_UPGRADE_PROOF_TUNING.startingCoins,
     resortValue: PROTOTYPE_UPGRADE_PROOF_TUNING.startingResortValue,
     currentWaveNumber: 1,
@@ -437,9 +443,11 @@ export function applyBootstrapCommand(state: BootstrapState, command: BootstrapC
 
     case 'CONTINUE_TO_NEXT_WAVE': {
       if (state.normalWave.phase !== 'complete') throw new Error('NORMAL_WAVE_CONTINUE_INVALID');
+      const nextWaveNumber = nextPrototypeWaveNumber(state.currentWaveNumber);
       const activeNeedIds = activeNeedIdsForAreas(state.purchasedAreas);
       const debutNeedIds = activeNeedIds.filter(need => !state.normalWave.activeNeedIds.includes(need));
-      return { ...state, currentWaveNumber: nextPrototypeWaveNumber(state.currentWaveNumber), normalWave: awaiting(state.normalWave.tuning, state.normalWave.workerAssignments, state.normalWave.buildingLevelsByNeed, state.normalWave.upgradeTuning, activeNeedIds, debutNeedIds) };
+      const scheduleRush = !state.suddenRushOccurred && nextWaveNumber >= PROTOTYPE_SUDDEN_RUSH_PROOF_TUNING.earliestWave && debutNeedIds.length === 0;
+      return { ...state, currentWaveNumber: nextWaveNumber, normalWave: awaiting(state.normalWave.tuning, state.normalWave.workerAssignments, state.normalWave.buildingLevelsByNeed, state.normalWave.upgradeTuning, activeNeedIds, debutNeedIds, scheduleRush ? scheduledSuddenRush() : noSuddenRush()) };
     }
 
     case 'PURCHASE_AREA': {
@@ -520,15 +528,23 @@ export function applyBootstrapCommand(state: BootstrapState, command: BootstrapC
       };
     }
 
-    case 'ADVANCE_SIMULATION':
-      if (!Number.isFinite(command.deltaMs) || command.deltaMs <= 0) {
-        throw new Error('BOOTSTRAP_DELTA_INVALID');
-      }
-      return {
-        ...state,
-        simulationTick: state.simulationTick + 1,
-        elapsedSimulationMs: state.elapsedSimulationMs + command.deltaMs,
-        normalWave: advanceWave(state.normalWave)
-      };
+    case 'ACTIVATE_ENERGY_MODE': {
+      const wave = state.normalWave;
+      if (wave.phase !== 'incoming' && wave.phase !== 'draining') throw new Error('PROTOTYPE_ENERGY_PHASE_INVALID');
+      if (!wave.activeNeedIds.includes(command.need)) throw new Error('PROTOTYPE_ENERGY_TARGET_INACTIVE');
+      if (state.energy <= 0 || wave.energyMode !== null) return state;
+      return { ...state, energy: state.energy - 1, normalWave: { ...wave, energyMode: { need: command.need, ticksRemaining: PROTOTYPE_ENERGY_PROOF_TUNING.boostDurationTicks } } };
+    }
+
+    case 'CLAIM_COMEBACK_REWARD':
+      return { ...state, coins: state.coins + PROTOTYPE_ECONOMY_PROOF_TUNING.comebackRewardCoins };
+
+    case 'ADVANCE_SIMULATION': {
+      if (!Number.isFinite(command.deltaMs) || command.deltaMs <= 0) throw new Error('BOOTSTRAP_DELTA_INVALID');
+      const normalWave = advanceWave(state.normalWave);
+      const completedNow = state.normalWave.phase !== 'complete' && normalWave.phase === 'complete';
+      const rushTriggeredNow = !state.normalWave.suddenRush.triggered && normalWave.suddenRush.triggered;
+      return { ...state, simulationTick: state.simulationTick + 1, elapsedSimulationMs: state.elapsedSimulationMs + command.deltaMs, coins: state.coins + (completedNow ? normalWaveCoinReward(normalWave) : 0), energy: state.energy + (completedNow ? PROTOTYPE_ENERGY_PROOF_TUNING.earnedPerCompletedWave : 0), suddenRushOccurred: state.suddenRushOccurred || rushTriggeredNow, normalWave };
+    }
   }
 }

@@ -18,6 +18,24 @@ describe('normalizePersistedState', () => {
     expect(normalizePersistedState(current)).toBe(current);
   });
 
+  it('migrates the pre-Energy canonical snapshot without losing wave state', () => {
+    const current = createInitialBootstrapState('pre-energy');
+    const legacy = { ...current, normalWave: { ...current.normalWave } } as any;
+    delete legacy.energy;
+    delete legacy.suddenRushOccurred;
+    delete legacy.normalWave.energyMode;
+    delete legacy.normalWave.suddenRush;
+
+    const migrated = normalizePersistedState(legacy as BootstrapState);
+
+    expect(migrated.energy).toBe(0);
+    expect(migrated.suddenRushOccurred).toBe(false);
+    expect(migrated.normalWave.energyMode).toBeNull();
+    expect(migrated.normalWave.suddenRush).toEqual({ scheduled: false, triggered: false, triggerAfterReleasedDemand: 0, extraDemand: 0 });
+    expect(migrated.normalWave.phase).toBe(current.normalWave.phase);
+    expect(migrated.normalWave.workerAssignments).toEqual(current.normalWave.workerAssignments);
+  });
+
   it('upgrades a prior normal-wave snapshot to the canonical shape safely', () => {
     const legacy = {
       schema: 'resort-bootstrap-state/v1',

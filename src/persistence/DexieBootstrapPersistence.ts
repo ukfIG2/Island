@@ -84,6 +84,8 @@ function extendLegacyWave(value: unknown): unknown {
     capacityWaitByNeed: extendNeedRecord(wave.capacityWaitByNeed, 0),
     workerSlotsByNeed: extendNeedRecord(wave.workerSlotsByNeed, 1),
     buildingLevelsByNeed: extendNeedRecord(wave.buildingLevelsByNeed, 1),
+    energyMode: wave.energyMode && typeof wave.energyMode === 'object' && isNeedId(wave.energyMode.need) && finiteNonNegative(wave.energyMode.ticksRemaining) ? { need: wave.energyMode.need, ticksRemaining: wave.energyMode.ticksRemaining } : null,
+    suddenRush: wave.suddenRush && typeof wave.suddenRush === 'object' ? { scheduled: wave.suddenRush.scheduled === true, triggered: wave.suddenRush.triggered === true, triggerAfterReleasedDemand: finiteNonNegative(wave.suddenRush.triggerAfterReleasedDemand) ? wave.suddenRush.triggerAfterReleasedDemand : 0, extraDemand: finiteNonNegative(wave.suddenRush.extraDemand) ? wave.suddenRush.extraDemand : 0 } : { scheduled: false, triggered: false, triggerAfterReleasedDemand: 0, extraDemand: 0 },
     result
   };
 }
@@ -119,6 +121,12 @@ function hasCanonicalWaveShape(value: unknown): value is NormalWaveState {
     wave.workerAssignments !== undefined &&
     typeof wave.workerAssignments === 'object' &&
     Array.isArray(wave.reassignments) &&
+    (wave.energyMode === null || (wave.energyMode !== undefined && isNeedId(wave.energyMode.need) && finiteNonNegative(wave.energyMode.ticksRemaining))) &&
+    wave.suddenRush !== undefined &&
+    typeof wave.suddenRush.scheduled === 'boolean' &&
+    typeof wave.suddenRush.triggered === 'boolean' &&
+    finiteNonNegative(wave.suddenRush.triggerAfterReleasedDemand) &&
+    finiteNonNegative(wave.suddenRush.extraDemand) &&
     (wave.result === null || (
       wave.result !== undefined &&
       (wave.result.bottleneckCause === 'staffing' || wave.result.bottleneckCause === 'capacity') &&
@@ -152,6 +160,8 @@ export function normalizePersistedState(
     raw.currentWaveNumber <= 8 &&
     typeof raw.purchasedAreas?.pool === 'boolean' &&
     typeof raw.purchasedAreas?.bungalows === 'boolean' &&
+    Number.isInteger(raw.energy) && raw.energy >= 0 &&
+    typeof raw.suddenRushOccurred === 'boolean' &&
     Number.isInteger(raw.coins) &&
     Number.isInteger(raw.resortValue) &&
     hasCanonicalWaveShape(rawWave) &&
@@ -165,6 +175,8 @@ export function normalizePersistedState(
 
   persisted = {
     ...persisted,
+    energy: Number.isInteger(raw.energy) && raw.energy >= 0 ? raw.energy : 0,
+    suddenRushOccurred: raw.suddenRushOccurred === true,
     purchasedAreas: {
       pool: raw.purchasedAreas?.pool === true,
       bungalows: raw.purchasedAreas?.bungalows === true

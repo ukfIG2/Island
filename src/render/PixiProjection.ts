@@ -7,6 +7,7 @@ import {
 
 import {
   NORMAL_SERVICE_CATALOG,
+  NORMAL_SERVICE_IDS,
   normalWaveServiceCapacity,
   type BootstrapState,
   type NormalWaveNeedId
@@ -21,16 +22,23 @@ function labelNeed(need: NormalWaveNeedId): string {
 export class PixiProjection {
   private app: Application | null = null;
   private disposed = false;
+  private frameRequest: number | null = null;
+  private resizeObserver: ResizeObserver | null = null;
 
   async mount(
     host: HTMLElement,
     readState: () => BootstrapState
   ): Promise<void> {
     const app = new Application();
+    const maxBackingPixels = 1_500_000;
 
     await app.init({
-      resizeTo: host,
+      width: 1,
+      height: 1,
+      resolution: 1,
+      autoDensity: true,
       antialias: true,
+      autoStart: false,
       background: 0x0f1720
     });
 
@@ -42,32 +50,64 @@ export class PixiProjection {
     this.app = app;
     host.replaceChildren(app.canvas);
 
+    const resizeRenderer = () => {
+      const width = Math.max(1, host.clientWidth);
+      const height = Math.max(1, host.clientHeight);
+      const resolution = Math.min(
+        1,
+        Math.max(0.5, Math.sqrt(maxBackingPixels / (width * height)))
+      );
+      app.renderer.resize(width, height, resolution);
+      app.renderer.render(app.stage);
+    };
+
+    this.resizeObserver = new ResizeObserver(resizeRenderer);
+    this.resizeObserver.observe(host);
+    resizeRenderer();
+
+    const island = new Graphics()
+      .ellipse(520, 350, 430, 270)
+      .fill(0x2d765f)
+      .ellipse(520, 370, 355, 215)
+      .fill(0x5f9d68);
+
+    const lagoon = new Graphics()
+      .ellipse(450, 430, 150, 72)
+      .fill(0x38a8ba);
+
     const header = new Graphics()
       .roundRect(32, 32, 560, 120, 18)
       .fill(0x183244);
 
     const serviceLayer = new Container();
+    const servicePositions: Record<NormalWaveNeedId, readonly [number, number]> = {
+      reception: [520, 180], food: [310, 330], drinks: [735, 330], relax: [420, 475], oceanView: [720, 505]
+    };
     let serviceNeedKey = '';
     let serviceStatuses: Array<{ need: NormalWaveNeedId; status: Text }> = [];
     const reconcileServices = (needs: readonly NormalWaveNeedId[]) => {
       const key = needs.join('|');
       if (key === serviceNeedKey) return;
       for (const child of serviceLayer.removeChildren()) child.destroy();
-      serviceStatuses = needs.map((need, index) => {
+      serviceStatuses = needs.map((need) => {
+        const [x, y] = servicePositions[need];
         const frame = new Graphics()
-          .roundRect(32 + index * 190, 176, 175, 240, 18)
-          .fill(0x152934);
-        const status = new Text({
-          text: '',
-          style: { fill: 0xe9f1f5, fontSize: 15, lineHeight: 27 }
-        });
-        status.position.set(48 + index * 190, 202);
+          .poly([-78, 18, 0, -26, 78, 18, 0, 62])
+          .fill(0x315e4c)
+          .roundRect(-58, -44, 116, 72, 14)
+          .fill(0x183b43)
+          .rect(-44, -56, 88, 16)
+          .fill(0xd8c59a);
+        frame.position.set(x, y);
+        const status = new Text({ text: '', style: { fill: 0xf7fbf4, fontSize: 14, lineHeight: 20, align: 'center' } });
+        status.anchor.set(0.5, 0);
+        status.position.set(x, y - 30);
         serviceLayer.addChild(frame, status);
         return { need, status };
       });
       serviceNeedKey = key;
     };
-    reconcileServices(readState().normalWave.activeNeedIds);
+    reconcileServices(NORMAL_SERVICE_IDS);
 
     const title = new Text({
       text: 'Resort service flow',
@@ -101,6 +141,8 @@ export class PixiProjection {
     resultStatus.position.set(56, 446);
 
     app.stage.addChild(
+      island,
+      lagoon,
       header,
       serviceLayer,
       title,
@@ -110,13 +152,14 @@ export class PixiProjection {
 
     let renderedSignature = '';
 
-    app.ticker.add(() => {
+    const renderFrame = () => {
+      if (this.disposed) return;
+      this.frameRequest = requestAnimationFrame(renderFrame);
       const snapshot = readState();
       const wave = snapshot.normalWave;
-      reconcileServices(wave.activeNeedIds);
+      reconcileServices(NORMAL_SERVICE_IDS);
       const workerAssignments = Object.entries(wave.workerAssignments);
       const signature = JSON.stringify([
-        snapshot.simulationTick,
         wave.phase,
         wave.releasedDemand,
         ...wave.activeNeedIds.flatMap(need => [
@@ -139,7 +182,10 @@ export class PixiProjection {
       waveStatus.text =
         `Phase: ${wave.phase} · demand ${wave.releasedDemand}/${wave.tuning.totalDemand}`;
 
-      const serviceText = (need: NormalWaveNeedId): string => [
+      const serviceText = (need: NormalWaveNeedId): string => {
+        const unlocked = need === 'relax' ? snapshot.purchasedAreas.pool : need === 'oceanView' ? snapshot.purchasedAreas.bungalows : true;
+        if (!unlocked) return [labelNeed(need), 'Locked area'].join('\n');
+        return [
         labelNeed(need),
         `Waiting: ${wave.queueByNeed[need]}`,
         `Active: ${wave.activeByNeed[need]}`,
@@ -147,6 +193,7 @@ export class PixiProjection {
         `Served: ${wave.servedByNeed[need]}`,
         (() => { const ids = workerAssignments.filter(([, assigned]) => assigned === need).map(([workerId]) => workerId); return ids.length > 0 ? 'Workers: ' + ids.join(', ') : 'Workers: none'; })()
       ].join('\n');
+      };
 
       for (const { need, status } of serviceStatuses) {
         status.text = serviceText(need);
@@ -158,11 +205,25 @@ export class PixiProjection {
             `Result: ${wave.result.rating}★ · bottleneck ${labelNeed(wave.result.bottleneckNeed)}`,
             `Cause: ${wave.result.bottleneckCause}. ${wave.result.guidance}`
           ].join('\n');
-    });
+
+      app.renderer.render(app.stage);
+    };
+
+    this.frameRequest = requestAnimationFrame(renderFrame);
   }
 
   destroy(): void {
     this.disposed = true;
+
+    if (this.frameRequest !== null) {
+      cancelAnimationFrame(this.frameRequest);
+      this.frameRequest = null;
+    }
+
+    if (this.resizeObserver !== null) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
 
     if (this.app !== null) {
       this.app.destroy(true);

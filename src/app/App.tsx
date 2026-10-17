@@ -2,6 +2,7 @@ import { normalWaveForecast, normalWaveUpgradeQuote, prototypeAreaUnlockView } f
 import {
   useEffect,
   useRef,
+  useState,
   useSyncExternalStore
 } from 'react';
 
@@ -9,7 +10,6 @@ import type { BootstrapCore } from '../core/runtime';
 import {
   NORMAL_SERVICE_CATALOG,
   PROTOTYPE_AREA_IDS,
-  normalWaveServiceCapacity,
   type NormalWaveNeedId,
   type NormalWaveWorkerId
 } from '../core/state';
@@ -17,6 +17,7 @@ import { PixiProjection } from '../render/PixiProjection';
 
 export interface AppProps {
   core: BootstrapCore;
+  comebackRewardCoins?: number;
 }
 
 function labelNeed(need: NormalWaveNeedId): string {
@@ -25,7 +26,7 @@ function labelNeed(need: NormalWaveNeedId): string {
 }
 
 
-export function App({ core }: AppProps) {
+export function App({ core, comebackRewardCoins = 0 }: AppProps) {
   const snapshot = useSyncExternalStore(
     core.subscribe,
     core.getSnapshot,
@@ -33,6 +34,18 @@ export function App({ core }: AppProps) {
   );
 
   const worldHost = useRef<HTMLDivElement | null>(null);
+  const [workerSheetOpen, setWorkerSheetOpen] = useState(false);
+  const [visibleComebackReward, setVisibleComebackReward] = useState(comebackRewardCoins);
+
+  useEffect(() => {
+    setVisibleComebackReward(comebackRewardCoins);
+    const handleComebackReward = (event: Event): void => {
+      const coins = (event as CustomEvent<number>).detail;
+      if (Number.isFinite(coins) && coins > 0) setVisibleComebackReward(coins);
+    };
+    window.addEventListener('resort-empire:comeback-reward', handleComebackReward);
+    return () => window.removeEventListener('resort-empire:comeback-reward', handleComebackReward);
+  }, [comebackRewardCoins]);
   const wave = snapshot.normalWave;
   const upgradeQuote = wave.result ? normalWaveUpgradeQuote(snapshot, wave.result.bottleneckNeed) : null;
   const workers = Object.entries(wave.workerAssignments).filter(
@@ -72,45 +85,88 @@ export function App({ core }: AppProps) {
   return (
     <main className="shell">
       <section className="shell__panel">
-        <p className="shell__eyebrow">Resort Empire · Prototype</p>
-        <h1>Normal wave</h1>
-        <p>Coins: {snapshot.coins} · Resort Value: {snapshot.resortValue}</p>
-        <p className="shell__intro">
-          Prepare the Worker before the wave or move them while guests are arriving.
-          Waiting guests and guests in active service are separate core states.
-        </p>
+        <header className="hud-top">
+          <div className="hud-brand">
+            <p className="shell__eyebrow">Resort Empire</p>
+            <h1>Normal wave</h1>
+            <p className="hud-economy">Coins: {snapshot.coins} | Energy: {snapshot.energy} | Resort Value: {snapshot.resortValue}</p>
+          </div>
 
-        <div className="shell__actions">
-          <button
-            type="button"
-            onClick={() => core.dispatch({ type: 'START_WAVE' })}
-            disabled={wave.phase !== 'awaiting'}
-          >
-            Start wave
-          </button>
+          <div className="shell__actions">
+        {wave.phase === 'awaiting' ? (
+              <button className="hud-primary-action" type="button" onClick={() => core.dispatch({ type: 'START_WAVE' })}>
+                Start wave
+              </button>
+            ) : null}
 
-          {workers.flatMap(([workerId, workerNeed]) =>
-            wave.activeNeedIds.filter((need) => need !== workerNeed).map((need) => (
+            {wave.phase === 'complete' ? (
+              <button className="hud-primary-action" type="button" onClick={() => core.dispatch({ type: 'CONTINUE_TO_NEXT_WAVE' })}>
+                Continue to next wave
+              </button>
+            ) : null}
+
+            {canReassign ? (
               <button
                 type="button"
-                key={workerId + ':' + need}
-                onClick={() => core.dispatch({ type: 'REASSIGN_WORKER', workerId, to: need })}
-                disabled={!canReassign}
+                className={wave.phase === 'incoming' || wave.phase === 'draining' ? 'hud-primary-action' : 'hud-secondary-action'}
+                onClick={() => setWorkerSheetOpen(true)}
               >
-                Move {workerId} to {labelNeed(need)}
+                Manage workers
               </button>
-            ))
-          )}
+            ) : null}
+          </div>
+        </header>
 
-          {wave.phase === 'complete' ? (
-            <button
-              type="button"
-              onClick={() => core.dispatch({ type: 'CONTINUE_TO_NEXT_WAVE' })}
-            >
-              Continue to next wave
-            </button>
-          ) : null}
-        </div>
+        {visibleComebackReward > 0 ? (
+          <section className="comeback-notice" aria-live="polite" aria-label="Welcome back reward">
+            <strong>Welcome back</strong>
+            <span>Your resort stayed exactly as you left it.</span>
+            <span>Comeback reward: +{visibleComebackReward} Coins</span>
+          </section>
+        ) : null}
+
+        <aside className="hud-context-tray" aria-label="Resort actions">
+        <section className="wave-needs" aria-label="Wave needs">
+          <span className="wave-needs__label">Wave needs</span>
+          <div className="wave-needs__items">
+            {wave.activeNeedIds.map((need) => (
+              <span className={'wave-need' + (wave.debutNeedIds.includes(need) ? ' wave-need--new' : '')} key={need}>
+                <strong>{NORMAL_SERVICE_CATALOG[need].needLabel}</strong>
+                <small>{wave.queueByNeed[need]} waiting</small>
+              </span>
+            ))}
+          </div>
+        </section>
+
+        {wave.phase === 'incoming' || wave.phase === 'draining' ? (
+          <section className="energy-actions" aria-label="Energy boost">
+            <span className="wave-needs__label">Energy boost</span>
+            <div className="energy-actions__buttons">
+              {wave.activeNeedIds.map((need) => (
+                <button
+                  key={need}
+                  type="button"
+                  disabled={snapshot.energy <= 0 || wave.energyMode !== null}
+                  onClick={() => core.dispatch({ type: 'ACTIVATE_ENERGY_MODE', need })}
+                >
+                  Boost {NORMAL_SERVICE_CATALOG[need].buildingLabel}
+                </button>
+              ))}
+            </div>
+            <small>
+              {wave.energyMode !== null
+                ? `Speed boost active: ${NORMAL_SERVICE_CATALOG[wave.energyMode.need].buildingLabel} · ${wave.energyMode.ticksRemaining} ticks left`
+                : 'Temporary service-speed boost; simultaneous capacity does not change.'}
+            </small>
+          </section>
+        ) : null}
+
+        {wave.suddenRush.triggered ? (
+          <section className="rush-alert" aria-live="polite">
+            <strong>Sudden Rush</strong>
+            <span>Extra demand +{wave.suddenRush.extraDemand}; the normal wave keeps running.</span>
+          </section>
+        ) : null}
 
         {wave.phase === 'awaiting' ? (
           <section aria-label="Wave forecast">
@@ -145,65 +201,6 @@ export function App({ core }: AppProps) {
           </section>
         ) : null}
 
-        <dl className="shell__facts">
-          <div>
-            <dt>Wave phase</dt>
-            <dd>{wave.phase}</dd>
-          </div>
-          <div>
-            <dt>Demand released</dt>
-            <dd>{wave.releasedDemand} / {wave.tuning.totalDemand}</dd>
-          </div>
-          <div>
-            <dt>Guests waiting now</dt>
-            <dd>{currentQueue}</dd>
-          </div>
-          <div>
-            <dt>Guests in service</dt>
-            <dd>{currentActive}</dd>
-          </div>
-          <div>
-            <dt>Worker assignments</dt>
-            <dd>{workers.map(([workerId, need]) => workerId + ' → ' + labelNeed(need)).join(' · ')}</dd>
-          </div>
-        </dl>
-
-        <div className="shell__services" aria-label="Service status">
-          {wave.activeNeedIds.map((need) => (
-            <article className="service-card" key={need}>
-              <div className="service-card__heading">
-                <strong>{labelNeed(need)}</strong>
-                {workers.filter(([, assigned]) => assigned === need).map(([workerId]) => (
-                  <span key={workerId}>{workerId} here</span>
-                ))}
-                {wave.debutNeedIds.includes(need) ? <span>New need · soft debut</span> : null}
-              </div>
-              <dl>
-                <div>
-                  <dt>Waiting</dt>
-                  <dd>{wave.queueByNeed[need]}</dd>
-                </div>
-                <div>
-                  <dt>Active service</dt>
-                  <dd>{wave.activeByNeed[need]}</dd>
-                </div>
-                <div>
-                  <dt>Capacity / tick</dt>
-                  <dd>{normalWaveServiceCapacity(snapshot, need)}</dd>
-                </div>
-                <div>
-                  <dt>Served</dt>
-                  <dd>{wave.servedByNeed[need]}</dd>
-                </div>
-                <div>
-                  <dt>Peak queue</dt>
-                  <dd>{wave.peakQueueByNeed[need]}</dd>
-                </div>
-              </dl>
-            </article>
-          ))}
-        </div>
-
         {wave.result !== null ? (
           <section className="result-card" aria-live="polite">
             <p className="shell__eyebrow">Wave result</p>
@@ -235,6 +232,33 @@ export function App({ core }: AppProps) {
             </ul>
           </section>
         ) : null}
+        </aside>
+
+        {workerSheetOpen ? (
+          <div className="worker-sheet__backdrop" role="presentation" onClick={() => setWorkerSheetOpen(false)}>
+            <section className="worker-sheet" role="dialog" aria-modal="true" aria-label="Worker Allocation" onClick={(event) => event.stopPropagation()}>
+              <header className="worker-sheet__header">
+                <div><p className="shell__eyebrow">Worker Allocation</p><h2>Move a worker</h2></div>
+                <button type="button" onClick={() => setWorkerSheetOpen(false)}>Close</button>
+              </header>
+              <div className="worker-sheet__workers">
+                {workers.map(([workerId, workerNeed]) => (
+                  <article className="worker-row" key={workerId}>
+                    <div><strong>{workerId}</strong><small>At {NORMAL_SERVICE_CATALOG[workerNeed].buildingLabel}</small></div>
+                    <div className="worker-row__destinations">
+                      {wave.activeNeedIds.filter((need) => need !== workerNeed).map((need) => (
+                        <button type="button" key={need} onClick={() => { core.dispatch({ type: 'REASSIGN_WORKER', workerId, to: need }); setWorkerSheetOpen(false); }}>
+                          {NORMAL_SERVICE_CATALOG[need].buildingLabel}
+                        </button>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </div>
+        ) : null}
+
       </section>
 
       <section className="shell__world" aria-label="Resort world projection">

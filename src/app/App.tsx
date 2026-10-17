@@ -1,4 +1,4 @@
-import { normalWaveForecast, normalWaveServiceCapacity, normalWaveUpgradeQuote, prototypeAreaUnlockView } from '../core/state';
+import { normalWaveCoinReward, normalWaveForecast, normalWaveServiceCapacity, normalWaveUpgradeQuote, PROTOTYPE_ENERGY_PROOF_TUNING, prototypeAreaUnlockView } from '../core/state';
 import {
   useEffect,
   useRef,
@@ -37,6 +37,8 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
   const worldHost = useRef<HTMLDivElement | null>(null);
   const [workerSheetOpen, setWorkerSheetOpen] = useState(false);
   const [selectedNeed, setSelectedNeed] = useState<NormalWaveNeedId>('reception');
+  const selectedNeedRef = useRef<NormalWaveNeedId>('reception');
+  selectedNeedRef.current = selectedNeed;
   const [visibleComebackReward, setVisibleComebackReward] = useState(comebackRewardCoins);
 
   useEffect(() => {
@@ -92,7 +94,7 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
 
     const projection = new PixiProjection();
 
-    void projection.mount(host, core.getSnapshot, setSelectedNeed);
+    void projection.mount(host, core.getSnapshot, setSelectedNeed, () => selectedNeedRef.current);
 
     return () => {
       projection.destroy();
@@ -178,6 +180,7 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
         {wave.result !== null ? (
           <section className={'wave-result-toast' + (finalWaveComplete ? ' wave-result-toast--final' : '')} aria-live="polite">
             <span>{finalWaveComplete ? 'Resort complete' : 'Wave complete'}</span><strong>{wave.result.rating}★</strong>
+            <p className="wave-result-toast__reward">+{normalWaveCoinReward(wave)} Coins · +{PROTOTYPE_ENERGY_PROOF_TUNING.earnedPerCompletedWave} Energy</p>
             <p>{finalWaveComplete ? forecast.totalWaves + '/' + forecast.totalWaves + ' waves cleared · final pressure: ' + NORMAL_SERVICE_CATALOG[wave.result.bottleneckNeed].buildingLabel : NORMAL_SERVICE_CATALOG[wave.result.bottleneckNeed].buildingLabel + ' needs attention'}</p>
           </section>
         ) : null}

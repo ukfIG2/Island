@@ -158,6 +158,20 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
 
         {wave.suddenRush.triggered ? <section className="world-event world-event--rush" aria-live="polite"><strong>Sudden Rush</strong><span>+{wave.suddenRush.extraDemand} guests</span></section> : null}
 
+        {finalWaveComplete ? (
+          <aside className="context-card context-card--entered" aria-label="Resort finale">
+            <div className="context-card__heading">
+              <div><span>Campaign complete</span><h2>Resort summary</h2></div>
+              <strong>{wave.result?.rating ?? 0}/5</strong>
+            </div>
+            <div className="context-card__stats">
+              <span><b>{snapshot.coins}</b> Coins</span>
+              <span><b>{snapshot.energy}</b> Energy</span>
+              <span><b>{snapshot.resortValue}</b> Resort Value</span>
+            </div>
+            <p className="context-card__guidance">{forecast.totalWaves}/{forecast.totalWaves} waves cleared. The resort is complete.</p>
+          </aside>
+        ) : (
         <aside key={selectedNeed} className="context-card context-card--entered" aria-label="Selected building actions">
           <div className="context-card__heading">
             <div><span>{NORMAL_SERVICE_CATALOG[selectedNeed].needLabel}</span><h2>{NORMAL_SERVICE_CATALOG[selectedNeed].buildingLabel}</h2></div>
@@ -176,8 +190,9 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
             {selectedUnlock?.status === 'available' ? <button type="button" onClick={() => core.dispatch({ type: 'PURCHASE_AREA', areaId: selectedUnlock.areaId })}>Open area - {selectedUnlock.coinCost} Coins</button> : null}
           </div>
         </aside>
+        )}
 
-        {workerSheetOpen ? (
+        {workerSheetOpen && !finalWaveComplete ? (
           <div className="worker-sheet__backdrop" role="presentation" onClick={() => setWorkerSheetOpen(false)}>
             <section className="worker-sheet" role="dialog" aria-modal="true" aria-label="Worker Allocation" onClick={(event) => event.stopPropagation()}>
               <header className="worker-sheet__header">

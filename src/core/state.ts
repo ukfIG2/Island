@@ -23,6 +23,7 @@ export interface NormalWaveForecast {
   readonly totalWaves: 8;
   readonly needs: readonly NormalWaveNeedId[];
   readonly totalDemand: number;
+  readonly demandByNeed: Readonly<Record<NormalWaveNeedId, number>>;
 }
 export type NormalWavePhase = 'awaiting' | 'incoming' | 'draining' | 'complete';
 export const NORMAL_WAVE_PROOF_WORKER_ID = 'worker-1' as const;
@@ -122,6 +123,17 @@ export const NORMAL_WAVE_PROOF_TUNING: NormalWaveProofTuning = {
   releasePerTick: 2,
   baseServiceCapacity: { reception: 1, food: 1, drinks: 1, relax: 1, oceanView: 1 },
   queuePressurePerLostStar: 4
+};
+
+const PROTOTYPE_WAVE_DEMAND_PROFILE: Readonly<Record<PrototypeWaveNumber, Partial<Record<NormalWaveNeedId, number>>>> = {
+  1: {},
+  2: {},
+  3: {},
+  4: { reception: 4, food: 6, drinks: 4, relax: 6 },
+  5: { reception: 6, food: 4, drinks: 6, relax: 3 },
+  6: { reception: 4, food: 6, drinks: 3, relax: 6 },
+  7: { reception: 6, food: 3, drinks: 5, relax: 4, oceanView: 6 },
+  8: { reception: 5, food: 6, drinks: 6, relax: 5, oceanView: 6 }
 };
 
 export interface WorkerReassignmentImpact {
@@ -239,12 +251,17 @@ function awaiting(
   upgradeTuning: PrototypeUpgradeTuning = PROTOTYPE_UPGRADE_PROOF_TUNING,
   activeNeedIds: readonly NormalWaveNeedId[] = NORMAL_WAVE_NEEDS,
   debutNeedIds: readonly NormalWaveNeedId[] = [],
-  suddenRush: PrototypeSuddenRushState = noSuddenRush()
+  suddenRush: PrototypeSuddenRushState = noSuddenRush(),
+  waveNumber: PrototypeWaveNumber = 1
 ): NormalWaveState {
   validateTuning(tuning);
   const demandTargetByNeed = empty();
+  const profile = PROTOTYPE_WAVE_DEMAND_PROFILE[waveNumber];
   for (const need of activeNeedIds) {
-    demandTargetByNeed[need] = debutNeedIds.includes(need) ? Math.max(1, Math.ceil(tuning.totalDemand / 2)) : tuning.totalDemand;
+    const profiledDemand = profile[need] ?? tuning.totalDemand;
+    demandTargetByNeed[need] = debutNeedIds.includes(need)
+      ? Math.min(profiledDemand, Math.max(1, Math.ceil(tuning.totalDemand / 2)))
+      : profiledDemand;
   }
   const wave: NormalWaveState = {
     phase: 'awaiting', activeNeedIds: [...activeNeedIds], debutNeedIds: [...debutNeedIds], demandTargetByNeed,
@@ -270,7 +287,8 @@ export function normalWaveForecast(state: BootstrapState): NormalWaveForecast {
     waveNumber: state.currentWaveNumber,
     totalWaves: 8,
     needs: state.normalWave.activeNeedIds,
-    totalDemand: state.normalWave.tuning.totalDemand
+    totalDemand: state.normalWave.tuning.totalDemand,
+    demandByNeed: copy(state.normalWave.demandTargetByNeed)
   };
 }
 
@@ -447,7 +465,7 @@ export function applyBootstrapCommand(state: BootstrapState, command: BootstrapC
       const activeNeedIds = activeNeedIdsForAreas(state.purchasedAreas);
       const debutNeedIds = activeNeedIds.filter(need => !state.normalWave.activeNeedIds.includes(need));
       const scheduleRush = !state.suddenRushOccurred && nextWaveNumber >= PROTOTYPE_SUDDEN_RUSH_PROOF_TUNING.earliestWave && debutNeedIds.length === 0;
-      return { ...state, currentWaveNumber: nextWaveNumber, normalWave: awaiting(state.normalWave.tuning, state.normalWave.workerAssignments, state.normalWave.buildingLevelsByNeed, state.normalWave.upgradeTuning, activeNeedIds, debutNeedIds, scheduleRush ? scheduledSuddenRush() : noSuddenRush()) };
+      return { ...state, currentWaveNumber: nextWaveNumber, normalWave: awaiting(state.normalWave.tuning, state.normalWave.workerAssignments, state.normalWave.buildingLevelsByNeed, state.normalWave.upgradeTuning, activeNeedIds, debutNeedIds, scheduleRush ? scheduledSuddenRush() : noSuddenRush(), nextWaveNumber) };
     }
 
     case 'PURCHASE_AREA': {

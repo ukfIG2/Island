@@ -37,6 +37,26 @@ describe('Prototype progression spine', () => {
     });
   });
 
+  it('introduces forecastable asymmetric service pressure from Wave 4 onward', () => {
+    let state = createInitialBootstrapState('midgame-pressure');
+    for (let wave = 1; wave <= 3; wave += 1) {
+      state = completeWave(state);
+      if (wave === 3) break;
+      state = applyBootstrapCommand(state, { type: 'CONTINUE_TO_NEXT_WAVE' });
+    }
+
+    state = applyBootstrapCommand(state, { type: 'PURCHASE_AREA', areaId: 'pool' });
+    state = applyBootstrapCommand(state, { type: 'CONTINUE_TO_NEXT_WAVE' });
+    const forecast = normalWaveForecast(state);
+
+    expect(forecast.waveNumber).toBe(4);
+    expect(forecast.demandByNeed.reception).toBe(4);
+    expect(forecast.demandByNeed.food).toBe(6);
+    expect(forecast.demandByNeed.drinks).toBe(4);
+    expect(forecast.demandByNeed.relax).toBe(3);
+    expect(new Set(forecast.needs.map((need) => forecast.demandByNeed[need])).size).toBeGreaterThan(1);
+  });
+
   it('advances durable wave identity after completion and Continue', () => {
     const completed = completeWave(createInitialBootstrapState('progression-wave'));
     const next = applyBootstrapCommand(completed, { type: 'CONTINUE_TO_NEXT_WAVE' });

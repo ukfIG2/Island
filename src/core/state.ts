@@ -327,6 +327,12 @@ export function normalNeedOperationalState(state: BootstrapState, need: NormalWa
   return 'SATISFIED';
 }
 
+export function normalNeedBottleneckCause(state: BootstrapState, need: NormalWaveNeedId): NormalWaveBottleneckCause | null {
+  const wave = state.normalWave;
+  if (!wave.activeNeedIds.includes(need) || wave.queueByNeed[need] <= 0) return null;
+  return workerCount(wave, need) === 0 ? 'staffing' : 'capacity';
+}
+
 export function normalWaveUpgradeQuote(
   state: BootstrapState,
   need: NormalWaveNeedId

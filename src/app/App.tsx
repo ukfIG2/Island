@@ -1,5 +1,6 @@
 import { normalWaveCoinReward, normalWaveForecast, normalWaveServiceCapacity, normalWaveUpgradeQuote, PROTOTYPE_ENERGY_PROOF_TUNING, prototypeAreaUnlockView,
-  normalNeedOperationalState
+  normalNeedOperationalState,
+  normalNeedBottleneckCause
 } from '../core/state';
 import {
   useEffect,
@@ -119,7 +120,7 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
               onClick={() => setSelectedNeed(need)}
             >
               <strong>{NORMAL_SERVICE_CATALOG[need].buildingLabel}</strong>
-              <span>{normalNeedOperationalState(snapshot, need)}</span>
+              <span>{normalNeedOperationalState(snapshot, need)}{wave.queueByNeed[need] > 0 ? ' · ' + normalNeedBottleneckCause(snapshot, need)?.toUpperCase() : ''}</span>
             </button>
           ))}
         </nav>

@@ -1,6 +1,6 @@
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
-import { useRef } from 'react';
-import type { Group } from 'three';
+import { useEffect, useMemo, useRef } from 'react';
+import { Color, type Group, type ShaderMaterial } from 'three';
 
 import type { BootstrapState, NormalWaveNeedId } from '../core/state';
 import { normalWaveServiceCapacity } from '../core/state';
@@ -15,7 +15,9 @@ const SERVICE_POSITIONS: Record<NormalWaveNeedId, readonly [number, number, numb
 };
 
 function Palm({ position, scale = 1, lean = 0 }: { position: readonly [number, number, number]; scale?: number; lean?: number }) {
-  return <group position={[...position]} scale={scale} rotation={[lean, 0, lean * 0.35]}>
+  const palm = useRef<Group | null>(null);
+  useFrame(({ clock }) => { if (palm.current) palm.current.rotation.z = lean * 0.35 + Math.sin(clock.elapsedTime * 0.72 + position[0] * 0.9 + position[2]) * 0.028; });
+  return <group ref={palm} position={[...position]} scale={scale} rotation={[lean, 0, lean * 0.35]}>
     <mesh castShadow position={[0, 0.62, 0]} rotation={[0.04, 0, -0.08]}>
       <cylinderGeometry args={[0.055, 0.13, 1.25, 7]} />
       <meshStandardMaterial color="#7a5638" roughness={1} />
@@ -74,12 +76,27 @@ function ResortPier() {
   </group>;
 }
 
+function OceanSurface({ environment }: { environment: EnvironmentProfile }) {
+  const material = useRef<ShaderMaterial | null>(null);
+  const uniforms = useMemo(() => ({ uTime: { value: 0 }, uOcean: { value: new Color(environment.ocean) }, uStorm: { value: environment.weather === 'clear' ? 0 : environment.weather === 'overcast' ? 0.35 : 0.72 } }), []);
+  useEffect(() => { if (!material.current) return; material.current.uniforms.uOcean.value.set(environment.ocean); material.current.uniforms.uStorm.value = environment.weather === 'clear' ? 0 : environment.weather === 'overcast' ? 0.35 : 0.72; }, [environment.ocean, environment.weather]);
+  useFrame(({ clock }) => { if (material.current) material.current.uniforms.uTime.value = clock.elapsedTime; });
+  return <mesh receiveShadow position={[0, -0.52, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+    <planeGeometry args={[34, 26, 56, 42]} />
+    <shaderMaterial ref={material} uniforms={uniforms} vertexShader={'varying vec2 vUv; uniform float uTime; void main(){ vUv=uv; vec3 p=position; float w=sin(p.x*0.62+uTime*1.25)*0.07+cos(p.y*0.78-uTime*0.92)*0.045; p.z+=w; gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0); }'} fragmentShader={'varying vec2 vUv; uniform float uTime; uniform vec3 uOcean; uniform float uStorm; void main(){ float ripple=sin((vUv.x+vUv.y)*28.0+uTime*2.1)*0.5+0.5; float bands=sin(vUv.y*18.0-uTime*1.35)*0.5+0.5; vec3 deep=uOcean*(0.70-0.12*uStorm); vec3 light=min(vec3(1.0),uOcean*1.30+vec3(0.05,0.12,0.10)); vec3 col=mix(deep,light,0.16*ripple+0.10*bands); float glint=pow(max(0.0,sin(vUv.x*52.0+uTime*2.8)*cos(vUv.y*35.0-uTime)),10.0)*(0.14-0.06*uStorm); gl_FragColor=vec4(col+glint,1.0); }'} />
+  </mesh>;
+}
+
+export function TropicalRain({ active }: { active: boolean }) {
+  const rain = useRef<Group | null>(null);
+  useFrame(({ clock }) => { if (!rain.current || !active) return; rain.current.children.forEach((drop, index) => { const span=6.2; const base=1.0+((index*11)%31)/31*span; drop.position.y=0.45+((base-clock.elapsedTime*(3.8+(index%4)*0.35))%span+span)%span; const baseX=((index*37)%31)/31*14-7; drop.position.x=baseX+Math.sin(clock.elapsedTime*0.8+index)*0.04; }); });
+  if (!active) return null;
+  return <group ref={rain}>{Array.from({ length: 58 }).map((_, index) => { const x=((index*37)%31)/31*14-7; const z=((index*19)%37)/37*12-6; const y=1+((index*11)%31)/31*6.2; return <mesh key={index} position={[x,y,z]} rotation={[0,0,0.22]}><boxGeometry args={[0.014,0.58,0.014]} /><meshBasicMaterial color="#d8f3f6" transparent opacity={0.52} /></mesh>; })}</group>;
+}
+
 export function IslandArt({ environment }: { environment: EnvironmentProfile }) {
   return <>
-    <mesh receiveShadow position={[0, -0.52, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[34, 26]} />
-      <meshStandardMaterial color={environment.ocean} roughness={environment.weather === 'clear' ? 0.3 : 0.5} metalness={0.08} />
-    </mesh>
+    <OceanSurface environment={environment} />
 
     <mesh position={[-0.35, -0.405, 0.25]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.16, 0.91, 1]}>
       <circleGeometry args={[7.05, 64]} />
@@ -240,7 +257,7 @@ function ServiceArchitecture({ need, level, selected }: { need: NormalWaveNeedId
   return <BungalowArchitecture level={level} selected={selected} />;
 }
 
-export function ServiceBuilding({ need, state, selected, onSelect }: { need: NormalWaveNeedId; state: BootstrapState; selected: boolean; onSelect: () => void }) {
+export function ServiceBuilding({ need, state, selected, onSelect, environment }: { need: NormalWaveNeedId; state: BootstrapState; selected: boolean; onSelect: () => void; environment: EnvironmentProfile }) {
   const level = state.normalWave.buildingLevelsByNeed[need];
   const capacity = normalWaveServiceCapacity(state, need);
   const waiting = state.normalWave.queueByNeed[need];
@@ -250,6 +267,10 @@ export function ServiceBuilding({ need, state, selected, onSelect }: { need: Nor
 
   return <group position={[x, y, z]} onClick={(event: ThreeEvent<MouseEvent>) => { event.stopPropagation(); onSelect(); }}>
     <ServiceArchitecture need={need} level={level} selected={selected} />
+    {environment.timeOfDay !== 'day' ? <group>
+      <pointLight position={[0, 1.0, 0.8]} color="#ffd27a" intensity={environment.timeOfDay === 'evening' ? 1.05 : 0.55} distance={3.2} decay={2} />
+      {[-0.55, 0.55].map((lx, index) => <mesh key={index} position={[lx, 0.72, depth * 0.6]}><sphereGeometry args={[0.055, 8, 6]} /><meshStandardMaterial color="#ffd98a" emissive="#ffb84d" emissiveIntensity={environment.timeOfDay === 'evening' ? 2.8 : 1.5} /></mesh>)}
+    </group> : null}
 
     {Array.from({ length: workers }).map((_, index) => <group key={`worker-${index}`} position={[-0.48 + index * 0.28, 0.18, depth * 0.82]}>
       <mesh castShadow position={[0, 0.16, 0]}><boxGeometry args={[0.16, 0.32, 0.16]} /><meshStandardMaterial color="#4f8f6b" /></mesh>

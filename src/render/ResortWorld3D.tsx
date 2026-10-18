@@ -2,7 +2,7 @@ import { Canvas } from '@react-three/fiber';
 import { arrivalCompositionForWave, arrivalCraftProjection } from '../core/arrivalComposition';
 import { environmentProfileForWave } from './environmentProfile';
 import type { BootstrapState, NormalWaveNeedId } from '../core/state';
-import { IslandArt, ServiceBuilding } from './ResortWorldArt';
+import { IslandArt, ServiceBuilding, TropicalRain } from './ResortWorldArt';
 
 const ACTIVE_SERVICE_ORDER: readonly NormalWaveNeedId[] = ['reception', 'food', 'drinks', 'relax', 'oceanView'];
 
@@ -77,22 +77,12 @@ function WorldScene({ state, selectedNeed, onSelectNeed }: ResortWorld3DProps) {
 
       <IslandArt environment={environment} />
 
-      {environment.weather === 'tropical-rain' ? <group>
-        {Array.from({ length: 44 }).map((_, index) => {
-          const x = ((index * 37) % 23) / 23 * 13 - 6.5;
-          const z = ((index * 19) % 29) / 29 * 11 - 5.5;
-          const y = 1.3 + ((index * 11) % 17) / 17 * 5.2;
-          return <mesh key={`rain-${index}`} position={[x, y, z]} rotation={[0, 0, 0.18]}>
-            <boxGeometry args={[0.018, 0.5, 0.018]} />
-            <meshBasicMaterial color="#c7e8ec" transparent opacity={0.58} />
-          </mesh>;
-        })}
-      </group> : null}
+      <TropicalRain active={environment.weather === 'tropical-rain'} />
 
 
       <ArrivalTraffic state={state} />
 
-      {activeNeeds.map(need => <ServiceBuilding key={need} need={need} state={state} selected={selectedNeed === need} onSelect={() => onSelectNeed(need)} />)}
+      {activeNeeds.map(need => <ServiceBuilding key={need} need={need} state={state} selected={selectedNeed === need} onSelect={() => onSelectNeed(need)} environment={environment} />)}
 
       {Array.from({ length: Math.min(activeGuests, 10) }).map((_, index) => {
         const angle = (index / Math.max(1, Math.min(activeGuests, 10))) * Math.PI * 2;
@@ -109,7 +99,7 @@ function WorldScene({ state, selectedNeed, onSelectNeed }: ResortWorld3DProps) {
 
 export function ResortWorld3D(props: ResortWorld3DProps) {
   return (
-    <div className="shell__three" data-renderer="three-r3f" data-selected-need={props.selectedNeed} data-arrival-source={arrivalCompositionForWave(props.state.currentWaveNumber).source} data-time-of-day={environmentProfileForWave(props.state.currentWaveNumber, props.state.normalWave.phase).timeOfDay} data-weather={environmentProfileForWave(props.state.currentWaveNumber, props.state.normalWave.phase).weather} data-world-art="stylized-v2">
+    <div className="shell__three" data-renderer="three-r3f" data-selected-need={props.selectedNeed} data-arrival-source={arrivalCompositionForWave(props.state.currentWaveNumber).source} data-time-of-day={environmentProfileForWave(props.state.currentWaveNumber, props.state.normalWave.phase).timeOfDay} data-weather={environmentProfileForWave(props.state.currentWaveNumber, props.state.normalWave.phase).weather} data-world-art="stylized-v2" data-world-motion="materials-v1">
       <Canvas
         orthographic
         shadows

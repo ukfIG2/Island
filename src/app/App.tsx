@@ -58,7 +58,7 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
   }, [visibleComebackReward]);
 
   const wave = snapshot.normalWave;
-  const upgradeQuote = wave.result ? normalWaveUpgradeQuote(snapshot, wave.result.bottleneckNeed) : null;
+  const upgradeQuote = wave.result ? normalWaveUpgradeQuote(snapshot, selectedNeed) : null;
   const workers = Object.entries(wave.workerAssignments).filter(
     (entry): entry is [NormalWaveWorkerId, NormalWaveNeedId] => entry[1] !== undefined
   );
@@ -151,7 +151,7 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
           </div>
           <div className="phase-command__actions">
             {wave.phase === 'awaiting' ? <button className="hud-primary-action" type="button" onClick={() => core.dispatch({ type: 'START_WAVE' })}>Start wave</button> : null}
-            {(wave.phase === 'awaiting' || wave.phase === 'complete') ? areaUnlocks.filter((unlock) => unlock.status === 'available').map((unlock) => <button key={unlock.areaId} type="button" onClick={() => { setSelectedNeed(unlock.need); core.dispatch({ type: 'PURCHASE_AREA', areaId: unlock.areaId }); }}>Open {unlock.buildingLabel} · {unlock.coinCost}</button>) : null}
+            {(wave.phase === 'awaiting' || wave.phase === 'complete') ? areaUnlocks.filter((unlock) => unlock.status === 'available').map((unlock) => <button className="phase-command__offer" key={unlock.areaId} type="button" onClick={() => { setSelectedNeed(unlock.need); core.dispatch({ type: 'PURCHASE_AREA', areaId: unlock.areaId }); }}><strong>Open {unlock.buildingLabel}</strong><small>New {NORMAL_SERVICE_CATALOG[unlock.need].needLabel} service + {unlock.includedWorkerId}</small><span>{unlock.coinCost} Coins</span></button>) : null}
             {wave.phase === 'complete' && !finalWaveComplete ? <button className="hud-primary-action" type="button" onClick={() => core.dispatch({ type: 'CONTINUE_TO_NEXT_WAVE' })}>Next wave</button> : null}
           </div>
         </section>
@@ -172,7 +172,7 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
           <div className="context-card__actions">
             {canReassign ? <button type="button" onClick={() => setWorkerSheetOpen(true)}>Move worker</button> : null}
             {(wave.phase === 'incoming' || wave.phase === 'draining') && wave.activeNeedIds.includes(selectedNeed) ? <button type="button" disabled={snapshot.energy <= 0 || wave.energyMode !== null} onClick={() => core.dispatch({ type: 'ACTIVATE_ENERGY_MODE', need: selectedNeed })}>{wave.energyMode?.need === selectedNeed ? 'Boost active' : 'Boost - 1 Energy'}</button> : null}
-            {upgradeQuote?.need === selectedNeed ? <button type="button" disabled={snapshot.coins < upgradeQuote.coinCost} onClick={() => core.dispatch({ type: 'UPGRADE_BUILDING', need: selectedNeed })}>Upgrade - {upgradeQuote.coinCost} Coins</button> : null}
+            {upgradeQuote?.need === selectedNeed ? <><div className="progression-offer"><span>Upgrade payoff</span><strong>Lv.{upgradeQuote.fromLevel} to Lv.{upgradeQuote.toLevel} · {upgradeQuote.beforeCapacity} to {upgradeQuote.afterCapacity}/tick</strong><small>+{upgradeQuote.resortValueGain} Resort Value</small></div><button type="button" disabled={snapshot.coins < upgradeQuote.coinCost} onClick={() => core.dispatch({ type: 'UPGRADE_BUILDING', need: selectedNeed })}>Upgrade - {upgradeQuote.coinCost} Coins</button></> : null}
             {selectedUnlock?.status === 'available' ? <button type="button" onClick={() => core.dispatch({ type: 'PURCHASE_AREA', areaId: selectedUnlock.areaId })}>Open area - {selectedUnlock.coinCost} Coins</button> : null}
           </div>
         </aside>

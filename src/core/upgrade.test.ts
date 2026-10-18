@@ -67,6 +67,22 @@ describe('Prototype post-wave upgrade', () => {
     expect(normalWaveServiceCapacity(next, need)).toBe(quote!.afterCapacity);
   });
 
+  it('offers proactive post-wave upgrades for active services even after a staffing bottleneck', () => {
+    const initial = createInitialBootstrapState('upgrade-production');
+    const completed = completeWave(initial);
+    expect(completed.normalWave.result?.bottleneckCause).toBe('staffing');
+
+    const reception = normalWaveUpgradeQuote(completed, 'reception');
+    const food = normalWaveUpgradeQuote(completed, 'food');
+    const lockedArea = normalWaveUpgradeQuote(completed, 'relax');
+
+    expect(reception).not.toBeNull();
+    expect(food).not.toBeNull();
+    expect(reception!.afterCapacity).toBeGreaterThan(reception!.beforeCapacity);
+    expect(food!.afterCapacity).toBeGreaterThan(food!.beforeCapacity);
+    expect(lockedArea).toBeNull();
+  });
+
   it('keeps upgrade numbers explicitly in proof tuning and caps Prototype buildings at level 3', () => {
     let state = completeWave(capacityInitial('upgrade-cap'));
     const need = state.normalWave.result!.bottleneckNeed;

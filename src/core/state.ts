@@ -305,7 +305,7 @@ export function normalWaveUpgradeQuote(
 ): PrototypeUpgradeQuote | null {
   const wave = state.normalWave;
   if (wave.phase !== 'complete' || wave.result === null) return null;
-  if (wave.result.bottleneckCause !== 'capacity' || wave.result.bottleneckNeed !== need) return null;
+  if (!wave.activeNeedIds.includes(need)) return null;
   const fromLevel = wave.buildingLevelsByNeed[need];
   if (fromLevel >= 3) return null;
   const toLevel = (fromLevel + 1) as PrototypeUpgradeTargetLevel;

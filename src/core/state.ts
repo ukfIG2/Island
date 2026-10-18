@@ -150,8 +150,15 @@ export interface WorkerReassignmentImpact {
   readonly targetQueueAtChange: number;
 }
 
+export interface NormalWaveSatisfaction {
+  readonly basis: 'accumulated_wait';
+  readonly totalWaitingTime: number;
+  readonly waitingTimeByNeed: NeedCounts;
+}
+
 export interface NormalWaveResult {
   readonly rating: number;
+  readonly satisfaction: NormalWaveSatisfaction;
   readonly totalQueuePressure: number;
   readonly accumulatedWaitByNeed: NeedCounts;
   readonly bottleneckNeed: NormalWaveNeedId;
@@ -359,6 +366,12 @@ export function normalWaveUpgradeQuote(
   };
 }
 
+function satisfactionFor(wave: NormalWaveState): NormalWaveSatisfaction {
+  const waitingTimeByNeed = copy(wave.accumulatedWaitByNeed);
+  const totalWaitingTime = wave.activeNeedIds.reduce((sum, need) => sum + waitingTimeByNeed[need], 0);
+  return { basis: 'accumulated_wait', totalWaitingTime, waitingTimeByNeed };
+}
+
 function resultFor(wave: NormalWaveState): NormalWaveResult {
   let bottleneckNeed: NormalWaveNeedId = wave.activeNeedIds[0] ?? NORMAL_WAVE_NEEDS[0];
   for (const need of wave.activeNeedIds) {
@@ -387,6 +400,7 @@ function resultFor(wave: NormalWaveState): NormalWaveResult {
 
   return {
     rating: 5 - lostStars,
+    satisfaction: satisfactionFor(wave),
     totalQueuePressure: wave.totalQueuePressure,
     accumulatedWaitByNeed: copy(wave.accumulatedWaitByNeed),
     bottleneckNeed,

@@ -111,20 +111,6 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
             <p className="hud-economy">Coins: {snapshot.coins} | Energy: {snapshot.energy} | Resort Value: {snapshot.resortValue}</p>
           </div>
 
-          <div className="shell__actions">
-        {wave.phase === 'awaiting' ? (
-              <button className="hud-primary-action" type="button" onClick={() => core.dispatch({ type: 'START_WAVE' })}>
-                Start wave
-              </button>
-            ) : null}
-
-            {wave.phase === 'complete' && !finalWaveComplete ? (
-              <button className="hud-primary-action" type="button" onClick={() => core.dispatch({ type: 'CONTINUE_TO_NEXT_WAVE' })}>
-                Continue to next wave
-              </button>
-            ) : null}
-
-          </div>
         </header>
 
         {visibleComebackReward > 0 ? (
@@ -149,41 +135,28 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
           ))}
         </nav>
 
-        {wave.phase === 'incoming' || wave.phase === 'draining' ? (
-          <section className={'wave-live-banner wave-live-banner--' + wave.phase} aria-live="polite">
-            <span>{wave.phase === 'incoming' ? 'Guests arriving' : 'Resort in motion'}</span>
-            <strong>{currentQueue > 0 ? currentQueue + ' waiting' : currentActive > 0 ? currentActive + ' being served' : 'Everything is flowing'}</strong>
-          </section>
-        ) : null}
+        <section className={'phase-command phase-command--' + wave.phase} aria-live="polite">
+          <div className="phase-command__copy">
+            <span className="phase-command__eyebrow">{wave.phase === 'awaiting' ? 'Wave ' + forecast.waveNumber + ' ready' : wave.phase === 'complete' ? finalWaveComplete ? 'Resort complete' : 'Day complete' : wave.phase === 'incoming' ? 'Guests arriving' : 'Resort in motion'}</span>
+            {wave.phase === 'awaiting' ? <>
+              <strong>{forecast.totalDemand} guests incoming</strong>
+              <small>{forecast.needs.map((need) => NORMAL_SERVICE_CATALOG[need].needLabel).join(' / ')}</small>
+            </> : wave.phase === 'incoming' || wave.phase === 'draining' ? <>
+              <strong>{currentQueue > 0 ? currentQueue + ' waiting' : currentActive > 0 ? currentActive + ' being served' : 'Everything is flowing'}</strong>
+              <small>Select a building to move workers or boost the current bottleneck.</small>
+            </> : wave.result !== null ? <>
+              <strong>{wave.result.rating}/5 · +{normalWaveCoinReward(wave)} Coins · +{PROTOTYPE_ENERGY_PROOF_TUNING.earnedPerCompletedWave} Energy</strong>
+              <small>{finalWaveComplete ? forecast.totalWaves + '/' + forecast.totalWaves + ' waves cleared' : NORMAL_SERVICE_CATALOG[wave.result.bottleneckNeed].buildingLabel + ' was the bottleneck — improve it before the next wave.'}</small>
+            </> : null}
+          </div>
+          <div className="phase-command__actions">
+            {wave.phase === 'awaiting' ? <button className="hud-primary-action" type="button" onClick={() => core.dispatch({ type: 'START_WAVE' })}>Start wave</button> : null}
+            {(wave.phase === 'awaiting' || wave.phase === 'complete') ? areaUnlocks.filter((unlock) => unlock.status === 'available').map((unlock) => <button key={unlock.areaId} type="button" onClick={() => { setSelectedNeed(unlock.need); core.dispatch({ type: 'PURCHASE_AREA', areaId: unlock.areaId }); }}>Open {unlock.buildingLabel} · {unlock.coinCost}</button>) : null}
+            {wave.phase === 'complete' && !finalWaveComplete ? <button className="hud-primary-action" type="button" onClick={() => core.dispatch({ type: 'CONTINUE_TO_NEXT_WAVE' })}>Next wave</button> : null}
+          </div>
+        </section>
 
-        {wave.phase === 'awaiting' ? (
-          <section className="phase-card" aria-label="Next wave">
-            <span>Wave {forecast.waveNumber} / {forecast.totalWaves}</span>
-            <strong>{forecast.totalDemand} guests incoming</strong>
-            <small>{forecast.needs.map((need) => NORMAL_SERVICE_CATALOG[need].needLabel).join(' / ')}</small>
-          </section>
-        ) : null}
-
-        {wave.suddenRush.triggered ? (
-          <section className="world-event world-event--rush" aria-live="polite"><strong>Sudden Rush</strong><span>+{wave.suddenRush.extraDemand} guests</span></section>
-        ) : null}
-
-        {areaUnlocks.some((unlock) => unlock.status === 'available') && (wave.phase === 'awaiting' || wave.phase === 'complete') ? (
-          <section className="unlock-ribbon" aria-label="New resort area">
-            <span>New area available</span>
-            {areaUnlocks.filter((unlock) => unlock.status === 'available').map((unlock) => (
-              <button key={unlock.areaId} type="button" onClick={() => { setSelectedNeed(unlock.need); core.dispatch({ type: 'PURCHASE_AREA', areaId: unlock.areaId }); }}>Open {unlock.buildingLabel} - {unlock.coinCost} Coins</button>
-            ))}
-          </section>
-        ) : null}
-
-        {wave.result !== null ? (
-          <section className={'wave-result-toast' + (finalWaveComplete ? ' wave-result-toast--final' : '')} aria-live="polite">
-            <span>{finalWaveComplete ? 'Resort complete' : 'Wave complete'}</span><strong>{wave.result.rating}/5</strong>
-            <p className="wave-result-toast__reward">+{normalWaveCoinReward(wave)} Coins | +{PROTOTYPE_ENERGY_PROOF_TUNING.earnedPerCompletedWave} Energy</p>
-            <p>{finalWaveComplete ? forecast.totalWaves + '/' + forecast.totalWaves + ' waves cleared | final pressure: ' + NORMAL_SERVICE_CATALOG[wave.result.bottleneckNeed].buildingLabel : NORMAL_SERVICE_CATALOG[wave.result.bottleneckNeed].buildingLabel + ' needs attention'}</p>
-          </section>
-        ) : null}
+        {wave.suddenRush.triggered ? <section className="world-event world-event--rush" aria-live="polite"><strong>Sudden Rush</strong><span>+{wave.suddenRush.extraDemand} guests</span></section> : null}
 
         <aside key={selectedNeed} className="context-card context-card--entered" aria-label="Selected building actions">
           <div className="context-card__heading">

@@ -4,6 +4,8 @@ import { environmentProfileForWave } from './environmentProfile';
 import type { BootstrapState, NormalWaveNeedId } from '../core/state';
 import { IslandArt, ServiceBuilding } from './ResortWorldArt';
 
+const ACTIVE_SERVICE_ORDER: readonly NormalWaveNeedId[] = ['reception', 'food', 'drinks', 'relax', 'oceanView'];
+
 interface ResortWorld3DProps {
   state: BootstrapState;
   selectedNeed: NormalWaveNeedId;

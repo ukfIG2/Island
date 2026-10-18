@@ -1,6 +1,7 @@
 import { Canvas } from '@react-three/fiber';
 import { arrivalCompositionForWave } from '../core/arrivalComposition';
 import { ResortArrivalActivity } from './ResortArrivalActivity';
+import { ResortWorkerActivity } from './ResortWorkerActivity';
 import { environmentProfileForWave } from './environmentProfile';
 import type { BootstrapState, NormalWaveNeedId } from '../core/state';
 import { IslandArt, ServiceBuilding, TropicalRain } from './ResortWorldArt';
@@ -35,6 +36,8 @@ function WorldScene({ state, selectedNeed, onSelectNeed }: ResortWorld3DProps) {
 
       {activeNeeds.map(need => <ServiceBuilding key={need} need={need} state={state} selected={selectedNeed === need} onSelect={() => onSelectNeed(need)} environment={environment} />)}
 
+      <ResortWorkerActivity state={state} />
+
       {Array.from({ length: Math.min(activeGuests, 10) }).map((_, index) => {
         const angle = (index / Math.max(1, Math.min(activeGuests, 10))) * Math.PI * 2;
         return (
@@ -50,7 +53,7 @@ function WorldScene({ state, selectedNeed, onSelectNeed }: ResortWorld3DProps) {
 
 export function ResortWorld3D(props: ResortWorld3DProps) {
   return (
-    <div className="shell__three" data-renderer="three-r3f" data-selected-need={props.selectedNeed} data-arrival-source={arrivalCompositionForWave(props.state.currentWaveNumber).source} data-time-of-day={environmentProfileForWave(props.state.currentWaveNumber, props.state.normalWave.phase).timeOfDay} data-weather={environmentProfileForWave(props.state.currentWaveNumber, props.state.normalWave.phase).weather} data-world-art="stylized-v2" data-world-motion="materials-v1" data-arrival-activity="craft-v1">
+    <div className="shell__three" data-renderer="three-r3f" data-selected-need={props.selectedNeed} data-arrival-source={arrivalCompositionForWave(props.state.currentWaveNumber).source} data-time-of-day={environmentProfileForWave(props.state.currentWaveNumber, props.state.normalWave.phase).timeOfDay} data-weather={environmentProfileForWave(props.state.currentWaveNumber, props.state.normalWave.phase).weather} data-world-art="stylized-v2" data-world-motion="materials-v1" data-arrival-activity="craft-v1" data-worker-activity="transfer-v1">
       <Canvas
         orthographic
         shadows

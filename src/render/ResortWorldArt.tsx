@@ -6,13 +6,17 @@ import type { BootstrapState, NormalWaveNeedId } from '../core/state';
 import { normalWaveServiceCapacity } from '../core/state';
 import type { EnvironmentProfile } from './environmentProfile';
 
-const SERVICE_POSITIONS: Record<NormalWaveNeedId, readonly [number, number, number]> = {
+export const SERVICE_POSITIONS: Record<NormalWaveNeedId, readonly [number, number, number]> = {
   reception: [0, 0.62, -2.75],
   food: [-3.45, 0.58, -0.15],
   drinks: [3.55, 0.56, -0.05],
   relax: [-2.05, 0.48, 3.0],
   oceanView: [3.0, 0.52, 3.25]
 };
+
+export function serviceDepth(need: NormalWaveNeedId): number {
+  return need === 'oceanView' ? 1.55 : need === 'relax' ? 1.5 : 1.25;
+}
 
 function Palm({ position, scale = 1, lean = 0 }: { position: readonly [number, number, number]; scale?: number; lean?: number }) {
   const palm = useRef<Group | null>(null);
@@ -263,7 +267,7 @@ export function ServiceBuilding({ need, state, selected, onSelect, environment }
   const waiting = state.normalWave.queueByNeed[need];
   const workers = Object.values(state.normalWave.workerAssignments).filter(value => value === need).length;
   const [x, y, z] = SERVICE_POSITIONS[need];
-  const depth = need === 'oceanView' ? 1.55 : need === 'relax' ? 1.5 : 1.25;
+  const depth = serviceDepth(need);
 
   return <group position={[x, y, z]} onClick={(event: ThreeEvent<MouseEvent>) => { event.stopPropagation(); onSelect(); }}>
     <ServiceArchitecture need={need} level={level} selected={selected} />
@@ -272,12 +276,16 @@ export function ServiceBuilding({ need, state, selected, onSelect, environment }
       {[-0.55, 0.55].map((lx, index) => <mesh key={index} position={[lx, 0.72, depth * 0.6]}><sphereGeometry args={[0.055, 8, 6]} /><meshStandardMaterial color="#ffd98a" emissive="#ffb84d" emissiveIntensity={environment.timeOfDay === 'evening' ? 2.8 : 1.5} /></mesh>)}
     </group> : null}
 
-    {Array.from({ length: workers }).map((_, index) => <group key={`worker-${index}`} position={[-0.48 + index * 0.28, 0.18, depth * 0.82]}>
-      <mesh castShadow position={[0, 0.16, 0]}><boxGeometry args={[0.16, 0.32, 0.16]} /><meshStandardMaterial color="#4f8f6b" /></mesh>
-      <mesh castShadow position={[0, 0.4, 0]}><sphereGeometry args={[0.11, 10, 8]} /><meshStandardMaterial color="#d9a47d" /></mesh>
-      <mesh castShadow position={[0, 0.5, 0]}><boxGeometry args={[0.22, 0.06, 0.22]} /><meshStandardMaterial color="#ffd56d" /></mesh>
-    </group>)}
-
+    <group position={[0.72, 0.055, depth * 0.82]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.14, 20]} />
+        <meshBasicMaterial color={workers > 0 ? '#75d39a' : '#c77d68'} transparent opacity={0.88} />
+      </mesh>
+      <mesh position={[0, 0.018, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.17, 0.22, 20]} />
+        <meshBasicMaterial color={workers > 0 ? '#d9f7e4' : '#f0c0ae'} transparent opacity={0.72} />
+      </mesh>
+    </group>
     {Array.from({ length: Math.min(waiting, 6) }).map((_, index) => <group key={`queue-${index}`} position={[-0.62 + (index % 3) * 0.28, 0.12, depth * 1.12 + Math.floor(index / 3) * 0.3]}>
       <mesh castShadow position={[0, 0.16, 0]}><boxGeometry args={[0.12, 0.24, 0.12]} /><meshStandardMaterial color="#72b4c0" /></mesh>
       <mesh castShadow position={[0, 0.34, 0]}><sphereGeometry args={[0.085, 8, 6]} /><meshStandardMaterial color="#e6b995" /></mesh>

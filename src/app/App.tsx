@@ -18,6 +18,7 @@ import { ResortWorld3D } from '../render/ResortWorld3D';
 export interface AppProps {
   core: BootstrapCore;
   comebackRewardCoins?: number;
+  onNewResort: () => Promise<void>;
 }
 
 function labelNeed(need: NormalWaveNeedId): string {
@@ -26,7 +27,7 @@ function labelNeed(need: NormalWaveNeedId): string {
 }
 
 
-export function App({ core, comebackRewardCoins = 0 }: AppProps) {
+export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
   const snapshot = useSyncExternalStore(
     core.subscribe,
     core.getSnapshot,
@@ -79,6 +80,12 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
   useEffect(() => {
     if (wave.result !== null) setSelectedNeed(wave.result.bottleneckNeed);
   }, [wave.result?.bottleneckNeed]);
+
+  useEffect(() => {
+    setSelectedNeed('reception');
+    setWorkerSheetOpen(false);
+    setVisibleComebackReward(0);
+  }, [snapshot.bootId]);
 
 
   return (
@@ -134,6 +141,7 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
             {wave.phase === 'awaiting' ? <button className="hud-primary-action" type="button" onClick={() => core.dispatch({ type: 'START_WAVE' })}>Start wave</button> : null}
             {(wave.phase === 'awaiting' || wave.phase === 'complete') ? areaUnlocks.filter((unlock) => unlock.status === 'available').map((unlock) => <button className="phase-command__offer" key={unlock.areaId} type="button" onClick={() => { setSelectedNeed(unlock.need); core.dispatch({ type: 'PURCHASE_AREA', areaId: unlock.areaId }); }}><strong>Open {unlock.buildingLabel}</strong><small>New {NORMAL_SERVICE_CATALOG[unlock.need].needLabel} service + {unlock.includedWorkerId}</small><span>{unlock.coinCost} Coins</span></button>) : null}
             {wave.phase === 'complete' && !finalWaveComplete ? <button className="hud-primary-action" type="button" onClick={() => core.dispatch({ type: 'CONTINUE_TO_NEXT_WAVE' })}>Next wave</button> : null}
+            {finalWaveComplete ? <button className="hud-primary-action" type="button" onClick={() => { void onNewResort(); }}>New resort</button> : null}
           </div>
         </section>
 

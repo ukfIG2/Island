@@ -64,6 +64,26 @@ export class BootstrapCore {
     };
   };
 
+  readonly replaceState = (
+    nextState:
+      BootstrapState
+  ): BootstrapState => {
+    if (nextState === this.state) {
+      return this.state;
+    }
+
+    this.state = nextState;
+
+    for (
+      const listener
+      of this.listeners
+    ) {
+      listener();
+    }
+
+    return this.state;
+  };
+
   readonly dispatch = (
     command:
       BootstrapCommand

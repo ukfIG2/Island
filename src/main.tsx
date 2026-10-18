@@ -113,6 +113,22 @@ async function boot(): Promise<void> {
     }
   };
 
+  const startNewResort = async (): Promise<void> => {
+    if (capacityUpgradeProof) return;
+
+    const fresh = createInitialBootstrapState(crypto.randomUUID());
+    simulationClock.stop();
+
+    try {
+      await persistence.save(fresh);
+      core.replaceState(fresh);
+    } finally {
+      if (document.visibilityState === 'visible') {
+        simulationClock.start();
+      }
+    }
+  };
+
   const handleVisibilityChange = (): void => {
     if (document.visibilityState !== 'visible') {
       simulationClock.stop();
@@ -150,6 +166,7 @@ async function boot(): Promise<void> {
       <App
         core={core}
         comebackRewardCoins={comebackRewardGranted ? PROTOTYPE_ECONOMY_PROOF_TUNING.comebackRewardCoins : 0}
+        onNewResort={startNewResort}
       />
     </StrictMode>
   );

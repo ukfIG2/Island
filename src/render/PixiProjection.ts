@@ -215,9 +215,13 @@ export class PixiProjection {
     const areaLayer = new Container();
     const motionLayer = new Container();
     const queueLayer = new Container();
+    const occupancyLayer = new Container();
+    const workerLayer = new Container();
     const effectLayer = new Container();
     let areaKey = '';
     let queueKey = '';
+    let occupancyKey = '';
+    let workerKey = '';
     let motionKey = '';
     let movers: Array<{ node: Graphics; need: NormalWaveNeedId; offset: number; speed: number }> = [];
     const effects: Array<{ node: Container; x: number; y: number; at: number }> = [];
@@ -228,17 +232,14 @@ export class PixiProjection {
       const text = new Text({text:label,style:{fill:color,fontSize:15,fontWeight:'700'}}); text.anchor.set(0.5); text.y=-40;
       node.position.set(x,y); node.addChild(ring,text); effectLayer.addChild(node); effects.push({node,x,y,at:performance.now()});
     };
-    const syncMovers = (phase: string, needs: readonly NormalWaveNeedId[]) => {
-      const active = phase === 'incoming' || phase === 'draining' ? needs : [];
-      const key = phase+'|'+active.join('|'); if(key===motionKey)return;
-      for(const child of motionLayer.removeChildren())child.destroy(); movers=[];
-      const count=active.length===0?0:Math.min(10,Math.max(4,active.length*2));
-      const guestColors=[0xffd086,0xf8ede0,0x8fd0c7,0xe99a7a];
-      for(let i=0;i<count;i++){
-        const need=active[i%active.length];
-        const node=new Graphics().ellipse(0,8,7,3).fill(0x164855).ellipse(0,0,7,9).fill(guestColors[i%guestColors.length]).circle(0,-10,4).fill(0xe9b58f);
-        motionLayer.addChild(node); movers.push({node,need,offset:i/count,speed:0.055+(i%4)*0.008});
-      }
+    const guestColors=[0xffd086,0xf8ede0,0x8fd0c7,0xe99a7a,0x9cb8ef];
+    const makeGuest=(i:number,scale=1)=>{const g=new Graphics().ellipse(0,9,8,3).fill(0x164855).ellipse(0,0,7,10).fill(guestColors[i%guestColors.length]).circle(0,-11,4).fill(0xe9b58f);g.scale.set(scale);return g;};
+    const syncMovers=(wave:BootstrapState['normalWave'],needs:readonly NormalWaveNeedId[])=>{
+      const active=wave.phase==='incoming'?needs:[];
+      const count=active.length===0?0:Math.min(6,Math.max(0,wave.tuning.totalDemand-wave.releasedDemand));
+      const key=wave.phase+'|'+wave.releasedDemand+'|'+active.join('|');if(key===motionKey)return;
+      for(const child of motionLayer.removeChildren())child.destroy();movers=[];
+      for(let i=0;i<count;i++){const need=active[i%active.length];const node=makeGuest(i,.9);motionLayer.addChild(node);movers.push({node,need,offset:count<=1?0:i/count,speed:.11+(i%3)*.012});}
       motionKey=key;
     };
     const animateWorld = (now: number, wave: BootstrapState['normalWave'], selected: NormalWaveNeedId | null) => {
@@ -248,6 +249,16 @@ export class PixiProjection {
       for(const {need,frame} of serviceStatuses){const q=wave.queueByNeed[need],level=wave.buildingLevelsByNeed[need],growth=1+(level-1)*.085,base=wave.result?.bottleneckNeed===need?1.08:selected===need?1.065:q>0?1.035:1,pulse=q>0?1+Math.sin(sec*4.5+NORMAL_SERVICE_IDS.indexOf(need))*Math.min(.025,.009+q*.003):1;frame.scale.set(base*growth*pulse);}
       for(let i=effects.length-1;i>=0;i--){const e=effects[i],p=(now-e.at)/900;if(p>=1){effectLayer.removeChild(e.node);e.node.destroy({children:true});effects.splice(i,1);}else{e.node.position.set(e.x,e.y-p*22);e.node.alpha=1-p;e.node.scale.set(.88+Math.sin(p*Math.PI)*.22);}}
     };
+    const syncWorldActors=(state:BootstrapState,needs:readonly NormalWaveNeedId[])=>{
+      const wave=state.normalWave;
+      const qk=needs.map(n=>n+':'+wave.queueByNeed[n]).join('|');
+      if(qk!==queueKey){for(const c of queueLayer.removeChildren())c.destroy();for(const n of needs){const [x,y]=servicePositions[n],count=Math.min(8,wave.queueByNeed[n]);for(let j=0;j<count;j++){const g=makeGuest(j);g.position.set(x-30+(j%4)*20,y+62+Math.floor(j/4)*24);queueLayer.addChild(g);}}queueKey=qk;}
+      const ok=needs.map(n=>n+':'+wave.activeByNeed[n]+':'+normalWaveServiceCapacity(state,n)).join('|');
+      if(ok!==occupancyKey){for(const c of occupancyLayer.removeChildren())c.destroy();for(const n of needs){const [x,y]=servicePositions[n],cap=Math.min(6,normalWaveServiceCapacity(state,n)),active=Math.min(cap,wave.activeByNeed[n]);for(let j=0;j<cap;j++){const slot=new Graphics().ellipse(0,0,10,5).fill(j<active?0x367a59:0xbcae82);slot.alpha=j<active?.9:.45;slot.position.set(x-(cap-1)*9+j*18,y+42);occupancyLayer.addChild(slot);if(j<active){const g=makeGuest(j+2,.82);g.position.set(slot.x,slot.y-8);occupancyLayer.addChild(g);}}}occupancyKey=ok;}
+      const wk=needs.map(n=>n+':'+Object.entries(wave.workerAssignments).filter(([,v])=>v===n).map(([id])=>id).join(',')).join('|');
+      if(wk!==workerKey){for(const c of workerLayer.removeChildren())c.destroy();for(const n of needs){const [x,y]=servicePositions[n],assigned=Object.entries(wave.workerAssignments).filter(([,v])=>v===n);assigned.forEach(([,id],j)=>{const w=new Container(),body=new Graphics().ellipse(0,7,7,3).fill(0x164855).roundRect(-6,-8,12,18,4).fill(0x4f8f6b).circle(0,-13,5).fill(0xdca77f).rect(-6,-19,12,4).fill(0xffd56d),badge=new Text({text:'W',style:{fill:0xffffff,fontSize:8,fontWeight:'700'}});badge.anchor.set(.5);w.addChild(body,badge);w.position.set(x-52+j*18,y-42);w.label=id;workerLayer.addChild(w);});}workerKey=wk;}
+    };
+
     const reconcileAreas = (state: BootstrapState) => {
       const key = (state.purchasedAreas.pool ? '1' : '0') + (state.purchasedAreas.bungalows ? '1' : '0');
       if (key === areaKey) return;
@@ -311,6 +322,8 @@ export class PixiProjection {
       motionLayer,
       queueLayer,
       serviceLayer,
+      occupancyLayer,
+      workerLayer,
       effectLayer
     );
 
@@ -378,8 +391,8 @@ export class PixiProjection {
         const waiting = wave.queueByNeed[need];
         const level = wave.buildingLevelsByNeed[need];
         levelDecor.clear();
-        if(unlocked&&level>=2)levelDecor.roundRect(-88,-34,176,88,20).stroke({width:6,color:0xe4c879,alpha:.72}).roundRect(-101,-4,24,50,8).fill(0xd9bb7a).roundRect(77,-4,24,50,8).fill(0xd9bb7a);
-        if(unlocked&&level>=3)levelDecor.roundRect(-104,-43,208,108,24).stroke({width:4,color:0xffe4a0,alpha:.96}).poly([-78,-44,0,-88,78,-44]).stroke({width:5,color:0xffd56d,alpha:.9}).circle(-76,-55,8).fill(0xffd56d).circle(0,-68,9).fill(0xffd56d).circle(76,-55,8).fill(0xffd56d);
+        if(unlocked&&level>=2)levelDecor.roundRect(-100,-24,30,64,9).fill(0xd9bb7a).roundRect(70,-24,30,64,9).fill(0xd9bb7a).roundRect(-92,22,184,30,11).fill(0xc6a76b).roundRect(-94,-36,188,94,22).stroke({width:5,color:0xe4c879,alpha:.66});
+        if(unlocked&&level>=3)levelDecor.roundRect(-112,-34,24,78,8).fill(0xf0cf7a).roundRect(88,-34,24,78,8).fill(0xf0cf7a).poly([-92,-44,0,-94,92,-44]).fill(0xc96f4c).stroke({width:3,color:0xffe4a0,alpha:.9}).circle(-78,-60,7).fill(0xffd56d).circle(0,-78,8).fill(0xffd56d).circle(78,-60,7).fill(0xffd56d);
         const bottleneck = wave.result?.bottleneckNeed === need;
       const selected = selectedNeed === need;
         frame.alpha = unlocked ? 1 : 0.38;
@@ -390,20 +403,7 @@ export class PixiProjection {
         status.alpha = unlocked ? 1 : 0.55;
       }
 
-      const nextQueueKey = visibleNeeds.map((need) => need + ':' + wave.queueByNeed[need]).join('|');
-      if (nextQueueKey !== queueKey) {
-        for (const child of queueLayer.removeChildren()) child.destroy();
-        for (const need of visibleNeeds) {
-          const waiting = Math.min(8, wave.queueByNeed[need]);
-          const pos = servicePositions[need];
-          for (let i = 0; i < waiting; i += 1) {
-            const guest = new Graphics().ellipse(0,8,7,3).fill(0x164855).ellipse(0,0,7,9).fill(i % 2 === 0 ? 0xffd086 : 0xf8ede0).circle(0,-11,4).fill(0xe9b58f);
-            guest.position.set(pos[0] - 30 + (i % 4) * 20, pos[1] + 58 + Math.floor(i / 4) * 24);
-            queueLayer.addChild(guest);
-          }
-        }
-        queueKey = nextQueueKey;
-      }
+      syncWorldActors(snapshot, visibleNeeds);
 
       resultStatus.text = wave.result === null
         ? 'Tap a resort building to manage it.'
@@ -414,7 +414,7 @@ export class PixiProjection {
 
       }
 
-      syncMovers(wave.phase, visibleNeeds.filter(need => wave.activeNeedIds.includes(need)));
+      syncMovers(wave, visibleNeeds.filter(need => wave.activeNeedIds.includes(need)));
       animateWorld(performance.now(), wave, selectedNeed);
       app.renderer.render(app.stage);
     };

@@ -168,11 +168,6 @@ button:disabled {
   overflow: hidden;
 }
 
-.shell__pixi {
-  width: 100%;
-  height: 100%;
-  min-height: 560px;
-}
 
 @media (max-width: 900px) {
   .shell {
@@ -194,7 +189,6 @@ button:disabled {
 /* Prototype game-surface vertical slice */
 .shell { position: relative; display: block; height: 100dvh; min-height: 0; overflow: hidden; padding: 16px; background: #071a22; }
 .shell__world { position: absolute; inset: 16px; min-height: 0; overflow: hidden; border-color: #315f68; background: #0e6370; }
-.shell__pixi { width: 100%; height: 100%; min-height: 0; }
 .shell__panel { position: relative; z-index: 4; width: 100%; height: 100%; padding: 18px; border: 0; background: transparent; pointer-events: none; }
 .shell__panel > * { pointer-events: auto; }
 .shell__panel > .shell__intro, .shell__panel > .shell__facts, .shell__services[aria-label="Service status"] { display: none; }
@@ -504,3 +498,7 @@ button:disabled {
 .worker-row{align-items:flex-start;padding:10px}
 .worker-row__destinations button{font-size:10px;min-height:30px;padding:6px 8px}
 @media(max-width:760px){.worker-sheet__backdrop{padding:10px}.worker-sheet{width:min(500px,calc(100vw - 20px));max-height:50vh}}
+
+/* Three/R3F world foundation */
+.shell__three{width:100%;height:100%;min-height:0;position:relative}
+.shell__three canvas{display:block;width:100%!important;height:100%!important;touch-action:none;outline:none}

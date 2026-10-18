@@ -1,7 +1,6 @@
 import { normalWaveCoinReward, normalWaveForecast, normalWaveServiceCapacity, normalWaveUpgradeQuote, PROTOTYPE_ENERGY_PROOF_TUNING, prototypeAreaUnlockView } from '../core/state';
 import {
   useEffect,
-  useRef,
   useState,
   useSyncExternalStore
 } from 'react';
@@ -14,7 +13,7 @@ import {
   type NormalWaveNeedId,
   type NormalWaveWorkerId
 } from '../core/state';
-import { PixiProjection } from '../render/PixiProjection';
+import { ResortWorld3D } from '../render/ResortWorld3D';
 
 export interface AppProps {
   core: BootstrapCore;
@@ -33,12 +32,8 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
     core.getSnapshot,
     core.getSnapshot
   );
-
-  const worldHost = useRef<HTMLDivElement | null>(null);
   const [workerSheetOpen, setWorkerSheetOpen] = useState(false);
   const [selectedNeed, setSelectedNeed] = useState<NormalWaveNeedId>('reception');
-  const selectedNeedRef = useRef<NormalWaveNeedId>('reception');
-  selectedNeedRef.current = selectedNeed;
   const [visibleComebackReward, setVisibleComebackReward] = useState(comebackRewardCoins);
 
   useEffect(() => {
@@ -85,21 +80,6 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
     if (wave.result !== null) setSelectedNeed(wave.result.bottleneckNeed);
   }, [wave.result?.bottleneckNeed]);
 
-  useEffect(() => {
-    const host = worldHost.current;
-
-    if (host === null) {
-      return;
-    }
-
-    const projection = new PixiProjection();
-
-    void projection.mount(host, core.getSnapshot, setSelectedNeed, () => selectedNeedRef.current);
-
-    return () => {
-      projection.destroy();
-    };
-  }, [core]);
 
   return (
     <main className="shell">
@@ -221,7 +201,7 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
       </section>
 
       <section className="shell__world" aria-label="Resort world projection">
-        <div ref={worldHost} className="shell__pixi" />
+        <ResortWorld3D state={snapshot} selectedNeed={selectedNeed} onSelectNeed={setSelectedNeed} />
       </section>
     </main>
   );

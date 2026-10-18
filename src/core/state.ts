@@ -50,6 +50,7 @@ export interface PrototypeAreaUnlockView {
   readonly status: PrototypeAreaStatus;
 }
 export type NeedCounts = Readonly<Record<NormalWaveNeedId, number>>;
+export type NormalNeedOperationalState = 'BOTTLENECK' | 'RECOVERING' | 'SATISFIED';
 export type NormalWaveBottleneckCause = 'staffing' | 'capacity';
 export type PrototypeBuildingLevel = 1 | 2 | 3;
 export type PrototypeUpgradeTargetLevel = 2 | 3;
@@ -316,6 +317,14 @@ export function prototypeAreaUnlockView(state: BootstrapState, areaId: Prototype
 
 export function normalWaveServiceCapacity(state: BootstrapState, need: NormalWaveNeedId): number {
   return capacity(state.normalWave, need);
+}
+
+export function normalNeedOperationalState(state: BootstrapState, need: NormalWaveNeedId): NormalNeedOperationalState {
+  const wave = state.normalWave;
+  if (!wave.activeNeedIds.includes(need)) return 'SATISFIED';
+  if (wave.queueByNeed[need] > 0) return 'BOTTLENECK';
+  if (wave.activeByNeed[need] > 0) return 'RECOVERING';
+  return 'SATISFIED';
 }
 
 export function normalWaveUpgradeQuote(

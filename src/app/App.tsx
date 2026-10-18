@@ -1,4 +1,6 @@
-import { normalWaveCoinReward, normalWaveForecast, normalWaveServiceCapacity, normalWaveUpgradeQuote, PROTOTYPE_ENERGY_PROOF_TUNING, prototypeAreaUnlockView } from '../core/state';
+import { normalWaveCoinReward, normalWaveForecast, normalWaveServiceCapacity, normalWaveUpgradeQuote, PROTOTYPE_ENERGY_PROOF_TUNING, prototypeAreaUnlockView,
+  normalNeedOperationalState
+} from '../core/state';
 import {
   useEffect,
   useState,
@@ -117,7 +119,7 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
               onClick={() => setSelectedNeed(need)}
             >
               <strong>{NORMAL_SERVICE_CATALOG[need].buildingLabel}</strong>
-              <span>{wave.queueByNeed[need] > 0 ? wave.queueByNeed[need] + ' waiting' : 'Flowing'}</span>
+              <span>{normalNeedOperationalState(snapshot, need)}</span>
             </button>
           ))}
         </nav>

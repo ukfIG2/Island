@@ -286,11 +286,6 @@ export function ServiceBuilding({ need, state, selected, onSelect, environment }
         <meshBasicMaterial color={workers > 0 ? '#d9f7e4' : '#f0c0ae'} transparent opacity={0.72} />
       </mesh>
     </group>
-    {Array.from({ length: Math.min(waiting, 6) }).map((_, index) => <group key={`queue-${index}`} position={[-0.62 + (index % 3) * 0.28, 0.12, depth * 1.12 + Math.floor(index / 3) * 0.3]}>
-      <mesh castShadow position={[0, 0.16, 0]}><boxGeometry args={[0.12, 0.24, 0.12]} /><meshStandardMaterial color="#72b4c0" /></mesh>
-      <mesh castShadow position={[0, 0.34, 0]}><sphereGeometry args={[0.085, 8, 6]} /><meshStandardMaterial color="#e6b995" /></mesh>
-    </group>)}
-
     <mesh position={[0, 0.035, depth * 1.62]} rotation={[-Math.PI / 2, 0, 0]}>
       <ringGeometry args={[0.4, 0.55, 28]} />
       <meshBasicMaterial color={selected ? '#ffe783' : waiting > 0 ? '#f08d64' : '#77d0b0'} transparent opacity={0.92} />

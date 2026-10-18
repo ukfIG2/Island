@@ -2,6 +2,7 @@ import { Canvas } from '@react-three/fiber';
 import { arrivalCompositionForWave } from '../core/arrivalComposition';
 import { ResortArrivalActivity } from './ResortArrivalActivity';
 import { ResortWorkerActivity } from './ResortWorkerActivity';
+import { ResortGuestFlowActivity } from './ResortGuestFlowActivity';
 import { environmentProfileForWave } from './environmentProfile';
 import type { BootstrapState, NormalWaveNeedId } from '../core/state';
 import { IslandArt, ServiceBuilding, TropicalRain } from './ResortWorldArt';
@@ -17,7 +18,6 @@ interface ResortWorld3DProps {
 function WorldScene({ state, selectedNeed, onSelectNeed }: ResortWorld3DProps) {
   const environment = environmentProfileForWave(state.currentWaveNumber, state.normalWave.phase);
   const activeNeeds = ACTIVE_SERVICE_ORDER.filter(need => state.normalWave.activeNeedIds.includes(need));
-  const activeGuests = activeNeeds.reduce((sum, need) => sum + state.normalWave.activeByNeed[need], 0);
 
   return (
     <>
@@ -33,27 +33,19 @@ function WorldScene({ state, selectedNeed, onSelectNeed }: ResortWorld3DProps) {
 
 
       <ResortArrivalActivity state={state} />
+      <ResortGuestFlowActivity state={state} />
 
       {activeNeeds.map(need => <ServiceBuilding key={need} need={need} state={state} selected={selectedNeed === need} onSelect={() => onSelectNeed(need)} environment={environment} />)}
 
       <ResortWorkerActivity state={state} />
 
-      {Array.from({ length: Math.min(activeGuests, 10) }).map((_, index) => {
-        const angle = (index / Math.max(1, Math.min(activeGuests, 10))) * Math.PI * 2;
-        return (
-          <group key={`guest-${index}`} position={[Math.cos(angle) * 1.55, 0.53, Math.sin(angle) * 1.35]}>
-            <mesh castShadow position={[0, 0.15, 0]}><boxGeometry args={[0.11, 0.25, 0.11]} /><meshStandardMaterial color={index % 2 ? '#f0a868' : '#6db6c8'} /></mesh>
-            <mesh castShadow position={[0, 0.34, 0]}><sphereGeometry args={[0.08, 8, 6]} /><meshStandardMaterial color="#e4b28f" /></mesh>
-          </group>
-        );
-      })}
     </>
   );
 }
 
 export function ResortWorld3D(props: ResortWorld3DProps) {
   return (
-    <div className="shell__three" data-renderer="three-r3f" data-selected-need={props.selectedNeed} data-arrival-source={arrivalCompositionForWave(props.state.currentWaveNumber).source} data-time-of-day={environmentProfileForWave(props.state.currentWaveNumber, props.state.normalWave.phase).timeOfDay} data-weather={environmentProfileForWave(props.state.currentWaveNumber, props.state.normalWave.phase).weather} data-world-art="stylized-v2" data-world-motion="materials-v1" data-arrival-activity="craft-v1" data-worker-activity="transfer-v1">
+    <div className="shell__three" data-renderer="three-r3f" data-selected-need={props.selectedNeed} data-arrival-source={arrivalCompositionForWave(props.state.currentWaveNumber).source} data-time-of-day={environmentProfileForWave(props.state.currentWaveNumber, props.state.normalWave.phase).timeOfDay} data-weather={environmentProfileForWave(props.state.currentWaveNumber, props.state.normalWave.phase).weather} data-world-art="stylized-v2" data-world-motion="materials-v1" data-arrival-activity="craft-v1" data-worker-activity="transfer-v1" data-guest-flow="service-v1">
       <Canvas
         orthographic
         shadows

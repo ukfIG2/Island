@@ -496,3 +496,11 @@ button:disabled {
 
 .phase-command__offer{display:grid;gap:1px;min-width:148px;text-align:left}.phase-command__offer strong{font-size:11px}.phase-command__offer small{font-size:9px;line-height:1.2;opacity:.72}.phase-command__offer span{font-size:9px;color:#f5d978}
 .progression-offer{grid-column:1/-1;display:grid;gap:2px;padding:8px 9px;border:1px solid rgba(245,217,120,.22);border-radius:10px;background:rgba(245,217,120,.07)}.progression-offer span{font-size:8px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;color:#f5d978}.progression-offer strong{font-size:12px}.progression-offer small{font-size:9px;opacity:.72}
+
+/* Worker live-control tray */
+.worker-sheet__backdrop{align-items:flex-end;justify-content:flex-end;padding:18px;background:transparent;pointer-events:none!important}
+.worker-sheet{pointer-events:auto;width:min(520px,calc(100vw - 36px));max-height:min(48vh,270px);padding:14px;border-radius:18px;background:rgba(8,31,37,.94);backdrop-filter:blur(14px);box-shadow:0 16px 48px rgba(0,0,0,.34)}
+.worker-sheet__workers{gap:8px;margin-top:10px}
+.worker-row{align-items:flex-start;padding:10px}
+.worker-row__destinations button{font-size:10px;min-height:30px;padding:6px 8px}
+@media(max-width:760px){.worker-sheet__backdrop{padding:10px}.worker-sheet{width:min(500px,calc(100vw - 20px));max-height:50vh}}

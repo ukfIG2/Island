@@ -1,3 +1,4 @@
+import { normalizePrototypeWorkerRoster } from '../core/state';
 import { PROTOTYPE_UPGRADE_PROOF_TUNING } from '../core/state';
 import Dexie, { type Table } from 'dexie';
 import {
@@ -149,7 +150,7 @@ function legacyWorkerAssignment(value: unknown): NormalWaveNeedId | null {
   return isNeedId(assigned) ? assigned : null;
 }
 
-export function normalizePersistedState(
+function normalizePersistedStateLegacy(
   persisted: BootstrapState
 ): BootstrapState {
   const raw = persisted as any;
@@ -268,4 +269,8 @@ export class DexieBootstrapPersistence
       state
     });
   }
+}
+
+export function normalizePersistedState(...args: Parameters<typeof normalizePersistedStateLegacy>) {
+  return normalizePrototypeWorkerRoster(normalizePersistedStateLegacy(...args));
 }

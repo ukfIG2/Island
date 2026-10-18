@@ -197,17 +197,17 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
           <div className="worker-sheet__backdrop" role="presentation" onClick={() => setWorkerSheetOpen(false)}>
             <section className="worker-sheet" role="dialog" aria-modal="true" aria-label="Worker Allocation" onClick={(event) => event.stopPropagation()}>
               <header className="worker-sheet__header">
-                <div><p className="shell__eyebrow">Worker Allocation</p><h2>Move a worker</h2></div>
+                <div><p className="shell__eyebrow">Worker Allocation</p><h2>{workers.length} workers · live control</h2></div>
                 <button type="button" onClick={() => setWorkerSheetOpen(false)}>Close</button>
               </header>
               <div className="worker-sheet__workers">
                 {workers.map(([workerId, workerNeed]) => (
                   <article className="worker-row" key={workerId}>
-                    <div><strong>{workerId}</strong><small>At {NORMAL_SERVICE_CATALOG[workerNeed].buildingLabel}</small></div>
+                    <div><strong>{workerId}</strong><small>At {NORMAL_SERVICE_CATALOG[workerNeed].buildingLabel} · {normalWaveServiceCapacity(snapshot, workerNeed)}/tick</small></div>
                     <div className="worker-row__destinations">
-                      {wave.activeNeedIds.filter((need) => need !== workerNeed).map((need) => (
-                        <button type="button" key={need} onClick={() => { core.dispatch({ type: 'REASSIGN_WORKER', workerId, to: need }); setWorkerSheetOpen(false); }}>
-                          {NORMAL_SERVICE_CATALOG[need].buildingLabel}
+                      {wave.activeNeedIds.filter((need) => need !== workerNeed && !workers.some(([, assignedNeed]) => assignedNeed === need)).map((need) => (
+                        <button type="button" key={need} onClick={() => core.dispatch({ type: 'REASSIGN_WORKER', workerId, to: need })}>
+                          {NORMAL_SERVICE_CATALOG[need].buildingLabel} · {normalWaveServiceCapacity(snapshot, need) + 1}/tick
                         </button>
                       ))}
                     </div>

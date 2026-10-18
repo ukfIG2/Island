@@ -27,10 +27,11 @@ export interface NormalWaveForecast {
 }
 export type NormalWavePhase = 'awaiting' | 'incoming' | 'draining' | 'complete';
 export const NORMAL_WAVE_PROOF_WORKER_ID = 'worker-1' as const;
+export const NORMAL_WAVE_BASE_WORKER_IDS = [NORMAL_WAVE_PROOF_WORKER_ID, 'worker-0'] as const;
 export const PROTOTYPE_AREA_IDS = ['pool', 'bungalows'] as const;
 export type PrototypeAreaId = (typeof PROTOTYPE_AREA_IDS)[number];
 export const PROTOTYPE_AREA_WORKER_IDS = { pool: 'worker-2', bungalows: 'worker-3' } as const;
-export type NormalWaveWorkerId = typeof NORMAL_WAVE_PROOF_WORKER_ID | (typeof PROTOTYPE_AREA_WORKER_IDS)[PrototypeAreaId];
+export type NormalWaveWorkerId = (typeof NORMAL_WAVE_BASE_WORKER_IDS)[number] | (typeof PROTOTYPE_AREA_WORKER_IDS)[PrototypeAreaId];
 export type NormalWaveWorkerAssignments = Readonly<Partial<Record<NormalWaveWorkerId, NormalWaveNeedId>>>;
 export type PrototypeAreaPurchases = Readonly<Record<PrototypeAreaId, boolean>>;
 export type PrototypeAreaStatus = 'locked' | 'available' | 'not_affordable' | 'unlocked';
@@ -246,7 +247,7 @@ function scheduledSuddenRush(): PrototypeSuddenRushState { return { scheduled: t
 
 function awaiting(
   tuning: NormalWaveProofTuning,
-  workerAssignments: NormalWaveWorkerAssignments = { [NORMAL_WAVE_PROOF_WORKER_ID]: 'reception' },
+  workerAssignments: NormalWaveWorkerAssignments = { [NORMAL_WAVE_PROOF_WORKER_ID]: 'reception', 'worker-0': 'drinks' },
   buildingLevelsByNeed: BuildingLevels = initialBuildingLevels(),
   upgradeTuning: PrototypeUpgradeTuning = PROTOTYPE_UPGRADE_PROOF_TUNING,
   activeNeedIds: readonly NormalWaveNeedId[] = NORMAL_WAVE_NEEDS,
@@ -451,6 +452,20 @@ export function createInitialBootstrapState(
     purchasedAreas: { pool: false, bungalows: false },
     normalWave: awaiting(tuning)
   };
+}
+
+export function normalizePrototypeWorkerRoster(state: BootstrapState): BootstrapState {
+  const wave = state.normalWave;
+  const assignedWorkers = Object.values(wave.workerAssignments).filter((value): value is NormalWaveNeedId => value !== undefined).length;
+  const desiredWorkers = Math.max(1, wave.activeNeedIds.length - 1);
+  if (assignedWorkers >= desiredWorkers || wave.workerAssignments['worker-0'] !== undefined) return state;
+  const target = (wave.activeNeedIds.includes('drinks') && workerCount(wave, 'drinks') < wave.workerSlotsByNeed.drinks)
+    ? 'drinks'
+    : wave.activeNeedIds.find(need => workerCount(wave, need) < wave.workerSlotsByNeed[need]);
+  if (target === undefined) return state;
+  const normalWave: NormalWaveState = { ...wave, workerAssignments: { ...wave.workerAssignments, 'worker-0': target } };
+  validateWorkerModel(normalWave);
+  return { ...state, normalWave };
 }
 
 export function applyBootstrapCommand(state: BootstrapState, command: BootstrapCommand): BootstrapState {

@@ -33,7 +33,7 @@ describe('Prototype area unlock progression', () => {
     expect(prototypeAreaUnlockView(state, 'pool').status).toBe('locked');
     expect(prototypeAreaUnlockView(state, 'bungalows').status).toBe('locked');
     expect(normalWaveForecast(state).needs).toEqual(['reception', 'food', 'drinks']);
-    expect(Object.keys(state.normalWave.workerAssignments)).toEqual(['worker-1']);
+    expect(Object.keys(state.normalWave.workerAssignments)).toEqual(['worker-1', 'worker-0']);
   });
 
   it('allows Pool to remain deferred after Wave 3 without spawning Relax', () => {

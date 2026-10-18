@@ -210,7 +210,7 @@ describe(
           relax: 1,
           oceanView: 1
         });
-        expect(Object.keys(initial.workerAssignments)).toHaveLength(1);
+        expect(Object.keys(initial.workerAssignments)).toHaveLength(2);
         expect(
           Object.keys(initial.workerAssignments).length
         ).toBeLessThan(

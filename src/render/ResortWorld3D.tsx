@@ -1,5 +1,6 @@
 import { Canvas, type ThreeEvent } from '@react-three/fiber';
 import { arrivalCompositionForWave, arrivalCraftProjection } from '../core/arrivalComposition';
+import { environmentProfileForWave } from './environmentProfile';
 import type { BootstrapState, NormalWaveNeedId } from '../core/state';
 import { normalWaveServiceCapacity } from '../core/state';
 
@@ -128,20 +129,21 @@ function ArrivalTraffic({ state }: { state: BootstrapState }) {
 }
 
 function WorldScene({ state, selectedNeed, onSelectNeed }: ResortWorld3DProps) {
+  const environment = environmentProfileForWave(state.currentWaveNumber, state.normalWave.phase);
   const activeNeeds = ACTIVE_SERVICE_ORDER.filter(need => state.normalWave.activeNeedIds.includes(need));
   const activeGuests = activeNeeds.reduce((sum, need) => sum + state.normalWave.activeByNeed[need], 0);
 
   return (
     <>
-      <color attach="background" args={['#157f98']} />
-      <fog attach="fog" args={['#7bc4c7', 13, 25]} />
-      <ambientLight intensity={1.35} />
-      <hemisphereLight intensity={1.15} color="#fff3cb" groundColor="#24584f" />
-      <directionalLight castShadow position={[-6, 11, -5]} intensity={2.3} color="#fff1ca" shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
+      <color attach="background" args={[environment.sky]} />
+      <fog attach="fog" args={[environment.fog, environment.fogNear, environment.fogFar]} />
+      <ambientLight intensity={environment.ambientIntensity} />
+      <hemisphereLight intensity={environment.hemisphereIntensity} color={environment.sunColor} groundColor="#24584f" />
+      <directionalLight castShadow position={environment.timeOfDay === 'sunset' ? [-10, 5.5, -3] : [-6, 11, -5]} intensity={environment.sunIntensity} color={environment.sunColor} shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
 
       <mesh receiveShadow position={[0, -0.52, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[34, 26]} />
-        <meshStandardMaterial color="#1689a0" roughness={0.32} metalness={0.08} />
+        <meshStandardMaterial color={environment.ocean} roughness={environment.weather === 'clear' ? 0.32 : 0.48} metalness={0.08} />
       </mesh>
       <mesh receiveShadow position={[0, -0.18, 0]}>
         <cylinderGeometry args={[6.55, 6.9, 0.32, 48]} />
@@ -162,6 +164,19 @@ function WorldScene({ state, selectedNeed, onSelectNeed }: ResortWorld3DProps) {
 
       <Palm x={-4.7} z={-2.7} scale={0.9} /><Palm x={4.6} z={-2.4} /><Palm x={-4.4} z={3.1} scale={1.1} /><Palm x={4.8} z={2.8} scale={0.85} />
 
+      {environment.weather === 'tropical-rain' ? <group>
+        {Array.from({ length: 44 }).map((_, index) => {
+          const x = ((index * 37) % 23) / 23 * 13 - 6.5;
+          const z = ((index * 19) % 29) / 29 * 11 - 5.5;
+          const y = 1.3 + ((index * 11) % 17) / 17 * 5.2;
+          return <mesh key={`rain-${index}`} position={[x, y, z]} rotation={[0, 0, 0.18]}>
+            <boxGeometry args={[0.018, 0.5, 0.018]} />
+            <meshBasicMaterial color="#c7e8ec" transparent opacity={0.58} />
+          </mesh>;
+        })}
+      </group> : null}
+
+
       <ArrivalTraffic state={state} />
 
       {activeNeeds.map(need => <Building key={need} need={need} state={state} selected={selectedNeed === need} onSelect={() => onSelectNeed(need)} />)}
@@ -181,7 +196,7 @@ function WorldScene({ state, selectedNeed, onSelectNeed }: ResortWorld3DProps) {
 
 export function ResortWorld3D(props: ResortWorld3DProps) {
   return (
-    <div className="shell__three" data-renderer="three-r3f" data-selected-need={props.selectedNeed} data-arrival-source={arrivalCompositionForWave(props.state.currentWaveNumber).source}>
+    <div className="shell__three" data-renderer="three-r3f" data-selected-need={props.selectedNeed} data-arrival-source={arrivalCompositionForWave(props.state.currentWaveNumber).source} data-time-of-day={environmentProfileForWave(props.state.currentWaveNumber, props.state.normalWave.phase).timeOfDay} data-weather={environmentProfileForWave(props.state.currentWaveNumber, props.state.normalWave.phase).weather}>
       <Canvas
         orthographic
         shadows

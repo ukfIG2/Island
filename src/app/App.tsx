@@ -141,6 +141,7 @@ export function App({ core, comebackRewardCoins = 0 }: AppProps) {
             {wave.phase === 'awaiting' ? <>
               <strong>{forecast.totalDemand} guests incoming</strong>
               <small>Service load · {forecast.needs.map((need) => NORMAL_SERVICE_CATALOG[need].needLabel + ' ' + forecast.demandByNeed[need]).join(' · ')}</small>
+              {forecast.waveNumber === 1 ? <small>Worker = +1/tick. Move them to cover a service, then Start wave. You can reassign during play.</small> : null}
             </> : wave.phase === 'incoming' || wave.phase === 'draining' ? <>
               <strong>{currentQueue > 0 ? currentQueue + ' waiting' : currentActive > 0 ? currentActive + ' being served' : 'Everything is flowing'}</strong>
               <small>Select a building to move workers or boost the current bottleneck.</small>

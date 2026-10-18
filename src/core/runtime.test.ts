@@ -183,6 +183,10 @@ describe(
           oceanView: 0
         });
         expect(admitted.queueByNeed.food).toBeGreaterThan(0);
+        expect(admitted.activeByNeed.food).toBeGreaterThan(0);
+        expect(admitted.activeByNeed.food).toBe(
+          normalWaveServiceCapacity(core.getSnapshot(), 'food')
+        );
         expect(admitted.accumulatedWaitByNeed.food).toBeGreaterThan(0);
 
         advance(core);

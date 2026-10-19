@@ -24,6 +24,7 @@ namespace ResortEmpire.Sim
             public List<Unit> Seated = new List<Unit>();
             public int Served;
             public float WaitSum;
+            public float ContributionSum;
             public NeedStatus Status;
             public int PrevQueue;
             public float NonDecreasingSeconds;
@@ -48,6 +49,7 @@ namespace ResortEmpire.Sim
         public WavePhase Phase { get; private set; } = WavePhase.AwaitingWave;
         public bool IsPaused { get; set; }
         public float TimeInWave { get; private set; } // seconds inside WaveActive, pause-frozen
+        public WaveResult Result { get; private set; }
 
         public WaveSimulation(ResortState resort, WaveDef wave, TuningConfig tuning)
         {
@@ -234,6 +236,7 @@ namespace ResortEmpire.Sim
                     var u = lane.Queue.Dequeue();
                     u.Wait = Math.Max(0f, TimeInWave - u.SpawnTime); // waiting stops here
                     lane.WaitSum += u.Wait;
+                    lane.ContributionSum += Contribution(u.Wait);
                     lane.Seated.Add(u);
                 }
             }
@@ -329,9 +332,56 @@ namespace ResortEmpire.Sim
             return true;
         }
 
+        float Contribution(float wait)
+        {
+            if (wait <= _t.PatienceGraceSeconds) return 1f;
+            if (wait >= _t.PatienceFloorAfterSeconds) return _t.UnitFloor; // unit never leaves
+            float f = (wait - _t.PatienceGraceSeconds) / (_t.PatienceFloorAfterSeconds - _t.PatienceGraceSeconds);
+            return 1f + f * (_t.UnitFloor - 1f);
+        }
+
         void Complete()
         {
             Phase = WavePhase.WaveComplete;
+            var r = new WaveResult
+            {
+                WaveIndex = _wave.Index,
+                AverageWaitByNeed = new Dictionary<NeedId, float>()
+            };
+
+            float weightSum = 0f, contribSum = 0f;
+            float worstSeconds = 0f;
+            foreach (var lane in _lanes)
+            {
+                if (lane.Building == null || lane.Demand == 0) continue; // Locked needs never spawned
+                r.TotalUnits += lane.Demand;
+                float w = lane.Need == NeedId.OceanView ? _t.OceanViewSatisfactionWeight : _t.VolumeNeedWeight;
+                weightSum += w * lane.Served;
+                contribSum += w * lane.ContributionSum;
+                r.AverageWaitByNeed[lane.Need] = lane.Served > 0 ? lane.WaitSum / lane.Served : 0f;
+                if (lane.BottleneckSeconds > worstSeconds)
+                {
+                    worstSeconds = lane.BottleneckSeconds;
+                    r.WorstNeed = lane.Need;
+                }
+            }
+
+            r.Satisfaction = weightSum > 0f ? Math.Max(_t.WaveFloor, contribSum / weightSum) : 1f;
+            int tier = 0;
+            for (int i = _t.RatingThresholds.Length - 1; i >= 0; i--)
+                if (r.Satisfaction >= _t.RatingThresholds[i] - 1e-5f) { tier = i; break; }
+            r.Stars = Math.Min(tier + 1, 5);
+            r.Perfect = tier == _t.RatingThresholds.Length - 1;
+            r.CoinsEarned = (int)Math.Round(r.TotalUnits * _t.CoinsPerUnit * (double)_t.CoinsRatingMult[tier],
+                MidpointRounding.AwayFromZero);
+            r.EnergyEarned = _t.EnergyDropByStars[r.Stars - 1];
+            r.ResortValueGain = r.Stars * _t.ResortValuePerStar;
+            Result = r;
+
+            // Rewards apply to ResortState exactly once, here.
+            _resort.Coins += r.CoinsEarned;
+            _resort.Energy += r.EnergyEarned;
+            _resort.ResortValue += r.ResortValueGain;
             _resort.WavesCompleted = Math.Max(_resort.WavesCompleted, _wave.Index);
             _resort.InWave = false;
         }

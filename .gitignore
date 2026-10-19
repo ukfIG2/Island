@@ -16,3 +16,5 @@ coverage/
 
 # One-shot browser/trace acceptance captures; durable evidence lives under semantic/evidence/.
 /artifacts/
+/.vibe/
+/RESORT_EMPIRE_WEB_VIBE_SEMANTIC_DEV_PLAN_v1.md

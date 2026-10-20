@@ -12,7 +12,7 @@ import {
 
 function completeWave(initial: BootstrapState): BootstrapState {
   let state = applyBootstrapCommand(initial, { type: 'START_WAVE' });
-  for (let i = 0; i < 64 && state.normalWave.phase !== 'complete'; i += 1) {
+  for (let i = 0; i < 600 && state.normalWave.phase !== 'complete'; i += 1) {
     state = applyBootstrapCommand(state, { type: 'ADVANCE_SIMULATION', deltaMs: 1000 });
   }
   expect(state.normalWave.phase).toBe('complete');
@@ -50,10 +50,10 @@ describe('Prototype progression spine', () => {
     const forecast = normalWaveForecast(state);
 
     expect(forecast.waveNumber).toBe(4);
-    expect(forecast.demandByNeed.reception).toBe(4);
-    expect(forecast.demandByNeed.food).toBe(6);
-    expect(forecast.demandByNeed.drinks).toBe(4);
-    expect(forecast.demandByNeed.relax).toBe(3);
+    expect(forecast.demandByNeed.reception).toBe(16);
+    expect(forecast.demandByNeed.food).toBe(14);
+    expect(forecast.demandByNeed.drinks).toBe(18);
+    expect(forecast.demandByNeed.relax).toBe(8);
     expect(new Set(forecast.needs.map((need) => forecast.demandByNeed[need])).size).toBeGreaterThan(1);
   });
 

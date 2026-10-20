@@ -19,7 +19,7 @@ function tick(state: BootstrapState): BootstrapState {
 
 function complete(state: BootstrapState): BootstrapState {
   let next = state.normalWave.phase === 'awaiting' ? start(state) : state;
-  for (let guard = 0; guard < 100 && next.normalWave.phase !== 'complete'; guard += 1) next = tick(next);
+  for (let guard = 0; guard < 700 && next.normalWave.phase !== 'complete'; guard += 1) next = tick(next);
   if (next.normalWave.phase !== 'complete') throw new Error('TEST_WAVE_DID_NOT_COMPLETE');
   return next;
 }
@@ -65,32 +65,28 @@ describe('Prototype Energy and Sudden Rush canonical contracts', () => {
     expect(state.energy).toBe(2);
   });
 
-  it('Energy Mode increases service speed without changing simultaneous capacity and works during a wave', () => {
-    let earned = complete(createInitialBootstrapState('energy-speed'));
-    earned = continueWave(earned);
-    earned = start(earned);
-    const capacityBefore = normalWaveServiceCapacity(earned, 'food');
-    const baseline = tick(earned);
-    const boostedStart = applyBootstrapCommand(earned, { type: 'ACTIVATE_ENERGY_MODE', need: 'food' });
-    expect(boostedStart.energy).toBe(0);
-    expect(normalWaveServiceCapacity(boostedStart, 'food')).toBe(capacityBefore);
-    const boosted = tick(boostedStart);
-    expect(normalWaveServiceCapacity(boosted, 'food')).toBe(capacityBefore);
-    expect(boosted.normalWave.servedByNeed.food).toBeGreaterThan(baseline.normalWave.servedByNeed.food);
-  });
-
-  it('activates Energy during draining as a speed modifier without changing capacity', () => {
-    let state = createInitialBootstrapState('energy-drain', { totalDemand: 4, releasePerTick: 4, baseServiceCapacity: { reception: 1, food: 1, drinks: 1, relax: 1, oceanView: 1 }, queuePressurePerLostStar: 4 });
-    state = { ...state, energy: 1 };
-    state = start(state);
-    state = tick(state);
-    expect(state.normalWave.phase).toBe('draining');
-    const capacity = normalWaveServiceCapacity(state, 'food');
+  it('Energy Mode accelerates in-flight work without changing simultaneous capacity', () => {
+    let state = complete(createInitialBootstrapState('energy-speed'));
+    state = start(continueWave(state));
+    for (let i = 0; i < 35; i++) state = tick(state);
+    const capacityBefore = normalWaveServiceCapacity(state, 'food');
     const baseline = tick(state);
     const activated = applyBootstrapCommand(state, { type: 'ACTIVATE_ENERGY_MODE', need: 'food' });
     const boosted = tick(activated);
+    expect(boosted.energy).toBe(0);
+    expect(normalWaveServiceCapacity(boosted, 'food')).toBe(capacityBefore);
+    expect(boosted.normalWave.serviceProgressByNeed.food[0]).toBeGreaterThan(baseline.normalWave.serviceProgressByNeed.food[0]);
+  });
+
+  it('permits Energy during draining without increasing the number of service places', () => {
+    let state = complete(createInitialBootstrapState('energy-drain'));
+    state = start(continueWave(state));
+    for (let i = 0; i < 95; i++) state = tick(state);
+    expect(state.normalWave.phase).toBe('draining');
+    const capacity = normalWaveServiceCapacity(state, 'food');
+    const activated = applyBootstrapCommand(state, { type: 'ACTIVATE_ENERGY_MODE', need: 'food' });
+    expect(activated.energy).toBe(state.energy - 1);
     expect(normalWaveServiceCapacity(activated, 'food')).toBe(capacity);
-    expect(boosted.normalWave.servedByNeed.food).toBeGreaterThan(baseline.normalWave.servedByNeed.food);
   });
 
   it('permits a highest rating without spending Energy when the resort is fully prepared', () => {
@@ -108,23 +104,20 @@ describe('Prototype Energy and Sudden Rush canonical contracts', () => {
     expect(state.normalWave.energyMode).toBeNull();
   });
 
-  it('injects an unforecast Sudden Rush inside the normal wave without pausing Worker response', () => {
-    let state = createInitialBootstrapState('rush');
-    for (let wave = 1; wave < 5; wave += 1) {
-      state = complete(state);
-      state = continueWave(state);
-    }
-    expect(state.currentWaveNumber).toBe(5);
-    expect(normalWaveForecast(state).totalDemand).toBe(state.normalWave.tuning.totalDemand);
+  it('injects one unforecast W2 Rush into the currently unstaffed need', () => {
+    let state = complete(createInitialBootstrapState('rush'));
+    state = continueWave(state);
+    expect(state.currentWaveNumber).toBe(2);
     expect(state.normalWave.suddenRush.scheduled).toBe(true);
+    expect(state.normalWave.demandTargetByNeed.food).toBe(10);
     state = start(state);
-    for (let guard = 0; guard < 20 && !state.normalWave.suddenRush.triggered; guard += 1) state = tick(state);
+    for (let i = 0; i < 45; i++) state = tick(state);
     expect(state.normalWave.suddenRush.triggered).toBe(true);
+    expect(state.normalWave.suddenRush.targetNeed).toBe('food');
+    expect(state.normalWave.demandTargetByNeed.food).toBe(16);
+    expect(state.normalWave.demandTargetByNeed.drinks).toBe(16);
     expect(state.suddenRushOccurred).toBe(true);
-    expect(state.normalWave.phase).not.toBe('awaiting');
-    expect(state.normalWave.demandTargetByNeed.reception).toBeGreaterThan(state.normalWave.tuning.totalDemand);
     state = applyBootstrapCommand(state, { type: 'REASSIGN_WORKER', workerId: 'worker-1', to: 'food' });
-    expect(state.normalWave.workerAssignments['worker-1']).toBe('food');
     const energyBefore = state.energy;
     state = complete(state);
     expect(state.normalWave.result).not.toBeNull();

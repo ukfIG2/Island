@@ -17,15 +17,15 @@ describe('Prototype Worker contract', () => {
     let state = createInitialBootstrapState('worker-live');
     state = applyBootstrapCommand(state, { type: 'START_WAVE' });
     expect(state.normalWave.phase).toBe('incoming');
-    expect(normalWaveServiceCapacity(state, 'reception')).toBe(2);
-    expect(normalWaveServiceCapacity(state, 'food')).toBe(1);
+    expect(normalWaveServiceCapacity(state, 'reception')).toBe(3);
+    expect(normalWaveServiceCapacity(state, 'food')).toBe(3);
 
     state = applyBootstrapCommand(state, { type: 'REASSIGN_WORKER', workerId: 'worker-1', to: 'food' });
 
     expect(state.normalWave.workerAssignments['worker-1']).toBe('food');
-    expect(normalWaveServiceCapacity(state, 'reception')).toBe(1);
-    expect(normalWaveServiceCapacity(state, 'food')).toBe(2);
-    expect(state.normalWave.reassignments.at(-1)).toMatchObject({ workerId: 'worker-1', from: 'reception', to: 'food' });
+    expect(normalWaveServiceCapacity(state, 'reception')).toBe(3);
+    expect(normalWaveServiceCapacity(state, 'food')).toBe(3);
+    expect(state.normalWave.reassignments.at(-1)).toMatchObject({ workerId: 'worker-1', from: 'reception', to: 'food', fromSpeedBefore: 1, fromSpeedAfter: 0.33, toSpeedBefore: 0.33, toSpeedAfter: 1 });
   });
 
   it('repairs a persisted one-Worker three-service save without resetting campaign state', () => {

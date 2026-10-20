@@ -1,6 +1,7 @@
-import { normalizePrototypeWorkerRoster } from '../core/state';
+import { normalizePrototypeSpecialistRoster, normalizePrototypeManagerRoster, normalizePrototypeWorkerRoster } from '../core/state';
 import { PROTOTYPE_UPGRADE_PROOF_TUNING } from '../core/state';
 import Dexie, { type Table } from 'dexie';
+import { MVP_VIP_TYPES, normalizeMvpVipLayer } from '../core/vipLayer';
 import {
   NORMAL_SERVICE_IDS,
   NORMAL_WAVE_NEEDS,
@@ -167,7 +168,7 @@ function normalizePersistedStateLegacy(
     Number.isInteger(raw.resortValue) &&
     hasCanonicalWaveShape(rawWave) &&
     rawWave?.buildingLevelsByNeed !== undefined &&
-    NORMAL_SERVICE_IDS.every(need => [1, 2, 3].includes(rawWave.buildingLevelsByNeed[need])) &&
+    NORMAL_SERVICE_IDS.every(need => [1, 2, 3, 4, 5].includes(rawWave.buildingLevelsByNeed[need])) &&
     rawWave?.upgradeTuning !== undefined;
 
   if (alreadyCanonical) {
@@ -197,7 +198,7 @@ function normalizePersistedStateLegacy(
     Number.isInteger(legacy.resortValue) &&
     legacyWave !== undefined &&
     legacyWave.buildingLevelsByNeed !== undefined &&
-    NORMAL_SERVICE_IDS.every(need => [1, 2, 3].includes(legacyWave.buildingLevelsByNeed![need])) &&
+    NORMAL_SERVICE_IDS.every(need => [1, 2, 3, 4, 5].includes(legacyWave.buildingLevelsByNeed![need])) &&
     legacyWave.upgradeTuning !== undefined;
 
   if (hasCurrentUpgradeShape && hasCanonicalWaveShape(persisted.normalWave)) {
@@ -271,6 +272,70 @@ export class DexieBootstrapPersistence
   }
 }
 
-export function normalizePersistedState(...args: Parameters<typeof normalizePersistedStateLegacy>) {
-  return normalizePrototypeWorkerRoster(normalizePersistedStateLegacy(...args));
+/** Preserve existing campaign/queue/worker progress when opening a v1 tick-based save.
+ * Historical active slots restart at zero progress; no queued/served units are discarded.
+ * A new temporal model is only installed when the saved state lacks its fields. */
+function ensureTemporalWave(state: BootstrapState): BootstrapState {
+  const wave = state.normalWave;
+  const raw = wave as NormalWaveState & {
+    waveElapsedMs?: number;
+    serviceProgressByNeed?: Record<NormalWaveNeedId, readonly number[]>;
+  };
+  if (finiteNonNegative(raw.waveElapsedMs) && raw.serviceProgressByNeed &&
+    NORMAL_SERVICE_IDS.every(need => Array.isArray(raw.serviceProgressByNeed![need]) &&
+      raw.serviceProgressByNeed![need].length === wave.activeByNeed[need])) return state;
+
+  const arrivalDurationMs = wave.tuning.arrivalDurationMs ?? 90_000;
+  const progress = wave.tuning.totalDemand > 0 ? wave.releasedDemand / wave.tuning.totalDemand : 0;
+  const elapsedMs = wave.phase === 'awaiting' ? 0 : wave.phase === 'incoming'
+    ? Math.min(arrivalDurationMs, Math.max(0, progress * arrivalDurationMs))
+    : arrivalDurationMs;
+  // Construct every service key explicitly so a restored save has a complete,
+  // statically checked record even when some services are not unlocked yet.
+  const activeSlots = (need: NormalWaveNeedId): readonly number[] =>
+    Array.from({ length: wave.activeByNeed[need] }, () => 0);
+  const serviceProgressByNeed: Record<NormalWaveNeedId, readonly number[]> = {
+    reception: activeSlots('reception'),
+    food: activeSlots('food'),
+    drinks: activeSlots('drinks'),
+    relax: activeSlots('relax'),
+    oceanView: activeSlots('oceanView')
+  };
+  return {
+    ...state,
+    normalWave: {
+      ...wave,
+      tuning: {
+        ...wave.tuning,
+        arrivalDurationMs,
+        serviceDurationMs: wave.tuning.serviceDurationMs ?? 12_000,
+        unstaffedServiceSpeed: wave.tuning.unstaffedServiceSpeed ?? 0.33,
+        useStudioDemandProfile: wave.tuning.useStudioDemandProfile ?? true
+      },
+      waveElapsedMs: elapsedMs,
+      serviceProgressByNeed
+    }
+  };
+}
+
+export function normalizePersistedState(...args: Parameters<typeof normalizePersistedStateLegacy>): BootstrapState {
+  const state = normalizePrototypeSpecialistRoster(normalizePrototypeManagerRoster(normalizePrototypeWorkerRoster(ensureTemporalWave(normalizePersistedStateLegacy(...args)))));
+  const vipLayer = normalizeMvpVipLayer((state as Partial<BootstrapState>).vipLayer);
+  const withVip = state.vipLayer === vipLayer ? state : { ...state, vipLayer };
+  const legacyMaterials = (withVip as Partial<BootstrapState>).materials;
+  const materials = typeof legacyMaterials === 'number' && Number.isSafeInteger(legacyMaterials) && legacyMaterials >= 0 ? legacyMaterials : 0;
+  const rawReputation = (withVip as Partial<BootstrapState>).reputation;
+ const reputation = typeof rawReputation === 'number' && Number.isSafeInteger(rawReputation) && rawReputation >= 0 ? rawReputation : 0;
+ const rawReceipt = (withVip as Partial<BootstrapState>).lastVipReward;
+ const lastVipReward = rawReceipt && MVP_VIP_TYPES.some(type => type === rawReceipt.vipType) && Number.isSafeInteger(rawReceipt.reputation) && rawReceipt.reputation > 0 && Number.isInteger(rawReceipt.qualityCeiling) && rawReceipt.qualityCeiling >= 1 && rawReceipt.qualityCeiling <= 5 && Number.isSafeInteger(rawReceipt.completedVisitCount) && rawReceipt.completedVisitCount > 0 ? rawReceipt : null;
+ const hydrated = legacyMaterials === materials && rawReputation === reputation && withVip.lastVipReward === lastVipReward ? withVip : { ...withVip, materials, reputation, lastVipReward };
+  // Legacy snapshots predate VIP buildings. Missing or corrupt Spa ownership means not built.
+  const rawVipBuildings = (hydrated as Partial<BootstrapState>).vipBuildings;
+  const withSpa = typeof rawVipBuildings?.spa === 'boolean' ? hydrated : { ...hydrated, vipBuildings: { spa: false } };
+  // Preserve already-canonical snapshots by identity.
+  const savedPrestige = (withSpa as Partial<BootstrapState>).resortValue;
+  const validPrestige = typeof savedPrestige === 'number' && Number.isSafeInteger(savedPrestige) && savedPrestige >= 0;
+  const withPrestige = validPrestige ? withSpa : { ...withSpa, resortValue: PROTOTYPE_UPGRADE_PROOF_TUNING.startingResortValue };
+  if (withPrestige.progressionStage === 'prototype' || withPrestige.progressionStage === 'mvp') return withPrestige;
+  return { ...withPrestige, progressionStage: 'prototype' };
 }

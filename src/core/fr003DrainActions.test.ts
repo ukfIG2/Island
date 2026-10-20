@@ -9,13 +9,13 @@ describe('FR-003 wave drain controls', () => {
 
     core.dispatch({ type: 'START_WAVE' });
     let guard = 0;
-    while (core.getSnapshot().normalWave.phase !== 'complete' && guard < 64) {
-      core.dispatch({ type: 'ADVANCE_SIMULATION', deltaMs: 200 });
+    while (core.getSnapshot().normalWave.phase !== 'complete' && guard < 600) {
+      core.dispatch({ type: 'ADVANCE_SIMULATION', deltaMs: 1000 });
       guard += 1;
     }
 
     const wave1Complete = core.getSnapshot();
-    expect(guard).toBeLessThan(64);
+    expect(guard).toBeLessThan(600);
     expect(wave1Complete.normalWave.phase).toBe('complete');
     expect(wave1Complete.energy).toBeGreaterThan(0);
 
@@ -23,13 +23,13 @@ describe('FR-003 wave drain controls', () => {
     core.dispatch({ type: 'START_WAVE' });
 
     guard = 0;
-    while (core.getSnapshot().normalWave.phase === 'incoming' && guard < 32) {
-      core.dispatch({ type: 'ADVANCE_SIMULATION', deltaMs: 200 });
+    while (core.getSnapshot().normalWave.phase === 'incoming' && guard < 300) {
+      core.dispatch({ type: 'ADVANCE_SIMULATION', deltaMs: 1000 });
       guard += 1;
     }
 
     const draining = core.getSnapshot();
-    expect(guard).toBeLessThan(32);
+    expect(guard).toBeLessThan(300);
     expect(draining.normalWave.phase).toBe('draining');
     const releasedAtDrain = draining.normalWave.releasedDemand;
     const outstandingAtDrain =
@@ -60,17 +60,17 @@ describe('FR-003 wave drain controls', () => {
     expect(boosted.energy).toBe(energyBefore - 1);
     expect(boosted.normalWave.energyMode?.need).toBe('reception');
 
-    core.dispatch({ type: 'ADVANCE_SIMULATION', deltaMs: 200 });
+    core.dispatch({ type: 'ADVANCE_SIMULATION', deltaMs: 1000 });
     expect(core.getSnapshot().normalWave.releasedDemand).toBe(releasedAtDrain);
 
     guard = 0;
-    while (core.getSnapshot().normalWave.phase !== 'complete' && guard < 64) {
-      core.dispatch({ type: 'ADVANCE_SIMULATION', deltaMs: 200 });
+    while (core.getSnapshot().normalWave.phase !== 'complete' && guard < 600) {
+      core.dispatch({ type: 'ADVANCE_SIMULATION', deltaMs: 1000 });
       guard += 1;
     }
 
     const complete = core.getSnapshot();
-    expect(guard).toBeLessThan(64);
+    expect(guard).toBeLessThan(600);
     expect(complete.normalWave.phase).toBe('complete');
     expect(complete.normalWave.releasedDemand).toBe(releasedAtDrain);
     expect(Object.values(complete.normalWave.queueByNeed).every(value => value === 0)).toBe(true);

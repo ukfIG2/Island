@@ -11,7 +11,9 @@ const tuning = {
   totalDemand: 6,
   releasePerTick: 3,
   baseServiceCapacity: { reception: 10, food: 1, drinks: 10, relax: 1, oceanView: 1 },
-  queuePressurePerLostStar: 4
+  queuePressurePerLostStar: 4,
+  arrivalDurationMs: 200,
+  serviceDurationMs: 600
 } as const;
 
 function startAndTick(state: BootstrapState): BootstrapState {
@@ -39,7 +41,7 @@ describe('FR-007 live bottleneck diagnosis', () => {
     expect(normalNeedBottleneckCause(capacity, 'food')).toBe('capacity');
 
     let settled = capacity;
-    for (let guard = 0; guard < 16 && settled.normalWave.queueByNeed.food > 0; guard += 1) {
+    for (let guard = 0; guard < 180 && settled.normalWave.queueByNeed.food > 0; guard += 1) {
       settled = applyBootstrapCommand(settled, { type: 'ADVANCE_SIMULATION', deltaMs: 200 });
     }
     expect(settled.normalWave.queueByNeed.food).toBe(0);

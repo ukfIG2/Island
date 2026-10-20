@@ -10,7 +10,7 @@ import { normalizePersistedState } from '../persistence/DexieBootstrapPersistenc
 
 function completeWave(state: BootstrapState): BootstrapState {
   let next = applyBootstrapCommand(state, { type: 'START_WAVE' });
-  for (let guard = 0; guard < 32 && next.normalWave.phase !== 'complete'; guard += 1) {
+  for (let guard = 0; guard < 650 && next.normalWave.phase !== 'complete'; guard += 1) {
     next = applyBootstrapCommand(next, { type: 'ADVANCE_SIMULATION', deltaMs: 1000 });
   }
   expect(next.normalWave.phase).toBe('complete');
@@ -78,13 +78,13 @@ describe('Prototype area unlock progression', () => {
     expect(purchased.normalWave.activeNeedIds).toEqual(['reception', 'food', 'drinks', 'relax']);
     expect(purchased.normalWave.debutNeedIds).toEqual(['relax']);
     expect(purchased.normalWave.workerAssignments['worker-2']).toBe('relax');
-    expect(purchased.normalWave.demandTargetByNeed.reception).toBe(6);
-    expect(purchased.normalWave.demandTargetByNeed.relax).toBe(3);
+    expect(purchased.normalWave.demandTargetByNeed.reception).toBe(16);
+    expect(purchased.normalWave.demandTargetByNeed.relax).toBe(8);
     const complete = completeWave(purchased);
-    expect(complete.normalWave.servedByNeed.reception).toBe(6);
-    expect(complete.normalWave.servedByNeed.food).toBe(6);
-    expect(complete.normalWave.servedByNeed.drinks).toBe(6);
-    expect(complete.normalWave.servedByNeed.relax).toBe(3);
+    expect(complete.normalWave.servedByNeed.reception).toBe(16);
+    expect(complete.normalWave.servedByNeed.food).toBe(14);
+    expect(complete.normalWave.servedByNeed.drinks).toBe(18);
+    expect(complete.normalWave.servedByNeed.relax).toBe(8);
   });
 
   it('unlocks Bungalows after Wave 6 and expands the next wave to five needs', () => {
@@ -101,7 +101,7 @@ describe('Prototype area unlock progression', () => {
     expect(state.currentWaveNumber).toBe(7);
     expect(state.normalWave.activeNeedIds).toEqual(['reception', 'food', 'drinks', 'relax', 'oceanView']);
     expect(state.normalWave.debutNeedIds).toEqual(['oceanView']);
-    expect(state.normalWave.demandTargetByNeed.oceanView).toBe(3);
+    expect(state.normalWave.demandTargetByNeed.oceanView).toBe(10);
   });
 
   it('migrates the sealed three-service shape without activating locked areas', () => {

@@ -19,6 +19,7 @@ import {
 
 import {
   createInitialBootstrapState,
+  enableMvpProgression,
   PROTOTYPE_ECONOMY_PROOF_TUNING
 } from './core/state';
 
@@ -71,6 +72,7 @@ async function boot(): Promise<void> {
         crypto.randomUUID()
       );
 
+  const liveInitial = capacityUpgradeProof ? initial : enableMvpProgression(initial);
   const debugEvents = new DebugRingBufferSink(64);
 
   const enabledDebugCategories: Array<keyof BootstrapDebugEvents> =
@@ -83,7 +85,7 @@ async function boot(): Promise<void> {
     sinks: [debugEvents]
   });
 
-  const core = new BootstrapCore(initial, debug);
+  const core = new BootstrapCore(liveInitial, debug);
 
   const claimComebackReward = (): boolean => {
     if (capacityUpgradeProof || !consumePrototypeComebackEligibility(window.localStorage, Date.now())) return false;
@@ -116,7 +118,7 @@ async function boot(): Promise<void> {
   const startNewResort = async (): Promise<void> => {
     if (capacityUpgradeProof) return;
 
-    const fresh = createInitialBootstrapState(crypto.randomUUID());
+    const fresh = createInitialBootstrapState(crypto.randomUUID(), undefined, 'mvp');
     simulationClock.stop();
 
     try {

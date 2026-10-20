@@ -1,18 +1,32 @@
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
-import { Color, type Group, type ShaderMaterial } from 'three';
+import { Color, Shape, type Group, type ShaderMaterial } from 'three';
 
 import type { BootstrapState, NormalWaveNeedId } from '../core/state';
 import { normalWaveServiceCapacity } from '../core/state';
 import type { EnvironmentProfile } from './environmentProfile';
+import { SERVICE_SPATIAL } from './resortWorldSpatial';
 
-export const SERVICE_POSITIONS: Record<NormalWaveNeedId, readonly [number, number, number]> = {
-  reception: [0, 0.62, -2.75],
-  food: [-3.45, 0.58, -0.15],
-  drinks: [3.55, 0.56, -0.05],
-  relax: [-2.05, 0.48, 3.0],
-  oceanView: [3.0, 0.52, 3.25]
-};
+export const SERVICE_POSITIONS:
+  Record<
+    NormalWaveNeedId,
+    readonly [number, number, number]
+  > = {
+    reception:
+      SERVICE_SPATIAL.reception.center,
+
+    food:
+      SERVICE_SPATIAL.food.center,
+
+    drinks:
+      SERVICE_SPATIAL.drinks.center,
+
+    relax:
+      SERVICE_SPATIAL.relax.center,
+
+    oceanView:
+      SERVICE_SPATIAL.oceanView.center
+  };
 
 export function serviceDepth(need: NormalWaveNeedId): number {
   return need === 'oceanView' ? 1.55 : need === 'relax' ? 1.5 : 1.25;
@@ -54,17 +68,36 @@ function ShoreFoam() {
   const foam = useRef<Group | null>(null);
   useFrame(({ clock }) => {
     if (!foam.current) return;
-    foam.current.rotation.y = Math.sin(clock.elapsedTime * 0.22) * 0.018;
-    foam.current.position.y = -0.305 + Math.sin(clock.elapsedTime * 1.15) * 0.014;
+    foam.current.rotation.y = Math.sin(clock.elapsedTime * 0.22) * 0.012;
+    foam.current.position.y = -0.315 + Math.sin(clock.elapsedTime * 1.15) * 0.012;
   });
+
   return <group ref={foam}>
-    <mesh rotation={[-Math.PI / 2, 0, 0]} scale={[1.08, 0.87, 1]}>
-      <ringGeometry args={[6.05, 6.28, 64]} />
-      <meshBasicMaterial color="#d9f6eb" transparent opacity={0.5} />
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0.25, 0, 0.15]}
+      scale={[1.16, 0.91, 1]}
+    >
+      <ringGeometry args={[7.05, 7.23, 96]} />
+      <meshBasicMaterial color="#e5fbf4" transparent opacity={0.42} />
     </mesh>
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-1.4, 0.015, 1.85]} scale={[0.72, 0.38, 1]}>
-      <ringGeometry args={[2.2, 2.34, 42]} />
-      <meshBasicMaterial color="#eafbf3" transparent opacity={0.34} />
+
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[-4.9, 0.012, 3.3]}
+      scale={[1.05, 0.52, 1]}
+    >
+      <ringGeometry args={[2.0, 2.14, 56]} />
+      <meshBasicMaterial color="#f2fff9" transparent opacity={0.28} />
+    </mesh>
+
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[5.0, 0.008, -2.65]}
+      scale={[1.18, 0.5, 1]}
+    >
+      <ringGeometry args={[1.8, 1.93, 52]} />
+      <meshBasicMaterial color="#f2fff9" transparent opacity={0.22} />
     </mesh>
   </group>;
 }
@@ -80,13 +113,13 @@ function ResortPier() {
   </group>;
 }
 
-function OceanSurface({ environment }: { environment: EnvironmentProfile }) {
+export function OceanSurface({ environment }: { environment: EnvironmentProfile }) {
   const material = useRef<ShaderMaterial | null>(null);
   const uniforms = useMemo(() => ({ uTime: { value: 0 }, uOcean: { value: new Color(environment.ocean) }, uStorm: { value: environment.weather === 'clear' ? 0 : environment.weather === 'overcast' ? 0.35 : 0.72 } }), []);
   useEffect(() => { if (!material.current) return; material.current.uniforms.uOcean.value.set(environment.ocean); material.current.uniforms.uStorm.value = environment.weather === 'clear' ? 0 : environment.weather === 'overcast' ? 0.35 : 0.72; }, [environment.ocean, environment.weather]);
   useFrame(({ clock }) => { if (material.current) material.current.uniforms.uTime.value = clock.elapsedTime; });
-  return <mesh receiveShadow position={[0, -0.52, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-    <planeGeometry args={[34, 26, 56, 42]} />
+  return <mesh receiveShadow position={[0, -0.78, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+    <planeGeometry args={[44, 36, 72, 56]} />
     <shaderMaterial ref={material} uniforms={uniforms} vertexShader={'varying vec2 vUv; uniform float uTime; void main(){ vUv=uv; vec3 p=position; float w=sin(p.x*0.62+uTime*1.25)*0.07+cos(p.y*0.78-uTime*0.92)*0.045; p.z+=w; gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0); }'} fragmentShader={'varying vec2 vUv; uniform float uTime; uniform vec3 uOcean; uniform float uStorm; void main(){ float ripple=sin((vUv.x+vUv.y)*28.0+uTime*2.1)*0.5+0.5; float bands=sin(vUv.y*18.0-uTime*1.35)*0.5+0.5; vec3 deep=uOcean*(0.70-0.12*uStorm); vec3 light=min(vec3(1.0),uOcean*1.30+vec3(0.05,0.12,0.10)); vec3 col=mix(deep,light,0.16*ripple+0.10*bands); float glint=pow(max(0.0,sin(vUv.x*52.0+uTime*2.8)*cos(vUv.y*35.0-uTime)),10.0)*(0.14-0.06*uStorm); gl_FragColor=vec4(col+glint,1.0); }'} />
   </mesh>;
 }
@@ -98,53 +131,229 @@ export function TropicalRain({ active }: { active: boolean }) {
   return <group ref={rain}>{Array.from({ length: 58 }).map((_, index) => { const x=((index*37)%31)/31*14-7; const z=((index*19)%37)/37*12-6; const y=1+((index*11)%31)/31*6.2; return <mesh key={index} position={[x,y,z]} rotation={[0,0,0.22]}><boxGeometry args={[0.014,0.58,0.014]} /><meshBasicMaterial color="#d8f3f6" transparent opacity={0.52} /></mesh>; })}</group>;
 }
 
+function polygonShape(points: readonly (readonly [number, number])[]): Shape {
+  const shape = new Shape();
+
+  points.forEach(([x, z], index) => {
+    // Shape lives in local XY; the mesh is rotated flat,
+    // so invert Z here to keep points intuitive in world-space.
+    if (index === 0) shape.moveTo(x, -z);
+    else shape.lineTo(x, -z);
+  });
+
+  shape.closePath();
+  return shape;
+}
+
 export function IslandArt({ environment }: { environment: EnvironmentProfile }) {
+  const reefShape = useMemo(() => polygonShape([
+    [-6.9, 4.5],
+    [-5.7, 6.1],
+    [-2.2, 7.1],
+    [1.6, 7.25],
+    [5.2, 6.2],
+    [7.6, 4.2],
+    [8.65, 1.2],
+    [8.15, -2.2],
+    [6.15, -5.15],
+    [2.4, -6.55],
+    [-1.7, -6.5],
+    [-5.2, -5.15],
+    [-7.25, -2.6],
+    [-7.6, 0.4],
+    [-6.8, 2.6]
+  ]), []);
+
+  const sandShape = useMemo(() => polygonShape([
+    [-6.45, 4.1],
+    [-5.25, 5.65],
+    [-2.1, 6.55],
+    [1.45, 6.65],
+    [4.85, 5.72],
+    [7.0, 3.85],
+    [7.9, 1.05],
+    [7.45, -2.0],
+    [5.7, -4.75],
+    [2.2, -6.0],
+    [-1.55, -5.95],
+    [-4.75, -4.7],
+    [-6.65, -2.35],
+    [-7.0, 0.3],
+    [-6.3, 2.5]
+  ]), []);
+
+  const cliffShape = useMemo(() => polygonShape([
+    [-5.8, 3.5],
+    [-4.7, 5.0],
+    [-1.8, 5.75],
+    [1.25, 5.85],
+    [4.15, 5.0],
+    [6.15, 3.25],
+    [6.75, 0.85],
+    [6.35, -1.75],
+    [4.85, -4.0],
+    [1.9, -5.15],
+    [-1.25, -5.05],
+    [-4.15, -4.0],
+    [-5.9, -2.0],
+    [-6.15, 0.25],
+    [-5.55, 2.2]
+  ]), []);
+
+  const plateauShape = useMemo(() => polygonShape([
+    [-4.95, 2.95],
+    [-4.0, 4.25],
+    [-1.5, 4.8],
+    [1.1, 4.85],
+    [3.65, 4.15],
+    [5.25, 2.75],
+    [5.65, 0.65],
+    [5.3, -1.55],
+    [4.0, -3.25],
+    [1.65, -4.2],
+    [-1.2, -4.15],
+    [-3.55, -3.25],
+    [-5.0, -1.65],
+    [-5.2, 0.2],
+    [-4.7, 1.95]
+  ]), []);
+
   return <>
     <OceanSurface environment={environment} />
 
-    <mesh position={[-0.35, -0.405, 0.25]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.16, 0.91, 1]}>
-      <circleGeometry args={[7.05, 64]} />
-      <meshStandardMaterial color="#56bdba" transparent opacity={0.46} roughness={0.32} />
+    {/* Tropical shallow-water shelf. */}
+    <mesh
+      receiveShadow
+      position={[0, -0.405, 0]}
+      rotation={[-Math.PI / 2, 0, 0]}
+    >
+      <shapeGeometry args={[reefShape]} />
+      <meshStandardMaterial
+        color="#58c9c1"
+        transparent
+        opacity={0.48}
+        roughness={0.32}
+      />
     </mesh>
-    <mesh position={[-3.9, -0.385, 2.25]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.9, 0.78, 1]}>
-      <circleGeometry args={[1.45, 42]} />
-      <meshStandardMaterial color="#79d6c6" transparent opacity={0.58} roughness={0.38} />
-    </mesh>
+
     <ShoreFoam />
 
-    <group rotation={[0, 0.07, 0]}>
-      <mesh receiveShadow position={[0, -0.17, 0]} scale={[1.08, 1, 0.86]}>
-        <cylinderGeometry args={[6.15, 6.45, 0.34, 18]} />
-        <meshStandardMaterial color="#e8d39a" roughness={1} />
-      </mesh>
-      <mesh receiveShadow position={[-3.8, -0.16, 1.4]} scale={[1.3, 1, 0.68]} rotation={[0, 0.3, 0]}>
-        <cylinderGeometry args={[2.05, 2.25, 0.3, 11]} />
-        <meshStandardMaterial color="#e5cd8b" roughness={1} />
-      </mesh>
-      <mesh receiveShadow position={[3.9, -0.15, -1.25]} scale={[1.18, 1, 0.64]} rotation={[0, -0.25, 0]}>
-        <cylinderGeometry args={[1.95, 2.18, 0.31, 10]} />
-        <meshStandardMaterial color="#ead79c" roughness={1} />
-      </mesh>
-    </group>
-
-    <mesh receiveShadow position={[-0.35, 0.04, -0.05]} scale={[1.02, 1, 0.84]} rotation={[0, -0.04, 0]}>
-      <cylinderGeometry args={[5.42, 5.72, 0.48, 17]} />
-      <meshStandardMaterial color="#5c9e62" roughness={1} />
-    </mesh>
-    <mesh receiveShadow position={[0.4, 0.31, -0.65]} scale={[0.92, 1, 0.72]} rotation={[0, 0.12, 0]}>
-      <cylinderGeometry args={[4.18, 4.58, 0.26, 14]} />
-      <meshStandardMaterial color="#78b56a" roughness={1} />
-    </mesh>
-    <mesh receiveShadow position={[-2.35, 0.37, 2.55]} scale={[1.25, 1, 0.7]} rotation={[-Math.PI / 2, 0, -0.25]}>
-      <circleGeometry args={[1.0, 32]} />
-      <meshStandardMaterial color="#56bdc4" roughness={0.28} metalness={0.08} />
+    {/* Broad beach body. */}
+    <mesh
+      receiveShadow
+      position={[0, -0.36, 0]}
+      rotation={[-Math.PI / 2, 0, 0]}
+    >
+      <extrudeGeometry
+        args={[sandShape, {
+          depth: 0.32,
+          bevelEnabled: true,
+          bevelSegments: 2,
+          bevelSize: 0.2,
+          bevelThickness: 0.09,
+          curveSegments: 1
+        }]}
+      />
+      <meshStandardMaterial color="#dfc37c" roughness={1} />
     </mesh>
 
+    {/* Raised rocky / soil island body. */}
+    <mesh
+      castShadow
+      receiveShadow
+      position={[0, -0.16, 0]}
+      rotation={[-Math.PI / 2, 0, 0]}
+    >
+      <extrudeGeometry
+        args={[cliffShape, {
+          depth: 0.56,
+          bevelEnabled: true,
+          bevelSegments: 2,
+          bevelSize: 0.22,
+          bevelThickness: 0.12,
+          curveSegments: 1
+        }]}
+      />
+      <meshStandardMaterial color="#7e7653" roughness={1} />
+    </mesh>
+
+    {/* Main vegetation cap. */}
+    <mesh
+      receiveShadow
+      position={[0, 0.414, 0]}
+      rotation={[-Math.PI / 2, 0, 0]}
+    >
+      <shapeGeometry args={[cliffShape]} />
+      <meshStandardMaterial color="#599957" roughness={1} />
+    </mesh>
+
+    {/* Large level gameplay plateau: our future construction surface. */}
+    <mesh
+      receiveShadow
+      position={[0, 0.428, 0]}
+      rotation={[-Math.PI / 2, 0, 0]}
+    >
+      <shapeGeometry args={[plateauShape]} />
+      <meshStandardMaterial color="#74ad61" roughness={0.96} />
+    </mesh>
+
+    {/* Soft terrain variation; keeps the large island from reading as one flat slab. */}
+    <mesh
+      receiveShadow
+      position={[-4.85, 0.438, -2.65]}
+      rotation={[-Math.PI / 2, 0, 0]}
+      scale={[1.7, 0.86, 1]}
+    >
+      <circleGeometry args={[0.92, 24]} />
+      <meshStandardMaterial color="#4f8d50" roughness={1} />
+    </mesh>
+
+    <mesh
+      receiveShadow
+      position={[4.75, 0.439, 2.8]}
+      rotation={[-Math.PI / 2, 0, 0]}
+      scale={[1.35, 0.75, 1]}
+    >
+      <circleGeometry args={[0.9, 24]} />
+      <meshStandardMaterial color="#659f58" roughness={1} />
+    </mesh>
+
+    {/* Existing resort paths stay intentionally compact inside the much larger island. */}
     <group>
-      <mesh receiveShadow position={[0, 0.47, 0.0]}><boxGeometry args={[0.48, 0.065, 5.4]} /><meshStandardMaterial color="#d7bb7d" roughness={1} /></mesh>
-      <mesh receiveShadow position={[-1.85, 0.47, -0.45]} rotation={[0, 0.92, 0]}><boxGeometry args={[0.38, 0.065, 4.1]} /><meshStandardMaterial color="#d7bb7d" roughness={1} /></mesh>
-      <mesh receiveShadow position={[1.88, 0.47, -0.38]} rotation={[0, -0.92, 0]}><boxGeometry args={[0.38, 0.065, 4.0]} /><meshStandardMaterial color="#d7bb7d" roughness={1} /></mesh>
-      {[-1.7, -0.85, 0, 0.85, 1.7].map((z, i) => <mesh key={i} receiveShadow position={[0.02, 0.505, z]} rotation={[-Math.PI / 2, 0, 0]}><circleGeometry args={[0.24, 10]} /><meshStandardMaterial color="#ead49b" roughness={1} /></mesh>)}
+      <mesh receiveShadow position={[0, 0.47, 0.0]}>
+        <boxGeometry args={[0.48, 0.065, 5.4]} />
+        <meshStandardMaterial color="#d7bb7d" roughness={1} />
+      </mesh>
+
+      <mesh
+        receiveShadow
+        position={[-1.85, 0.47, -0.45]}
+        rotation={[0, 0.92, 0]}
+      >
+        <boxGeometry args={[0.38, 0.065, 4.1]} />
+        <meshStandardMaterial color="#d7bb7d" roughness={1} />
+      </mesh>
+
+      <mesh
+        receiveShadow
+        position={[1.88, 0.47, -0.38]}
+        rotation={[0, -0.92, 0]}
+      >
+        <boxGeometry args={[0.38, 0.065, 4.0]} />
+        <meshStandardMaterial color="#d7bb7d" roughness={1} />
+      </mesh>
+
+      {[-1.7, -0.85, 0, 0.85, 1.7].map((z, i) =>
+        <mesh
+          key={i}
+          receiveShadow
+          position={[0.02, 0.505, z]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <circleGeometry args={[0.24, 10]} />
+          <meshStandardMaterial color="#ead49b" roughness={1} />
+        </mesh>
+      )}
     </group>
 
     <ResortPier />

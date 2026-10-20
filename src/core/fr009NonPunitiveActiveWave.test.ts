@@ -10,7 +10,9 @@ const tuning = {
   totalDemand: 12,
   releasePerTick: 3,
   baseServiceCapacity: { reception: 1, food: 1, drinks: 1, relax: 1, oceanView: 1 },
-  queuePressurePerLostStar: 4
+  queuePressurePerLostStar: 4,
+  arrivalDurationMs: 200,
+  serviceDurationMs: 600
 } as const;
 
 function tick(state: BootstrapState): BootstrapState {
@@ -35,7 +37,7 @@ describe('FR-009 non-punitive active normal wave', () => {
     let sawQueue = false;
     let activeTicks = 0;
 
-    while (state.normalWave.phase !== 'complete' && activeTicks < 64) {
+    while (state.normalWave.phase !== 'complete' && activeTicks < 250) {
       state = tick(state);
       activeTicks += 1;
 
@@ -47,7 +49,7 @@ describe('FR-009 non-punitive active normal wave', () => {
     }
 
     expect(sawQueue).toBe(true);
-    expect(activeTicks).toBeLessThan(64);
+    expect(activeTicks).toBeLessThan(250);
     expect(state.normalWave.phase).toBe('complete');
     expect(state.normalWave.releasedDemand).toBeGreaterThan(0);
     expect(

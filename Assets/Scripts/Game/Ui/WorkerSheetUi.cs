@@ -71,24 +71,36 @@ namespace ResortEmpire.Game.Ui
                 return;
             }
 
+            // With one slot per building (prototype, Lv1-3) every text below reads exactly as before;
+            // the extra wording only appears once a building has room for a second or third worker.
             string targetName = GameController.DisplayName(_target.Value);
-            if (target.HasWorker)
+            int slots = _game.Resort.SlotsOf(_target.Value);
+            if (target.WorkerCount >= slots)
             {
-                _title.text = "A worker is already at " + targetName;
+                _title.text = slots == 1 ? "A worker is already at " + targetName : "Every shift at " + targetName + " is filled";
                 _hint.text = "";
                 return;
             }
 
-            _title.text = "Send worker to " + targetName + "?";
+            _title.text = target.WorkerCount == 0
+                ? "Send worker to " + targetName + "?"
+                : "Send another worker to " + targetName + "?";
             var sources = new List<BuildingState>();
+            bool anyLeftStaffed = false;
             foreach (var b in _game.Resort.Buildings)
-                if (b.HasWorker) sources.Add(b);
+            {
+                if (b.Id == _target.Value || !BuildingNeeds.IsWaveBuilding(b.Id) || b.WorkerCount < 1) continue;
+                sources.Add(b);
+                if (b.WorkerCount > 1) anyLeftStaffed = true;
+            }
             if (sources.Count == 0)
             {
                 _hint.text = "No worker is free to move right now.";
                 return;
             }
-            _hint.text = "Taking a worker leaves their building empty.";
+            _hint.text = anyLeftStaffed
+                ? "Moving is free — each choice shows who stays behind."
+                : "Taking a worker leaves their building empty.";
 
             const float step = 296f;
             float x0 = -(sources.Count - 1) * step * 0.5f; // centered in the sheet; up to 4 sources fit
@@ -96,8 +108,12 @@ namespace ResortEmpire.Game.Ui
             {
                 var source = sources[i].Id;
                 string sourceName = GameController.DisplayName(source);
+                int leaves = sources[i].WorkerCount - 1;
+                string cost = leaves == 0
+                    ? "leaves " + sourceName + " empty"
+                    : "leaves " + leaves + (leaves == 1 ? " worker" : " workers") + " there";
                 var button = UiFactory.TextButton(_root.transform, "From" + source,
-                    "Take from " + sourceName + "\n<size=18><color=#FAF6EEAA>leaves " + sourceName + " empty</color></size>",
+                    "Take from " + sourceName + "\n<size=18><color=#FAF6EEAA>" + cost + "</color></size>",
                     24, UiFactory.PanelLight, UiFactory.Cream, () => OnPick(source));
                 UiFactory.PlaceFixed(button.gameObject, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                     new Vector2(x0 + i * step, 24f), new Vector2(280f, 128f));

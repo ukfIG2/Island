@@ -101,8 +101,8 @@ namespace ResortEmpire.Game.View
                 int seated = sim != null ? sim.SeatedCount(view.Need) : 0;
                 int line = sim != null ? Mathf.Max(0, sim.QueueLength(view.Need) - _guests.InTransit(view.Need)) : 0;
                 var status = sim != null ? sim.StatusOf(view.Need) : NeedStatus.Ok;
-                view.Sync(_game.Resort.Get(view.Id), _game.Tuning, SiteAvailable(view.Id), seated, line,
-                    status, showStatus, time);
+                view.Sync(_game.Resort.Get(view.Id), _game.Tuning, SiteAvailable(view.Id),
+                    _game.Resort.HasManager(view.Id), seated, line, status, showStatus, time);
             }
 
             UpdateBoat(sim, animDt);

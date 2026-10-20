@@ -62,7 +62,7 @@ namespace ResortEmpire.Game.Ui
                 UiFactory.PlaceFixed(UiFactory.Icon(boost.transform, "Bolt", UiFactory.Bolt, UiFactory.Panel).gameObject,
                     new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(8f, 0f), new Vector2(22f, 22f));
                 UiFactory.Place(UiFactory.ButtonLabel(boost).gameObject, Vector2.zero, Vector2.one, new Vector2(24f, 0f), Vector2.zero);
-                boost.onClick.AddListener(() => _game.Boost(UiFactory.BuildingFor(need)));
+                boost.onClick.AddListener(() => OnBoostPressed(UiFactory.BuildingFor(need)));
                 var bar = new BarWidget(bg.transform, "QueueBar", new Color(0f, 0f, 0f, 0.35f));
                 UiFactory.Place(bar.Root, Vector2.zero, new Vector2(1f, 0f), new Vector2(44f, 14f), new Vector2(-170f, 30f));
                 var status = UiFactory.Label(bg.transform, "Status", "", 20, UiFactory.Neutral, TextAnchor.MiddleRight);
@@ -104,6 +104,17 @@ namespace ResortEmpire.Game.Ui
         }
 
         void OnPause() => _game.SetPaused(!_game.IsPaused);
+
+        // The same button is Speed Up, or — when Energy is short — the test rewarded video (P16).
+        void OnBoostPressed(BuildingId building)
+        {
+            if (_game.CanOfferTestAd(building)) _game.WatchTestAd();
+            else _game.Boost(building);
+        }
+
+        // Two short lines, so the test label fits the 142 px button.
+        public static string TestAdLabel(GameController game, int secondLineSize)
+            => "Watch ad (test)\n<size=" + secondLineSize + ">+" + game.TestAdEnergy + " Energy</size>";
 
         // Dev convenience only; the sim steps in fixed slices either way.
         void OnSpeed()
@@ -147,13 +158,23 @@ namespace ResortEmpire.Game.Ui
                 {
                     row.Boost.gameObject.SetActive(true);
                     row.Boost.interactable = false;
+                    row.BoostLabel.fontSize = 18;
                     row.BoostLabel.text = Mathf.CeilToInt(remaining) + "s";
                 }
                 else if (overloaded && sim.CanBoost(building))
                 {
                     row.Boost.gameObject.SetActive(true);
                     row.Boost.interactable = true;
+                    row.BoostLabel.fontSize = 18;
                     row.BoostLabel.text = "Speed Up " + _game.Tuning.EnergyBoostCost;
+                }
+                else if (overloaded && _game.CanOfferTestAd(building))
+                {
+                    // Energy is short: offer the test ad instead; the wave keeps running either way.
+                    row.Boost.gameObject.SetActive(true);
+                    row.Boost.interactable = true;
+                    row.BoostLabel.fontSize = 15;
+                    row.BoostLabel.text = TestAdLabel(_game, 14);
                 }
                 else row.Boost.gameObject.SetActive(false);
 

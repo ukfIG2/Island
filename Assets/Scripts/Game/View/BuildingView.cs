@@ -6,15 +6,28 @@ using UnityEngine;
 namespace ResortEmpire.Game.View
 {
     // One building spot. The player must read three things at a glance (build doc AC2d):
-    // seat count (pips in front), staffing (worker marker above the roof) and the waiting line.
-    // While locked the spot shows a construction site, marked when it can be bought.
+    // seat count (pips in front), staffing (one marker per worker above the roof, plus a bigger
+    // white-and-dark Manager marker once hired) and the waiting line. Every level grows the building a
+    // little; the top level flies a small flag. While locked the spot shows a construction site, marked
+    // when it can be bought.
     sealed class BuildingView
     {
         const int MaxVisibleQueue = 12;
         const float PipSpacing = 0.32f;
+        const int MaxPipsPerRow = 7;          // up to Lv3-Lv4 (7 seats) the prototype's single row
+        const float PipRowGap = 0.3f;         // a second row sits this far in front of the first
+        const int MaxWorkerMarkers = 3;       // Lv5 has three worker slots
+        const float MarkerSpacing = 0.45f;
+        const int FlagLevel = 5;
 
         static readonly Color PipEmpty = ViewKit.Hex(0xF2EEE6);
         static readonly Color WorkerColor = ViewKit.Hex(0xE8743B);
+        static readonly Color ManagerColor = ViewKit.Hex(0xF4F1EA);
+        static readonly Color ManagerCapColor = ViewKit.Hex(0x2B2A27);
+        static readonly Color FlagPoleColor = ViewKit.Hex(0xF4F1EA);
+        static readonly Color FlagColor = ViewKit.Hex(0xF0C75E);
+        static readonly Vector3 WorkerScale = new Vector3(0.34f, 0.34f, 0.34f);
+        static readonly Vector3 ManagerScale = new Vector3(0.42f, 0.42f, 0.42f);
         static readonly Color RingBottleneck = ViewKit.Hex(0xC0392B);
         static readonly Color RingRecovering = ViewKit.Hex(0xE3B23C);
         static readonly Color SiteMarkerLocked = ViewKit.Hex(0x9A9A93);
@@ -30,7 +43,9 @@ namespace ResortEmpire.Game.View
         readonly GameObject _site;
         readonly Transform _siteMarker;
         readonly Renderer _siteMarkerRenderer;
-        readonly Transform _worker;
+        readonly Transform[] _workers = new Transform[MaxWorkerMarkers];
+        readonly Transform _manager;
+        readonly GameObject _flag;
         readonly Transform _ring;
         readonly Renderer _ringRenderer;
         readonly Transform _pipRow;
@@ -44,6 +59,7 @@ namespace ResortEmpire.Game.View
         readonly float _bobPhase;
         int _shownLevel = -1;
         float _levelScale = 1f;
+        int _pipsPerRow;
 
         public BuildingView(Transform parent, BuildingId id, Vector3 position, float queueSide)
         {
@@ -62,13 +78,19 @@ namespace ResortEmpire.Game.View
             _built.transform.SetParent(_root, false);
             _body = new GameObject("Body").transform;
             _body.SetParent(_built.transform, false);
-            _roofY = BuildBody(id, _body, out _frontZ, out _ringDiameter);
+            _roofY = BuildBody(id, _body, out _frontZ, out _ringDiameter, out var flagSpot);
+            _flag = BuildFlag(_body, flagSpot);
 
             _pipRow = new GameObject("Seats").transform;
             _pipRow.SetParent(_built.transform, false);
 
-            _worker = ViewKit.Prim(PrimitiveType.Capsule, "Worker", _built.transform,
-                Vector3.zero, new Vector3(0.34f, 0.34f, 0.34f), WorkerColor, collider: false).transform;
+            for (int i = 0; i < _workers.Length; i++)
+            {
+                _workers[i] = ViewKit.Prim(PrimitiveType.Capsule, "Worker", _built.transform,
+                    Vector3.zero, WorkerScale, WorkerColor, collider: false).transform;
+                _workers[i].gameObject.SetActive(false);
+            }
+            _manager = BuildManagerMarker(_built.transform);
 
             _ring = ViewKit.Prim(PrimitiveType.Cylinder, "StatusRing", _built.transform,
                 new Vector3(0f, 0.02f, 0f), new Vector3(_ringDiameter, 0.01f, _ringDiameter), RingBottleneck,
@@ -96,13 +118,13 @@ namespace ResortEmpire.Game.View
 
         public Vector3 QueueSlotWorld(int index)
         {
-            float half = (_pips.Count - 1) * 0.5f * PipSpacing;
+            float half = (Mathf.Max(_pipsPerRow, 1) - 1) * 0.5f * PipSpacing;
             var origin = new Vector3(_side * (half + 0.55f), 0.32f, _pipRow.localPosition.z - 0.05f);
             var slot = origin + new Vector3(_side * (index % 2) * 0.4f, 0f, -(index / 2) * 0.42f);
             return _root.TransformPoint(slot);
         }
 
-        public void Sync(BuildingState state, TuningConfig tuning, bool siteAvailable, int seated,
+        public void Sync(BuildingState state, TuningConfig tuning, bool siteAvailable, bool hasManager, int seated,
             int queueShown, NeedStatus status, bool showStatus, float time)
         {
             bool built = state != null;
@@ -119,10 +141,7 @@ namespace ResortEmpire.Game.View
 
             if (state.Level != _shownLevel) ApplyLevel(state.Level, tuning);
 
-            _worker.gameObject.SetActive(state.HasWorker);
-            if (state.HasWorker)
-                _worker.localPosition = new Vector3(0f,
-                    _roofY * _levelScale + 0.55f + Mathf.Sin(time * 2.4f + _bobPhase) * 0.08f, 0f);
+            SyncStaff(Mathf.Clamp(state.WorkerCount, 0, MaxWorkerMarkers), hasManager, time);
 
             for (int i = 0; i < _pips.Count; i++)
                 _pips[i].sharedMaterial = i < seated ? _guestMat : ViewKit.Mat(PipEmpty);
@@ -131,25 +150,89 @@ namespace ResortEmpire.Game.View
             SetRing(showStatus ? status : NeedStatus.Ok, time);
         }
 
+        // Manager first (leftmost), then one marker per worker, centered as one row above the roof; each
+        // bobs on its own phase so a crew never moves in lockstep. One worker alone sits exactly where the
+        // prototype's single marker did.
+        void SyncStaff(int workers, bool hasManager, float time)
+        {
+            int count = workers + (hasManager ? 1 : 0);
+            float roof = _roofY * _levelScale;
+            int slot = 0;
+            if (_manager.gameObject.activeSelf != hasManager) _manager.gameObject.SetActive(hasManager);
+            if (hasManager)
+            {
+                _manager.localPosition = MarkerPosition(slot, count, roof + 0.62f, time);
+                slot++;
+            }
+            for (int i = 0; i < _workers.Length; i++)
+            {
+                bool on = i < workers;
+                if (_workers[i].gameObject.activeSelf != on) _workers[i].gameObject.SetActive(on);
+                if (!on) continue;
+                _workers[i].localPosition = MarkerPosition(slot, count, roof + 0.55f, time);
+                slot++;
+            }
+        }
+
+        Vector3 MarkerPosition(int slot, int count, float height, float time)
+        {
+            float x = (slot - (count - 1) * 0.5f) * MarkerSpacing;
+            float bob = Mathf.Sin(time * 2.4f + _bobPhase + slot * 0.9f) * 0.08f;
+            return new Vector3(x, height + bob, 0f);
+        }
+
         void ApplyLevel(int level, TuningConfig tuning)
         {
             _shownLevel = level;
-            _levelScale = 1f + 0.1f * (level - 1);
+            _levelScale = 1f + 0.06f * (level - 1);  // keeps growing through Lv5 without reaching the neighbours
             _body.localScale = Vector3.one * _levelScale;
+            _flag.SetActive(level >= FlagLevel);
 
             int capacity = tuning.CapacityPerLevel[Mathf.Clamp(level, 1, tuning.CapacityPerLevel.Length) - 1];
             foreach (var pip in _pips) Object.Destroy(pip.gameObject);
             _pips.Clear();
             _pipRow.localPosition = new Vector3(0f, 0.08f, _frontZ * _levelScale - 0.15f);
+            // Up to 7 seats in one row (prototype look); more split into two rows, the second in front.
+            _pipsPerRow = capacity > MaxPipsPerRow ? (capacity + 1) / 2 : capacity;
             for (int i = 0; i < capacity; i++)
             {
-                float x = (i - (capacity - 1) * 0.5f) * PipSpacing;
-                var pip = ViewKit.Prim(PrimitiveType.Cube, "Seat", _pipRow, new Vector3(x, 0f, 0f),
+                int row = _pipsPerRow > 0 ? i / _pipsPerRow : 0;
+                int inRow = Mathf.Min(_pipsPerRow, capacity - row * _pipsPerRow);
+                int col = i - row * _pipsPerRow;
+                float x = (col - (inRow - 1) * 0.5f) * PipSpacing;
+                var pip = ViewKit.Prim(PrimitiveType.Cube, "Seat", _pipRow, new Vector3(x, 0f, -row * PipRowGap),
                     new Vector3(0.22f, 0.12f, 0.22f), PipEmpty, collider: false);
                 _pips.Add(pip.GetComponent<Renderer>());
             }
             // Queue slots hang off the seat row, so already-placed guests must follow its new width.
             for (int i = 0; i < _queue.Count; i++) _queue[i].transform.position = QueueSlotWorld(i);
+        }
+
+        // A slightly bigger white figure with a dark cap: reads as "the boss" next to the orange crew.
+        static Transform BuildManagerMarker(Transform parent)
+        {
+            var body = ViewKit.Prim(PrimitiveType.Capsule, "Manager", parent, Vector3.zero, ManagerScale,
+                ManagerColor, collider: false).transform;
+            ViewKit.Prim(PrimitiveType.Cylinder, "CapBrim", body, new Vector3(0f, 0.95f, 0f),
+                new Vector3(1.1f, 0.04f, 1.1f), ManagerCapColor, collider: false);
+            ViewKit.Prim(PrimitiveType.Cylinder, "CapCrown", body, new Vector3(0f, 1.12f, 0f),
+                new Vector3(0.72f, 0.16f, 0.72f), ManagerCapColor, collider: false);
+            body.gameObject.SetActive(false);
+            return body;
+        }
+
+        // Pole and pennant standing on the roof at `spot` (body space, so it grows with the building).
+        static GameObject BuildFlag(Transform body, Vector3 spot)
+        {
+            var flag = new GameObject("TopLevelFlag");
+            flag.transform.SetParent(body, false);
+            flag.transform.localPosition = spot;
+            ViewKit.Prim(PrimitiveType.Cylinder, "Pole", flag.transform, new Vector3(0f, 0.35f, 0f),
+                new Vector3(0.05f, 0.35f, 0.05f), FlagPoleColor, collider: false);
+            ViewKit.Prim(PrimitiveType.Cube, "Pennant", flag.transform, new Vector3(0.2f, 0.58f, 0f),
+                new Vector3(0.36f, 0.22f, 0.03f), FlagColor, collider: false);
+            flag.SetActive(false);
+            return flag;
         }
 
         void SetQueue(int count)
@@ -186,7 +269,8 @@ namespace ResortEmpire.Game.View
         }
 
         // Distinct silhouettes from primitives (build doc "what buildings communicate"). Front faces -z.
-        static float BuildBody(BuildingId id, Transform body, out float frontZ, out float ringDiameter)
+        // flagSpot: a back corner of the roof, off-center so it never meets the staff markers.
+        static float BuildBody(BuildingId id, Transform body, out float frontZ, out float ringDiameter, out Vector3 flagSpot)
         {
             var dark = ViewKit.Hex(0x3B3A36);
             var wood = ViewKit.Hex(0x6B4A2E);
@@ -202,6 +286,7 @@ namespace ResortEmpire.Game.View
                         foreach (float x in new[] { -0.65f, 0f, 0.65f })
                             ViewKit.Prim(PrimitiveType.Cube, "Window", body, new Vector3(x, y, -0.92f), new Vector3(0.38f, 0.38f, 0.05f), glass, collider: false);
                     frontZ = -1.25f; ringDiameter = 3.6f;
+                    flagSpot = new Vector3(0.85f, 3.22f, 0.55f);
                     return 3.22f;
 
                 case BuildingId.Restaurant:
@@ -210,6 +295,7 @@ namespace ResortEmpire.Game.View
                     ViewKit.Prim(PrimitiveType.Cube, "Awning", body, new Vector3(0f, 1.2f, -1.15f), new Vector3(3f, 0.12f, 0.4f), ViewKit.Hex(0xC0392B), collider: false);
                     ViewKit.Prim(PrimitiveType.Cube, "Door", body, new Vector3(0f, 0.45f, -1.02f), new Vector3(0.7f, 0.9f, 0.05f), wood, collider: false);
                     frontZ = -1.45f; ringDiameter = 4.2f;
+                    flagSpot = new Vector3(1.25f, 1.58f, 0.7f);
                     return 1.58f;
 
                 case BuildingId.BeachBar:
@@ -218,6 +304,7 @@ namespace ResortEmpire.Game.View
                     ViewKit.Prim(PrimitiveType.Cylinder, "Pole", body, new Vector3(0f, 1.5f, 0.3f), new Vector3(0.12f, 0.55f, 0.12f), wood);
                     ViewKit.Prim(PrimitiveType.Cylinder, "Roof", body, new Vector3(0f, 2.08f, 0.1f), new Vector3(2.4f, 0.06f, 2.4f), straw, collider: false);
                     frontZ = -0.9f; ringDiameter = 3f;
+                    flagSpot = new Vector3(0.75f, 2.11f, 0.55f);
                     return 2.12f;
 
                 case BuildingId.Pool:
@@ -226,6 +313,7 @@ namespace ResortEmpire.Game.View
                     ViewKit.Prim(PrimitiveType.Cube, "Lounger", body, new Vector3(-1.42f, 0.26f, 0f), new Vector3(0.3f, 0.12f, 0.9f), ViewKit.Hex(0xE3B23C), collider: false);
                     ViewKit.Prim(PrimitiveType.Cube, "Lounger", body, new Vector3(1.42f, 0.26f, 0f), new Vector3(0.3f, 0.12f, 0.9f), ViewKit.Hex(0xE3B23C), collider: false);
                     frontZ = -1.55f; ringDiameter = 4f;
+                    flagSpot = new Vector3(1.35f, 0.2f, 0.95f);
                     return 0.3f;
 
                 default: // Bungalows: several small huts, so it never reads as one hotel block like Reception
@@ -237,6 +325,7 @@ namespace ResortEmpire.Game.View
                         ViewKit.Prim(PrimitiveType.Cube, "HutRoof", body, new Vector3(hutXs[i], 0.86f, hutZs[i]), new Vector3(1.1f, 0.12f, 1.1f), dark);
                     }
                     frontZ = -1.05f; ringDiameter = 4.4f;
+                    flagSpot = new Vector3(1.2f, 0.92f, 0.3f);
                     return 0.92f;
             }
         }

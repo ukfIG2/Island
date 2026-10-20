@@ -68,16 +68,16 @@ namespace ResortEmpire.Game
         {
             foreach (var b in _resort.Buildings)
             {
+                if (!BuildingNeeds.IsWaveBuilding(b.Id)) continue; // the Spa is not part of wave play
                 GUILayout.BeginHorizontal();
-                GUILayout.Label(b.Id + "  Lv" + b.Level + "  cap " + _t.CapacityPerLevel[b.Level - 1]
-                    + (b.HasWorker ? "  worker: yes" : "  worker: NO"), GUILayout.Width(300f));
+                GUILayout.Label(b.Id + "  Lv" + b.Level + "  cap " + _t.CapacityPerLevel[Mathf.Clamp(b.Level, 1, _t.CapacityPerLevel.Length) - 1]
+                    + "  workers " + b.WorkerCount + "/" + _resort.SlotsOf(b.Id), GUILayout.Width(300f));
                 MoveWorkerButtons(b, inWave: false);
-                if (b.Level < _t.CapacityPerLevel.Length)
-                {
-                    int cost = _t.UpgradeCostCoins[b.Level - 1];
-                    if (_resort.Coins >= cost && GUILayout.Button("Upgrade (" + cost + "c)", GUILayout.Width(140f)))
-                        _resort.Upgrade(b.Id);
-                }
+                int cost = _resort.UpgradeCost(b.Id);
+                int materials = Mathf.Max(0, _resort.UpgradeMaterialsCost(b.Id));
+                if (cost >= 0 && _resort.Coins >= cost && _resort.Materials >= materials
+                    && GUILayout.Button("Upgrade (" + cost + "c" + (materials > 0 ? " + " + materials + "m" : "") + ")", GUILayout.Width(160f)))
+                    _resort.Upgrade(b.Id);
                 GUILayout.EndHorizontal();
             }
 
@@ -151,8 +151,9 @@ namespace ResortEmpire.Game
             GUILayout.Space(8f);
             foreach (var b in _resort.Buildings)
             {
+                if (!BuildingNeeds.IsWaveBuilding(b.Id)) continue;
                 GUILayout.BeginHorizontal();
-                GUILayout.Label(b.Id + " Lv" + b.Level + (b.HasWorker ? "  [worker]" : "  [no worker]"),
+                GUILayout.Label(b.Id + " Lv" + b.Level + "  [workers " + b.WorkerCount + "]",
                     GUILayout.Width(220f));
                 float rem = _sim.BoostRemaining(b.Id);
                 if (rem > 0f) GUILayout.Label("boost " + rem.ToString("0.0") + "s", GUILayout.Width(100f));
@@ -168,11 +169,11 @@ namespace ResortEmpire.Game
         // so the tap also decides which building stays empty.
         void MoveWorkerButtons(BuildingState target, bool inWave)
         {
-            if (target.HasWorker) return;
+            if (target.WorkerCount >= _resort.SlotsOf(target.Id)) return;
             if (inWave && _sim.IsPaused) return; // moves are not allowed while paused
             foreach (var src in _resort.Buildings)
             {
-                if (!src.HasWorker) continue;
+                if (!BuildingNeeds.IsWaveBuilding(src.Id) || src.Id == target.Id || !src.HasWorker) continue;
                 if (GUILayout.Button("Move worker here (leave " + src.Id + " empty)", GUILayout.Width(280f)))
                 {
                     if (inWave) _sim.MoveWorker(src.Id, target.Id);
@@ -209,7 +210,7 @@ namespace ResortEmpire.Game
         static BuildingId BuildingFor(NeedId need)
         {
             foreach (var b in AllBuildings)
-                if (BuildingNeeds.Serves(b) == need) return b;
+                if (BuildingNeeds.IsWaveBuilding(b) && BuildingNeeds.Serves(b) == need) return b;
             return BuildingId.Reception;
         }
 

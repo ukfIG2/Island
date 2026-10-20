@@ -23,11 +23,15 @@ namespace ResortEmpire.Game.Ui
         readonly Text _coins;
         readonly Text _energy;
         readonly Text _value;
+        readonly GameObject _extraRewards;   // second row: only the MVP rewards that are non-zero
+        readonly GameObject _reputationIcon;
+        readonly Text _reputation;
+        readonly GameObject _materialsIcon;
+        readonly Text _materials;
+        readonly GameObject _extraGap;
         readonly Text _wentWell;
         readonly Text _improve;
         readonly Text _leaving;
-        readonly Text _thanks;
-        readonly Text _claimLabel;
 
         public GameObject Root => _root;
         public bool Visible => _root.activeSelf;
@@ -65,40 +69,53 @@ namespace ResortEmpire.Game.Ui
             UiFactory.RowGap(rewards, 36f);
             _value = Reward(rewards, "ResortValue", UiFactory.Star, UiFactory.Gold);
 
+            // Five rewards do not fit one 880-wide row at this size, so Reputation and Materials get their own.
+            var extra = UiFactory.Row(card, "ExtraRewards", 10f);
+            UiFactory.Place(extra.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(30f, -398f), new Vector2(-30f, -350f));
+            _extraRewards = extra.gameObject;
+            _reputation = Reward(extra, "Reputation", UiFactory.Medal, UiFactory.ReputationColor, out _reputationIcon);
+            _extraGap = UiFactory.Go(extra, "Gap");
+            var gapElement = _extraGap.AddComponent<LayoutElement>();
+            gapElement.minWidth = 36f;
+            gapElement.preferredWidth = 36f;
+            _materials = Reward(extra, "Materials", UiFactory.Crate, UiFactory.MaterialsColor, out _materialsIcon);
+
             var divider = UiFactory.Go(card, "Divider").AddComponent<Image>();
             divider.color = UiFactory.PanelLight;
             divider.raycastTarget = false;
-            UiFactory.Place(divider.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(50f, -370f), new Vector2(-50f, -368f));
+            UiFactory.Place(divider.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(50f, -418f), new Vector2(-50f, -416f));
 
             _wentWell = Column(card, "WentWell", "What went well", WentWellColor, 0f, 0.5f, 50f, -20f);
             _improve = Column(card, "NeedsImprovement", "Needs improvement", UiFactory.Recovering, 0.5f, 1f, 20f, -50f);
 
             _leaving = UiFactory.Label(card, "Leaving", "", 22, UiFactory.CreamDim, TextAnchor.MiddleCenter, FontStyle.Italic);
-            UiFactory.Place(_leaving.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(40f, -590f), new Vector2(-40f, -556f));
+            UiFactory.Place(_leaving.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(40f, -642f), new Vector2(-40f, -608f));
 
-            _thanks = UiFactory.Label(card, "Thanks", "Prototype complete — thanks for playing!", 28, UiFactory.Cream, TextAnchor.MiddleCenter, FontStyle.Bold);
-            UiFactory.Place(_thanks.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(30f, -640f), new Vector2(-30f, -600f));
-
-            var claim = UiFactory.TextButton(card, "Claim", "", 34, UiFactory.Cta, UiFactory.Cream, OnClaim);
+            // Waves never run out (P10), so S4 always leads on to the next one.
+            var claim = UiFactory.TextButton(card, "Claim", "CLAIM REWARDS", 34, UiFactory.Cta, UiFactory.Cream, OnClaim);
             UiFactory.PlaceFixed(claim.gameObject, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 34f), new Vector2(420f, 96f));
-            _claimLabel = UiFactory.ButtonLabel(claim);
 
             _root.SetActive(false);
         }
 
         static Text Reward(Transform row, string name, Sprite icon, Color iconColor)
+            => Reward(row, name, icon, iconColor, out _);
+
+        static Text Reward(Transform row, string name, Sprite icon, Color iconColor, out GameObject iconGo)
         {
-            UiFactory.RowIcon(row, name + "Icon", icon, iconColor, 34f);
+            iconGo = UiFactory.RowIcon(row, name + "Icon", icon, iconColor, 34f).gameObject;
             return UiFactory.Label(row, name, "", 30, UiFactory.Cream, TextAnchor.MiddleLeft, FontStyle.Bold);
         }
 
+        // Card layout, top down: rewards rows end at 398, divider at 416, columns 438-588, leaving line
+        // 608-642, claim button from 690 (820 - 34 - 96) — no overlaps.
         static Text Column(Transform card, string name, string header, Color headerColor, float aMin, float aMax,
             float left, float right)
         {
             var head = UiFactory.Label(card, name + "Header", header, 24, headerColor, TextAnchor.MiddleLeft, FontStyle.Bold);
-            UiFactory.Place(head.gameObject, new Vector2(aMin, 1f), new Vector2(aMax, 1f), new Vector2(left, -424f), new Vector2(right, -390f));
+            UiFactory.Place(head.gameObject, new Vector2(aMin, 1f), new Vector2(aMax, 1f), new Vector2(left, -472f), new Vector2(right, -438f));
             var body = UiFactory.Label(card, name, "", 24, UiFactory.Cream, TextAnchor.UpperLeft);
-            UiFactory.Place(body.gameObject, new Vector2(aMin, 1f), new Vector2(aMax, 1f), new Vector2(left, -540f), new Vector2(right, -432f));
+            UiFactory.Place(body.gameObject, new Vector2(aMin, 1f), new Vector2(aMax, 1f), new Vector2(left, -588f), new Vector2(right, -480f));
             body.horizontalOverflow = HorizontalWrapMode.Wrap;
             return body;
         }
@@ -120,13 +137,20 @@ namespace ResortEmpire.Game.Ui
             _energy.text = "+" + result.EnergyEarned + " Energy";
             _value.text = "+" + result.ResortValueGain + " Resort Value";
 
+            bool reputation = result.ReputationEarned > 0;
+            bool materials = result.MaterialsEarned > 0;
+            _extraRewards.SetActive(reputation || materials);
+            _reputationIcon.SetActive(reputation);
+            _reputation.gameObject.SetActive(reputation);
+            _reputation.text = "+" + UiFactory.Num(result.ReputationEarned) + " Reputation";
+            _materialsIcon.SetActive(materials);
+            _materials.gameObject.SetActive(materials);
+            _materials.text = "+" + UiFactory.Num(result.MaterialsEarned) + " Materials";
+            _extraGap.SetActive(reputation && materials);
+
             _wentWell.text = WentWell(result, _game.Tuning.PatienceGraceSeconds);
             _improve.text = NeedsImprovement(result);
             _leaving.text = LeavingLine(result.Stars);
-
-            bool last = result.WaveIndex >= _game.LastWaveIndex;
-            _thanks.gameObject.SetActive(last);
-            _claimLabel.text = last ? "BACK TO ISLAND" : "CLAIM REWARDS";
         }
 
         void OnClaim()

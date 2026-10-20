@@ -75,24 +75,18 @@ namespace ResortEmpire.Sim
         }
 
         // Read at StartWave so a building unlocked in AwaitingWave takes part in this wave.
+        // Lanes exist per need, so the Spa (no need) never gets one.
         void ResolveLanes()
         {
             foreach (var lane in _lanes)
             {
-                lane.Building = _resort.Get(BuildingFor(lane.Need));
+                lane.Building = _resort.Get(BuildingNeeds.BuildingFor(lane.Need));
                 lane.Status = lane.Building == null ? NeedStatus.Locked : NeedStatus.Ok;
                 lane.Pending.Clear();
                 if (lane.Building != null)
                     for (int k = 0; k < lane.Demand; k++)         // unit k at k * T / N, no randomness
                         lane.Pending.Add(k * _t.WaveTimerSeconds / lane.Demand);
             }
-        }
-
-        static BuildingId BuildingFor(NeedId need)
-        {
-            foreach (BuildingId b in Enum.GetValues(typeof(BuildingId)))
-                if (BuildingNeeds.Serves(b) == need) return b;
-            return BuildingId.Reception;
         }
 
         public void StartWave()
@@ -136,14 +130,11 @@ namespace ResortEmpire.Sim
 
         // --- player actions -------------------------------------------------
 
+        // Moves ONE worker into a free slot of `to` (prototype: the single empty building).
         public bool MoveWorker(BuildingId from, BuildingId to)
         {
             if (IsPaused || Phase == WavePhase.WaveComplete) return false;
-            var f = _resort.Get(from);
-            var t = _resort.Get(to);
-            if (f == null || t == null || !f.HasWorker || t.HasWorker) return false;
-            f.HasWorker = false;
-            t.HasWorker = true; // takes effect immediately, including units already seated
+            if (!_resort.TryMoveWorker(from, to)) return false; // takes effect immediately, including units already seated
             HelpLanded(to);     // the building left behind keeps normal hysteresis
             return true;
         }
@@ -153,7 +144,7 @@ namespace ResortEmpire.Sim
             if (IsPaused) return false;
             if (Phase != WavePhase.WaveIncoming && Phase != WavePhase.WaveActive && Phase != WavePhase.WaveResolving)
                 return false;
-            if (!_resort.IsUnlocked(b)) return false;
+            if (!BuildingNeeds.IsWaveBuilding(b) || !_resort.IsUnlocked(b)) return false;
             return _boosts[b].Used < _t.MaxBoostsPerBuildingPerWave && _resort.Energy >= _t.EnergyBoostCost;
         }
 
@@ -173,6 +164,7 @@ namespace ResortEmpire.Sim
         // the warning may return.
         void HelpLanded(BuildingId b)
         {
+            if (!BuildingNeeds.IsWaveBuilding(b)) return;
             var lane = _lanes[(int)BuildingNeeds.Serves(b)];
             if (lane.Status != NeedStatus.Bottleneck) return;
             lane.Status = NeedStatus.Recovering;
@@ -208,16 +200,40 @@ namespace ResortEmpire.Sim
         void TriggerRush()
         {
             _rushTriggered = true;
-            Lane target = null;
-            foreach (var b in _resort.Buildings)        // the unlocked building with no worker, right now
-                if (!b.HasWorker) { target = _lanes[(int)b.Serves]; break; }
-            if (target == null) return;                 // every building staffed: no rush, nothing to report
+            var target = RushTarget();
+            if (target == null) return;                 // no wave building with a slot: no rush, nothing to report
             target.Demand += _t.RushUnits;              // rush raises the displayed demand total too
             for (int j = 0; j < _t.RushUnits; j++)
                 target.Pending.Add(_t.RushTimeSeconds + j * _t.RushDurationSeconds / _t.RushUnits);
             target.Pending.Sort();                      // rush times never precede already-spawned ones
             RushNeed = target.Need;
             RushFired = true;
+        }
+
+        // The rush lands on the wave building with the fewest workers relative to its slots, right now;
+        // ties go to the larger demand, then to unlock order. With one slot per building (prototype)
+        // that is exactly the building without a worker. Workers < TotalSlots keeps a candidate below 100 %.
+        Lane RushTarget()
+        {
+            Lane best = null;
+            int bestWorkers = 0, bestSlots = 1;
+            foreach (var b in _resort.Buildings)
+            {
+                if (!b.IsWaveBuilding) continue;
+                int slots = _resort.SlotsOf(b.Id);
+                if (slots <= 0) continue;
+                var lane = _lanes[(int)b.Serves];
+                if (best != null)
+                {
+                    long mine = (long)b.WorkerCount * bestSlots;   // compare workers/slots without floats
+                    long theirs = (long)bestWorkers * slots;
+                    if (mine > theirs || (mine == theirs && lane.Demand <= best.Demand)) continue;
+                }
+                best = lane;
+                bestWorkers = b.WorkerCount;
+                bestSlots = slots;
+            }
+            return best;
         }
 
         void SpawnDue()
@@ -236,12 +252,13 @@ namespace ResortEmpire.Sim
             {
                 if (lane.Building == null) continue;
                 int capacity = _t.CapacityPerLevel[lane.Building.Level - 1];
+                int tier = _resort.QualityTier(lane.Building.Id);
                 while (lane.Queue.Count > 0 && lane.Seated.Count < capacity)
                 {
                     var u = lane.Queue.Dequeue();
                     u.Wait = Math.Max(0f, TimeInWave - u.SpawnTime); // waiting stops here
                     lane.WaitSum += u.Wait;
-                    lane.ContributionSum += Contribution(u.Wait);
+                    lane.ContributionSum += Contribution(u.Wait, tier);
                     lane.Seated.Add(u);
                 }
             }
@@ -253,9 +270,11 @@ namespace ResortEmpire.Sim
             {
                 if (lane.Building == null || lane.Seated.Count == 0) continue;
                 // Rate is read live: worker and boost changes apply to units already seated (WR2 keeps it > 0).
-                float utilization = lane.Building.HasWorker ? _t.UtilizationStaffed : _t.UtilizationEmpty;
+                // Build §5.3.1: service time = service_time / (utilization x manager_multiplier x energy_boost).
+                float utilization = _t.WorkerUtilization(lane.Building.WorkerCount);
+                float manager = lane.Building.HasManager ? _t.ManagerMultiplier : 1f;
                 float boost = _boosts[lane.Building.Id].Remaining > 0f ? _t.EnergyBoostSpeedFactor : 1f;
-                float inc = utilization * boost / _t.ServiceTimeSeconds * dt;
+                float inc = utilization * manager * boost / _t.ServiceTimeSeconds * dt;
                 for (int i = lane.Seated.Count - 1; i >= 0; i--)
                 {
                     var u = lane.Seated[i];
@@ -341,11 +360,16 @@ namespace ResortEmpire.Sim
             return true;
         }
 
-        float Contribution(float wait)
+        // P9: each quality tier of the serving building shifts both patience bounds by
+        // QualityGraceSecondsPerTier, so its guests start losing satisfaction later.
+        float Contribution(float wait, int tier)
         {
-            if (wait <= _t.PatienceGraceSeconds) return 1f;
-            if (wait >= _t.PatienceFloorAfterSeconds) return _t.UnitFloor; // unit never leaves
-            float f = (wait - _t.PatienceGraceSeconds) / (_t.PatienceFloorAfterSeconds - _t.PatienceGraceSeconds);
+            float extra = tier * _t.QualityGraceSecondsPerTier;
+            float grace = _t.PatienceGraceSeconds + extra;
+            float floorAfter = _t.PatienceFloorAfterSeconds + extra;
+            if (wait <= grace) return 1f;
+            if (wait >= floorAfter) return _t.UnitFloor; // unit never leaves
+            float f = (wait - grace) / (floorAfter - grace);
             return 1f + f * (_t.UnitFloor - 1f);
         }
 
@@ -380,21 +404,23 @@ namespace ResortEmpire.Sim
             }
 
             r.Satisfaction = weightSum > 0f ? Math.Max(_t.WaveFloor, contribSum / weightSum) : 1f;
-            int tier = 0;
-            for (int i = _t.RatingThresholds.Length - 1; i >= 0; i--)
-                if (r.Satisfaction >= _t.RatingThresholds[i] - 1e-5f) { tier = i; break; }
-            r.Stars = Math.Min(tier + 1, 5);
-            r.Perfect = tier == _t.RatingThresholds.Length - 1;
+            int tier = RatingScale.TierFor(r.Satisfaction, _t);
+            r.Stars = RatingScale.StarsFor(tier);
+            r.Perfect = RatingScale.IsPerfect(tier, _t);
             r.CoinsEarned = (int)Math.Round(r.TotalUnits * _t.CoinsPerUnit * (double)_t.CoinsRatingMult[tier],
                 MidpointRounding.AwayFromZero);
             r.EnergyEarned = _t.EnergyDropByStars[r.Stars - 1];
             r.ResortValueGain = r.Stars * _t.ResortValuePerStar;
+            r.ReputationEarned = r.Stars * _t.ReputationPerWaveStar;
+            r.MaterialsEarned = _t.MaterialsDropByStars[r.Stars - 1];
             Result = r;
 
             // Rewards apply to ResortState exactly once, here.
             _resort.Coins += r.CoinsEarned;
             _resort.Energy += r.EnergyEarned;
             _resort.ResortValue += r.ResortValueGain;
+            _resort.AddReputation(r.ReputationEarned);
+            _resort.Materials += r.MaterialsEarned;
             _resort.WavesCompleted = Math.Max(_resort.WavesCompleted, _wave.Index);
             _resort.InWave = false;
         }

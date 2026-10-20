@@ -9,19 +9,46 @@ namespace ResortEmpire.Game
     // backgrounding, and killing the app mid-wave restores the pre-wave state by design.
     public static class SaveSystem
     {
+        public const int CurrentVersion = 2;
+        const int LegacyMaxLevel = 3; // version-1 saves come from the prototype: Lv1-3 only
+
+        // Version 2: the sim's own snapshot plus the flow data the game layer owns.
         [Serializable]
         class SaveData
         {
-            public int version = 1;
+            public int version = CurrentVersion;
+            public int nextWaveIndex;
+            public long lastSeenUnixSeconds;   // UTC; feeds the comeback reward (P14)
+            public ResortSnapshot resort;
+        }
+
+        // Version 1 (prototype): parallel building arrays, migrated through ResortState.Restore.
+        [Serializable]
+        class SaveDataV1
+        {
+            public int version;
             public int coins;
             public int energy;
             public int resortValue;
             public int wavesCompleted;
             public int nextWaveIndex;
             public int workers;
-            public int[] ids;        // parallel building arrays
+            public int[] ids;
             public int[] levels;
             public bool[] hasWorker;
+        }
+
+        [Serializable]
+        class VersionProbe
+        {
+            public int version;
+        }
+
+        public sealed class Loaded
+        {
+            public ResortState Resort;
+            public int NextWaveIndex = 1;
+            public long LastSeenUnixSeconds; // 0 when there was no usable save
         }
 
         public static string SavePath => Application.persistentDataPath + "/resort_save.json";
@@ -38,61 +65,84 @@ namespace ResortEmpire.Game
         public static void Save(GameController game)
         {
             if (game == null || game.Resort.InWave) return;
-            var resort = game.Resort;
-            int n = resort.Buildings.Count;
-            var data = new SaveData
+            try
             {
-                coins = resort.Coins,
-                energy = resort.Energy,
-                resortValue = resort.ResortValue,
-                wavesCompleted = resort.WavesCompleted,
-                nextWaveIndex = game.NextWaveIndex,
-                workers = resort.Workers,
-                ids = new int[n],
-                levels = new int[n],
-                hasWorker = new bool[n]
-            };
-            for (int i = 0; i < n; i++)
-            {
-                data.ids[i] = (int)resort.Buildings[i].Id;
-                data.levels[i] = resort.Buildings[i].Level;
-                data.hasWorker[i] = resort.Buildings[i].HasWorker;
+                var data = new SaveData
+                {
+                    nextWaveIndex = game.NextWaveIndex,
+                    lastSeenUnixSeconds = game.LastSeenForSave(DateTimeOffset.UtcNow.ToUnixTimeSeconds()),
+                    resort = game.Resort.ToSnapshot()
+                };
+                File.WriteAllText(SavePath, JsonUtility.ToJson(data));
             }
-            try { File.WriteAllText(SavePath, JsonUtility.ToJson(data)); }
             catch (Exception e) { Debug.LogWarning("Resort save failed: " + e.Message); }
         }
 
         // Any unreadable or inconsistent file falls back to a fresh game rather than throwing.
-        public static (ResortState resort, int nextWaveIndex) LoadOrNew(TuningConfig tuning)
+        public static Loaded LoadOrNew(TuningConfig tuning)
         {
             try
             {
-                if (!File.Exists(SavePath)) return (ResortState.NewGame(tuning), 1);
-                var data = JsonUtility.FromJson<SaveData>(File.ReadAllText(SavePath));
-                if (data == null || data.ids == null || data.levels == null || data.hasWorker == null
-                    || data.ids.Length == 0
-                    || data.ids.Length != data.levels.Length
-                    || data.ids.Length != data.hasWorker.Length)
-                    return (ResortState.NewGame(tuning), 1);
-
-                var ids = new BuildingId[data.ids.Length];
-                for (int i = 0; i < ids.Length; i++)
+                if (!File.Exists(SavePath)) return Fresh(tuning);
+                string json = File.ReadAllText(SavePath);
+                var probe = JsonUtility.FromJson<VersionProbe>(json);
+                if (probe == null) return Fresh(tuning);
+                switch (probe.version)
                 {
-                    if (!Enum.IsDefined(typeof(BuildingId), data.ids[i])
-                        || data.levels[i] < 1 || data.levels[i] > tuning.CapacityPerLevel.Length)
-                        return (ResortState.NewGame(tuning), 1);
-                    ids[i] = (BuildingId)data.ids[i];
+                    case CurrentVersion: return LoadV2(tuning, json);
+                    case 1: return MigrateV1(tuning, json);
+                    default: return Fresh(tuning);
                 }
-
-                var resort = ResortState.Restore(tuning, data.coins, data.energy, data.resortValue,
-                    data.wavesCompleted, data.workers, ids, data.levels, data.hasWorker);
-                return (resort, Mathf.Clamp(data.nextWaveIndex, 1, 8));
             }
             catch (Exception e)
             {
                 Debug.LogWarning("Resort load failed, starting a new game: " + e.Message);
-                return (ResortState.NewGame(tuning), 1);
+                return Fresh(tuning);
             }
+        }
+
+        static Loaded Fresh(TuningConfig tuning) => new Loaded { Resort = ResortState.NewGame(tuning) };
+
+        static Loaded LoadV2(TuningConfig tuning, string json)
+        {
+            var data = JsonUtility.FromJson<SaveData>(json);
+            if (data == null || data.resort == null) return Fresh(tuning);
+            var resort = ResortState.FromSnapshot(tuning, data.resort);
+            if (resort == null) return Fresh(tuning);
+            return new Loaded
+            {
+                Resort = resort,
+                NextWaveIndex = Math.Max(1, data.nextWaveIndex),
+                LastSeenUnixSeconds = Math.Max(0L, data.lastSeenUnixSeconds)
+            };
+        }
+
+        // A prototype save keeps its progress: rebuilt through the legacy constructor, then written back
+        // as version 2 on the next save. It carries no timestamp, so it never triggers a comeback gift.
+        static Loaded MigrateV1(TuningConfig tuning, string json)
+        {
+            var data = JsonUtility.FromJson<SaveDataV1>(json);
+            if (data == null || data.ids == null || data.levels == null || data.hasWorker == null
+                || data.ids.Length == 0
+                || data.ids.Length != data.levels.Length
+                || data.ids.Length != data.hasWorker.Length)
+                return Fresh(tuning);
+
+            var ids = new BuildingId[data.ids.Length];
+            for (int i = 0; i < ids.Length; i++)
+            {
+                if (!Enum.IsDefined(typeof(BuildingId), data.ids[i])
+                    || !BuildingNeeds.IsWaveBuilding((BuildingId)data.ids[i])
+                    || data.levels[i] < 1 || data.levels[i] > LegacyMaxLevel)
+                    return Fresh(tuning);
+                ids[i] = (BuildingId)data.ids[i];
+            }
+
+            var resort = ResortState.Restore(tuning, data.coins, data.energy, data.resortValue,
+                data.wavesCompleted, data.workers, ids, data.levels, data.hasWorker);
+            Debug.Log("Resort save migrated from version 1 to version " + CurrentVersion + ".");
+            // The prototype capped the stored index at 8; GameController moves it past WavesCompleted.
+            return new Loaded { Resort = resort, NextWaveIndex = Math.Max(1, data.nextWaveIndex) };
         }
     }
 }

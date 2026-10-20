@@ -6,9 +6,10 @@ using UnityEngine.UI;
 
 namespace ResortEmpire.Game.Ui
 {
-    // S9 Area Unlock: a full-screen celebration, one template with two occupants (Pool after wave 3,
-    // Bungalows after wave 6). The second visit gets its own scene and accent so it reads as a new
-    // celebration, not a recycled dialog (UI handoff S9).
+    // S9 Area Unlock: a full-screen celebration, one template with two occupants (Pool, then Bungalows).
+    // It opens by itself right after the wave in which a site's gate was reached — a Reputation threshold
+    // in the MVP, a wave count in the prototype configuration. The second visit gets its own scene and
+    // accent so it reads as a new celebration, not a recycled dialog (UI handoff S9).
     public sealed class AreaUnlockUi
     {
         enum Drift { Bob, Rise, Twinkle }
@@ -45,6 +46,8 @@ namespace ResortEmpire.Game.Ui
         readonly Text _title;
         readonly Image _ribbon;
         readonly Text _adds;
+        readonly GameObject _gateRow;
+        readonly Text _gate;
         readonly Text _cost;
         readonly Button _unlock;
         readonly Text _missing;
@@ -95,22 +98,31 @@ namespace ResortEmpire.Game.Ui
             _ribbon.raycastTarget = false;
             UiFactory.PlaceFixed(_ribbon.gameObject, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 180f), new Vector2(420f, 8f));
 
+            // Details box, center-relative y: adds 130 · includes 80 · potential 34 · gate -10 · cost -68;
+            // box spans -130..170, below the ribbon (176) and above the Unlock button (-140).
             var glass = UiFactory.PanelImage(c, "Details", new Color(0f, 0f, 0f, 0.22f));
             glass.raycastTarget = false;
-            UiFactory.PlaceFixed(glass.gameObject, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 30f), new Vector2(1160f, 260f));
+            UiFactory.PlaceFixed(glass.gameObject, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 20f), new Vector2(1160f, 300f));
 
-            _adds = Centered(c, "Adds", 32, FontStyle.Normal, 112f, 44f);
+            _adds = Centered(c, "Adds", 32, FontStyle.Normal, 130f, 44f);
             // The new building brings its own worker; saying so stops the player waiting for a second purchase.
             var includes = UiFactory.Row(c, "Includes", 12f);
-            UiFactory.PlaceFixed(includes.gameObject, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 58f), new Vector2(1100f, 44f));
+            UiFactory.PlaceFixed(includes.gameObject, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 80f), new Vector2(1100f, 44f));
             UiFactory.RowIcon(includes, "Worker", UiFactory.Circle, UiFactory.Cta, 24f);
             UiFactory.Label(includes, "Text", "Includes: 1 Worker", 32, UiFactory.Cream, TextAnchor.MiddleLeft, FontStyle.Bold);
-            var potential = Centered(c, "Potential", 28, FontStyle.Normal, 6f, 40f);
+            var potential = Centered(c, "Potential", 28, FontStyle.Normal, 34f, 40f);
             potential.text = "Higher satisfaction potential";
             potential.color = UiFactory.CreamDim;
 
+            // What opened the gate: "Reached 10 Reputation" (MVP) — hidden under wave-count gates.
+            var gate = UiFactory.Row(c, "Gate", 10f);
+            UiFactory.PlaceFixed(gate.gameObject, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -10f), new Vector2(1100f, 36f));
+            UiFactory.RowIcon(gate, "Medal", UiFactory.Medal, UiFactory.ReputationColor, 28f);
+            _gate = UiFactory.Label(gate, "Text", "", 26, UiFactory.CreamDim);
+            _gateRow = gate.gameObject;
+
             var cost = UiFactory.Row(c, "Cost", 12f);
-            UiFactory.PlaceFixed(cost.gameObject, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -58f), new Vector2(1100f, 56f));
+            UiFactory.PlaceFixed(cost.gameObject, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -68f), new Vector2(1100f, 56f));
             UiFactory.RowIcon(cost, "Coin", UiFactory.Circle, UiFactory.Gold, 38f);
             _cost = UiFactory.Label(cost, "Text", "", 38, UiFactory.Cream, TextAnchor.MiddleLeft, FontStyle.Bold);
 
@@ -202,12 +214,19 @@ namespace ResortEmpire.Game.Ui
             });
         }
 
-        // The eligibility gate this wave just opened, if any.
-        public static BuildingId? AreaOpenedBy(TuningConfig t, int waveIndex)
+        // The two island sites S9 celebrates. The Spa (VIP layer) is unlocked elsewhere.
+        public static readonly BuildingId[] Sites = { BuildingId.Pool, BuildingId.Bungalows };
+
+        // What a still-locked site waits for, for the construction-site card.
+        public static string GateText(GameController game, BuildingId b)
         {
-            if (waveIndex == t.PoolEligibleAfterWave) return BuildingId.Pool;
-            if (waveIndex == t.BungalowsEligibleAfterWave) return BuildingId.Bungalows;
-            return null;
+            var r = game.Resort;
+            if (game.Tuning.UseReputationGates)
+                return "Reach " + UiFactory.Num(r.ReputationGate(b)) + " Reputation to unlock — you have "
+                       + UiFactory.Num(r.Reputation);
+            var t = game.Tuning;
+            int afterWave = b == BuildingId.Pool ? t.PoolEligibleAfterWave : t.BungalowsEligibleAfterWave;
+            return "Finish wave " + afterWave + " to unlock";
         }
 
         public void Show(BuildingId area)
@@ -222,6 +241,9 @@ namespace ResortEmpire.Game.Ui
             _ribbon.color = _theme.Accent;
             _title.text = _theme.Title;
             _adds.text = _theme.Adds;
+            bool reputationGate = _game.Tuning.UseReputationGates;
+            _gateRow.SetActive(reputationGate);
+            if (reputationGate) _gate.text = "Reached " + UiFactory.Num(_game.Resort.ReputationGate(area)) + " Reputation";
             _age = 0f;
             _root.SetActive(true);
             Tick(0f);

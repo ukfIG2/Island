@@ -34,15 +34,15 @@ namespace ResortEmpire.Sim.Tests
             Assert.AreEqual(WavePhase.WaveActive, sim.Phase);
         }
 
-        // The worker pool is always buildings-1, so a static placement is fully
-        // described by the single building left empty.
+        // The worker pool is always wave buildings-1 with one slot each (prototype rules), so a static
+        // placement is fully described by the single wave building left empty.
         static void SetEmptyBuilding(ResortState resort, BuildingId empty)
         {
             var e = resort.Get(empty);
             Assert.NotNull(e, empty + " is not unlocked");
             if (!e.HasWorker) return;
             foreach (var b in resort.Buildings)
-                if (!b.HasWorker)
+                if (b.IsWaveBuilding && !b.HasWorker)
                 {
                     Assert.IsTrue(resort.MoveWorker(empty, b.Id));
                     return;
@@ -53,7 +53,8 @@ namespace ResortEmpire.Sim.Tests
         static float BestStaticSatisfaction(ResortState resort, WaveDef wave, TuningConfig t)
         {
             var ids = new List<BuildingId>();
-            foreach (var b in resort.Buildings) ids.Add(b.Id);
+            foreach (var b in resort.Buildings)
+                if (b.IsWaveBuilding) ids.Add(b.Id);
             float best = -1f;
             foreach (var empty in ids)
             {
@@ -67,7 +68,7 @@ namespace ResortEmpire.Sim.Tests
         static BuildingId BuildingFor(NeedId need)
         {
             foreach (BuildingId b in Enum.GetValues(typeof(BuildingId)))
-                if (BuildingNeeds.Serves(b) == need) return b;
+                if (BuildingNeeds.IsWaveBuilding(b) && BuildingNeeds.Serves(b) == need) return b;
             throw new InvalidOperationException("no building serves " + need);
         }
 
@@ -110,7 +111,20 @@ namespace ResortEmpire.Sim.Tests
                 ids.Length - 1, ids, levels, staffed);
         }
 
+        // Every BuildingId, the Spa included.
         static BuildingId[] AllBuildings => (BuildingId[])Enum.GetValues(typeof(BuildingId));
+
+        // The five buildings that serve a wave need (everything but the Spa).
+        static BuildingId[] WaveBuildings
+        {
+            get
+            {
+                var list = new List<BuildingId>();
+                foreach (var b in AllBuildings)
+                    if (BuildingNeeds.IsWaveBuilding(b)) list.Add(b);
+                return list.ToArray();
+            }
+        }
 
         static void TickUntilBottleneck(WaveSimulation sim, NeedId need, int minQueue)
         {
@@ -212,7 +226,7 @@ namespace ResortEmpire.Sim.Tests
         [Test]
         public void WR3_WaveEndsOnlyWhenQueuesEmpty()
         {
-            var t = TuningConfig.Default;
+            var t = TuningConfig.Prototype;
             var resort = ResortState.NewGame(t); // BeachBar unstaffed: Drinks backlog outlives the timer
             var wave = WaveTable.Default8()[2];
             var sim = new WaveSimulation(resort, wave, t);
@@ -241,7 +255,7 @@ namespace ResortEmpire.Sim.Tests
         [Test]
         public void WR7_PassiveBestStaticPlacementNeverHitsFiveStars()
         {
-            var t = TuningConfig.Default;
+            var t = TuningConfig.Prototype;
             var resort = ResortState.NewGame(t);
             float fiveStar = t.RatingThresholds[4];
             float perfect = t.RatingThresholds[5];
@@ -270,7 +284,7 @@ namespace ResortEmpire.Sim.Tests
         [Test]
         public void WR8_FullyUpgradedResortFiveStarsEverywhereWithoutEnergy()
         {
-            var t = TuningConfig.Default;
+            var t = TuningConfig.Prototype;
             var resort = ResortState.NewGame(t);
 
             // completing the wave-6 def passes both eligibility gates; the result itself is irrelevant
@@ -279,11 +293,11 @@ namespace ResortEmpire.Sim.Tests
             Assert.IsTrue(resort.Unlock(BuildingId.Pool));
             Assert.IsTrue(resort.Unlock(BuildingId.Bungalows));
 
-            int buildingCount = Enum.GetValues(typeof(BuildingId)).Length;
+            int buildingCount = WaveBuildings.Length;
             Assert.AreEqual(buildingCount - 1, resort.Workers); // pool stays buildings-1, never equal
 
             resort.DebugGrant(buildingCount * (t.UpgradeCostCoins[0] + t.UpgradeCostCoins[1]), 0);
-            foreach (BuildingId b in Enum.GetValues(typeof(BuildingId)))
+            foreach (var b in WaveBuildings)
             {
                 Assert.IsTrue(resort.Upgrade(b), b + " Lv1->2");
                 Assert.IsTrue(resort.Upgrade(b), b + " Lv2->3");
@@ -300,7 +314,7 @@ namespace ResortEmpire.Sim.Tests
         [Test]
         public void WR1_FloorOrdering()
         {
-            var t = TuningConfig.Default;
+            var t = TuningConfig.Prototype;
             Assert.Less(t.UnitFloor, t.WaveFloor);                 // WR1: UnitFloor < WaveFloor
             Assert.Less(t.WaveFloor, t.RatingThresholds[2]);       // WaveFloor < 3-star bound
 
@@ -380,7 +394,7 @@ namespace ResortEmpire.Sim.Tests
         [Test]
         public void WR5_MoveIsFreeAndInstant()
         {
-            var t = TuningConfig.Default;
+            var t = TuningConfig.Prototype;
             var resort = ResortState.NewGame(t);
             var sim = new WaveSimulation(resort, WaveTable.Default8()[0], t);
             sim.StartWave();
@@ -459,7 +473,7 @@ namespace ResortEmpire.Sim.Tests
         [Test]
         public void WR9_LockedNeedNeverSpawns()
         {
-            var t = TuningConfig.Default;
+            var t = TuningConfig.Prototype;
             var resort = ResortState.NewGame(t); // Pool locked
             var wave = WaveTable.Default8()[3];  // wave 4 brings Relax demand
             Assert.IsTrue(wave.Demand.ContainsKey(NeedId.Relax));
@@ -486,7 +500,7 @@ namespace ResortEmpire.Sim.Tests
         [Test]
         public void Rush_AddsDemandMidWave()
         {
-            var t = TuningConfig.Default;
+            var t = TuningConfig.Prototype;
             var wave = WaveTable.Default8()[1];
             Assert.IsTrue(wave.HasSuddenRush);
             var resort = ResortState.NewGame(t); // BeachBar unstaffed -> rush must target Drinks
@@ -523,7 +537,7 @@ namespace ResortEmpire.Sim.Tests
         [Test]
         public void Rewards_AppliedOnce()
         {
-            var t = TuningConfig.Default;
+            var t = TuningConfig.Prototype;
             var resort = ResortState.NewGame(t);
             var wave = WaveTable.Default8()[0];
             int coins0 = resort.Coins, energy0 = resort.Energy, value0 = resort.ResortValue;
@@ -563,7 +577,7 @@ namespace ResortEmpire.Sim.Tests
                 {
                     // fixed setups whose results sit well inside a rating band, with real waits
                     var resort = index == 8
-                        ? MakeResort(t, 1, BuildingId.BeachBar, AllBuildings)
+                        ? MakeResort(t, 1, BuildingId.BeachBar, WaveBuildings)
                         : NewGameWithEmpty(t, BuildingId.Restaurant);
                     var sim = new WaveSimulation(resort, wave, t);
                     sim.StartWave();
@@ -694,7 +708,7 @@ namespace ResortEmpire.Sim.Tests
         [Test]
         public void WR6_UpgradeAndUnlockRulesAndCosts()
         {
-            var t = TuningConfig.Default;
+            var t = TuningConfig.Prototype;
 
             // refused in every in-wave phase, although eligible and affordable
             var resort = ResortState.NewGame(t);
@@ -750,7 +764,7 @@ namespace ResortEmpire.Sim.Tests
             // exact upgrade costs, then the level cap and a short purse refuse without charging
             r.Coins = t.UpgradeCostCoins[0] + t.UpgradeCostCoins[1] + 7;
             var reception = r.Get(BuildingId.Reception);
-            for (int level = 1; level < t.CapacityPerLevel.Length; level++)
+            for (int level = 1; level < t.MaxLevel; level++)
             {
                 int before = r.Coins;
                 Assert.IsTrue(r.Upgrade(BuildingId.Reception), "Lv" + level + "->" + (level + 1));
@@ -821,7 +835,7 @@ namespace ResortEmpire.Sim.Tests
         [Test]
         public void Rewards_MathPinnedToThresholds()
         {
-            var t = TuningConfig.Default;
+            var t = TuningConfig.Prototype;
 
             // wave 1, Restaurant empty: 6 Food units 15 s apart never outrun 3 slow seats (~36 s each) -> Perfect
             var resort = NewGameWithEmpty(t, BuildingId.Restaurant);
@@ -1002,7 +1016,7 @@ namespace ResortEmpire.Sim.Tests
         [Test]
         public void StartWave_ReadsBuildingsAtStartAndIgnoresPause()
         {
-            var t = TuningConfig.Default;
+            var t = TuningConfig.Prototype;
             var resort = ResortState.NewGame(t);
             resort.WavesCompleted = t.PoolEligibleAfterWave;
             resort.DebugGrant(t.PoolUnlockCostCoins, 0);
@@ -1105,7 +1119,7 @@ namespace ResortEmpire.Sim.Tests
         [Test]
         public void Rush_ObservableFromTheTriggerTickOn()
         {
-            var t = TuningConfig.Default;
+            var t = TuningConfig.Prototype;
             var wave = WaveTable.Default8()[t.RushWaveIndex - 1];
             Assert.IsTrue(wave.HasSuddenRush);
 
@@ -1162,7 +1176,7 @@ namespace ResortEmpire.Sim.Tests
         [Test]
         public void Rush_PausedAcrossTheTriggerTimeDoesNotFire()
         {
-            var t = TuningConfig.Default;
+            var t = TuningConfig.Prototype;
             var resort = ResortState.NewGame(t); // BeachBar empty -> Drinks
             var sim = new WaveSimulation(resort, WaveTable.Default8()[t.RushWaveIndex - 1], t);
             sim.StartWave();
@@ -1189,7 +1203,7 @@ namespace ResortEmpire.Sim.Tests
         [Test]
         public void ResortValue_UpgradesAndUnlocksAddExactlyTheirTuning()
         {
-            var t = TuningConfig.Default;
+            var t = TuningConfig.Prototype;
             Assert.Greater(t.ResortValuePerUpgrade, 0, "Resort Value only ever grows");
             Assert.Greater(t.ResortValuePerUnlock, 0, "Resort Value only ever grows");
 
@@ -1204,7 +1218,7 @@ namespace ResortEmpire.Sim.Tests
             Assert.IsFalse(r.Unlock(BuildingId.Reception), "not unlockable");
             Assert.AreEqual(value, r.ResortValue, "refusals add nothing");
 
-            for (int level = 1; level < t.CapacityPerLevel.Length; level++)
+            for (int level = 1; level < t.MaxLevel; level++)
             {
                 Assert.IsTrue(r.Upgrade(BuildingId.Reception), "Lv" + level + "->" + (level + 1));
                 Assert.AreEqual(value + t.ResortValuePerUpgrade, r.ResortValue, "Lv" + level + "->" + (level + 1));
@@ -1238,7 +1252,7 @@ namespace ResortEmpire.Sim.Tests
         [Test]
         public void ResortValue_NeverDecreasesOverFullRunWithUpgrades()
         {
-            var t = TuningConfig.Default;
+            var t = TuningConfig.Prototype;
             var resort = ResortState.NewGame(t);
             int expected = resort.ResortValue, previous = resort.ResortValue;
             int upgrades = 0, unlocks = 0;
@@ -1255,7 +1269,7 @@ namespace ResortEmpire.Sim.Tests
                         expected += t.ResortValuePerUnlock;
                         unlocks++;
                     }
-                foreach (var b in AllBuildings)
+                foreach (var b in WaveBuildings)
                     while (resort.UpgradeCost(b) >= 0 && resort.Coins >= resort.UpgradeCost(b))
                     {
                         Assert.IsTrue(resort.Upgrade(b), b.ToString());
@@ -1287,7 +1301,7 @@ namespace ResortEmpire.Sim.Tests
         [Test]
         public void UpgradeCost_NextLevelPriceOrMinusOne()
         {
-            var t = TuningConfig.Default;
+            var t = TuningConfig.Prototype;
             var r = ResortState.NewGame(t);
             r.Coins = 0;
             Assert.AreEqual(t.UpgradeCostCoins[0], r.UpgradeCost(BuildingId.Reception), "Lv1, quoted even when unaffordable");
@@ -1297,7 +1311,7 @@ namespace ResortEmpire.Sim.Tests
             // Lv1 then Lv2: each quote is exactly what Upgrade then charges
             r.Coins = 100000;
             var reception = r.Get(BuildingId.Reception);
-            for (int level = 1; level < t.CapacityPerLevel.Length; level++)
+            for (int level = 1; level < t.MaxLevel; level++)
             {
                 Assert.AreEqual(level, reception.Level);
                 int cost = r.UpgradeCost(BuildingId.Reception);
@@ -1313,15 +1327,15 @@ namespace ResortEmpire.Sim.Tests
             r.WavesCompleted = t.PoolEligibleAfterWave;
             Assert.IsTrue(r.Unlock(BuildingId.Pool));
             Assert.AreEqual(t.UpgradeCostCoins[0], r.UpgradeCost(BuildingId.Pool));
-            var maxed = MakeResort(t, t.CapacityPerLevel.Length, BuildingId.BeachBar, AllBuildings);
-            foreach (var b in AllBuildings)
+            var maxed = MakeResort(t, t.MaxLevel, BuildingId.BeachBar, WaveBuildings);
+            foreach (var b in AllBuildings) // the Spa too: absent, so no quote
                 Assert.AreEqual(-1, maxed.UpgradeCost(b), b + " at max level");
         }
 
         [Test]
         public void UnlockCostAndIsEligible_FollowTheWaveGate()
         {
-            var t = TuningConfig.Default;
+            var t = TuningConfig.Prototype;
             var r = ResortState.NewGame(t);
             Assert.AreEqual(t.PoolUnlockCostCoins, r.UnlockCost(BuildingId.Pool));
             Assert.AreEqual(t.BungalowsUnlockCostCoins, r.UnlockCost(BuildingId.Bungalows));

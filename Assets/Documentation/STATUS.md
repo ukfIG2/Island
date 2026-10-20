@@ -1,6 +1,6 @@
 # Resort Empire — Project Status
 
-Last updated: **2026-10-20** (Sprint 2, Oct 19 – Nov 1)
+Last updated: **2026-10-20** — prototype feature-complete (Sprints 1–3 done ahead of the Jira dates)
 
 This document tracks three things: what is **done**, what is **planned**, and what the known **gaps** are. Update it at the end of every working session.
 
@@ -40,21 +40,29 @@ This document tracks three things: what is **done**, what is **planned**, and wh
 - **Menus:** *Resort Empire → Create Game Scene* (rebuilds `Assets/Scenes/GameScene.unity`, first in Build Settings) and *Resort Empire → Reset Save (start a new game)*.
 - **Verified in play mode** with screenshots: wave 1 ends Perfect with 458 Coins (matches the spec's numbers); in wave 2 the rush hits the empty Beach Bar, the line and red warning appear, the worker sheet moves the Restaurant worker, and the Beach Bar switches to "catching up" in the same moment.
 
+### Sprint 3 — closing the prototype loop (this session)
+
+- **S4 Wave Complete:** stars, satisfaction % (the only place the number appears), needs served, rewards with icons, *What went well* / *Needs improvement*, and a soft line about guests who left. The "needs improvement" line now answers the prototype's main question — **empty or too small?** — e.g. "Beach Bar was without a worker while its line grew" vs "had too few seats for the crowd" (new sim result `WorstNeedCause`).
+- **Leaving guests:** after the wave, 0–8 guest figures (by stars) walk from the plaza to the dock — a picture of the result, no mechanical effect.
+- **S5 Upgrade Suggestion** after S4: recommends the building behind the worst queue, shows seats before → after, +20 Resort Value, cost; "Missing: N Coins" when unaffordable; Later.
+- **S9 Area Unlock** as a full-screen celebration: Pool after wave 3 (turquoise), Bungalows after wave 6 (sunset, "Your resort is growing again!"), each stating "Includes: 1 Worker". If skipped, tapping the construction site reopens it.
+- **Sudden rush prompt** in the wave panel: "Sudden rush at Beach Bar!" with Move Worker here / Speed Up / Ignore; the wave never pauses.
+- **App shell** (kept per decision): main menu over the live island (Play / Continue, New Game, Settings), settings (Sound, Music, Reset progress with confirmation), in-game Menu button with a pause menu (Resume, Settings, Main Menu).
+- **Resort Value** now also grows with upgrades (+20) and unlocks (+50) and never decreases.
+- **Tests: 29, all green** (8 new: bottleneck cause, rush observability incl. pause, Resort Value gains and monotonicity, upgrade/unlock prices and eligibility).
+- **Full play-through verified in play mode**, waves 1 → 8: S4/S5/S9 flow, both unlocks, rush prompt, pause menu, settings, prototype-complete screen, and "Start over" reloading into a fresh game. No errors or warnings in the console during the whole run.
+
 ---
 
 ## 2. Planned
 
-### Rest of Sprint 2 (→ Nov 1)
+### Prototype playtest (now — before starting the MVP)
 
-- Hands-on playtest by the team on a desktop build: does the "empty building vs too-small building" difference read without explanation? (main prototype question, build doc §4.1)
-- Touch check on a phone (tapping buildings through the UI on touchscreens is untested).
+The prototype exists to answer one question: *is the wave loop fun?* (build doc §4.1, exit criteria §4.12). Before building MVP features:
 
-### Sprint 3 (Nov 2 – 15) — closing the prototype loop (Jira: 17 items)
-
-- Real S4 Wave Complete (what went well / needs improvement, guests leaving as a picture of the result), S5 Upgrade Suggestion (before/after seats, cost, Later), S9 Area Unlock as a full-screen celebration (used twice).
-- Sudden rush prompt in S2 (Move Worker here / Use Energy / Ignore).
-- App shell per decision: Main Menu, Settings, load on start, no degradation / no offline income (FR-64/65).
-- Validation FR-62 (5★ without Energy) is already automated by the WR8 test — keep it green.
+- Playtest with real people on a desktop build and watch for the exit criteria: does the player move a worker to a bottleneck **without being told**; can they tell "building is empty" from "building is too small"; does the unlock create the wish to continue?
+- Touch check on a phone (Android build) — tapping buildings through the UI on touchscreens is untested.
+- Instrument the metrics the build doc lists (wave_complete_rate, worker moves before/during waves, drain duration, rating distribution, upgrade take rate, session length) if the team wants numbers rather than observation.
 
 ### Release 2 — MVP (Sprints 4–5, Nov 16 – Dec 13) — summary
 
@@ -86,13 +94,17 @@ Lv4–5 buildings (+Materials), Reputation thresholds, Manager/Specialist/Worker
 - The bottleneck "growing for 3 s" clock counts time since the queue last shrank, so a queue bouncing between 4 and 5 can warn ~3 s after its last drop. The spec text allows either reading.
 - Results differ by about 0.5 satisfaction points between 0.01 s and 0.1 s simulation steps (seats fill at step boundaries). Well inside the tolerance, but exact numbers shift slightly with the step size.
 - `DemandTotal()` of a *locked* need reports the scripted number while spawning nothing; the UI hides locked needs, so players never see it. The spec is silent.
+- A full passive run (default placement, one Beach Bar upgrade, both unlocks, no worker moves) scored W1 Perfect, W2 3★, W3 4★, W4 5★, W5 4★, W6 4★, W7 4★, W8 3★ — close to the build doc's "no intervention" column (Perfect, 4★, 4★, Perfect, 4★, 4★, 5★, 3★). Wave 2 is the one clearly below the design intent.
+- The spec's status machine shows "catching up" whenever a queue shrinks — including at an *unstaffed* building after its peak. In wave 2 the player can see "Beach Bar is catching up" without having done anything. Spec-correct, but may confuse playtesters; designer to decide.
 
 **Technical debt / not done yet**
 
 - `Assets/Documentation/` should move out of `Assets/` (Unity imports PDFs/ODS as assets needlessly).
 - No CI, no Android build yet (target platform still desktop; switch and device test planned before end of Sprint 3).
 - Building taps use `EventSystem.IsPointerOverGameObject()` to ignore taps on UI; on touchscreens this may need the touch-id overload — verify on a device.
-- The OnGUI `DebugWaveRunner` from Sprint 1 is now superseded by the real screens; keep it as a dev tool or delete it in Sprint 3.
+- The OnGUI `DebugWaveRunner` from Sprint 1 is superseded by the real screens; keep it as a dev tool or delete it.
+- Sound and Music settings are stored (PlayerPrefs) but there is no audio in the game yet.
+- Speed Up at 0 Energy is simply hidden; the spec's "watch an ad for Energy" offer belongs to the MVP monetization hooks.
 - Economy values are all `TUNING` defaults — the two most sensitive (`service_time` 12 s, `utilization_empty` 0.33) must be re-verified by simulation after any change (build doc hard rule).
 - Open tuning questions Q-03…Q-11 from the Product Backlog remain with the economist/designer.
 
@@ -102,5 +114,6 @@ Lv4–5 buildings (+Materials), Reputation thresholds, Manager/Specialist/Worker
 
 *(updated at end of each session, newest first)*
 
+- **2026-10-20 — Sprint 3 GREEN.** Zero compile errors, **29/29 tests pass**, full 8-wave play-through verified with screenshots, no console warnings. Save reset. Committed on `dev-beta`.
 - **2026-10-20 — Sprint 2 GREEN.** Zero compile errors. **21/21 EditMode tests pass.** Game scene generated and played: S1 home, wave panel, worker sheet and result card all verified with screenshots, including the full bottleneck → worker move → "catching up" sequence in wave 2. Save file reset so the next Play starts a new game. Committed on `dev-beta`.
 - **2026-10-15 — Sprint 1 GREEN.** Sim assembly and first 10 tests (WR1, WR3, WR5, WR7, WR8, WR9, AC2, pause, rush, rewards) passing; committed as `a30047f`.

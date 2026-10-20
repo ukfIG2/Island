@@ -1029,5 +1029,339 @@ namespace ResortEmpire.Sim.Tests
             foreach (var pair in wave.Demand) units += pair.Value;
             Assert.AreEqual(units, sim.Result.TotalUnits);
         }
+
+        [Test]
+        public void WorstNeedCause_EmptyBuildingIsStaffingTooSmallIsCapacity()
+        {
+            var t = TuningConfig.Default;
+
+            // BeachBar empty the whole wave: Drinks starves because nobody works there
+            var empty = ResortState.NewGame(t);
+            var r = RunFullWave(empty, CraftedWave(rooms: 10, drinks: 30, food: 10), t).Result;
+            Assert.IsFalse(empty.Get(BuildingId.BeachBar).HasWorker);
+            Assert.AreEqual(NeedId.Drinks, r.WorstNeed);
+            Assert.AreEqual(BottleneckCause.Staffing, r.WorstNeedCause, "empty building -> staffing (AC2d)");
+
+            // staffed Reception, 3 Lv1 seats vs 60 units: simply too small; the empty BeachBar
+            // elsewhere must not leak into the answer
+            var small = ResortState.NewGame(t);
+            r = RunFullWave(small, CraftedWave(rooms: 60), t).Result;
+            Assert.IsTrue(small.Get(BuildingId.Reception).HasWorker);
+            Assert.AreEqual(NeedId.Rooms, r.WorstNeed);
+            Assert.AreEqual(BottleneckCause.Capacity, r.WorstNeedCause, "staffed but too small -> capacity (AC2d)");
+
+            // no bottleneck: no hint, no cause
+            r = RunFullWave(ResortState.NewGame(t), WaveTable.Default8()[0], t).Result;
+            Assert.IsFalse(r.WorstNeed.HasValue);
+            Assert.AreEqual(BottleneckCause.None, r.WorstNeedCause);
+        }
+
+        [Test]
+        public void WorstNeedCause_FollowsTheUnstaffedShareOfBottleneckTime()
+        {
+            var t = TuningConfig.Default;
+            var wave = CraftedWave(drinks: 60); // more than even a staffed Lv1 BeachBar keeps up with
+            const float moveAfter = 5f;         // Bottleneck seconds before the worker arrives
+
+            foreach (bool move in new[] { false, true })
+            {
+                string how = move ? "moved in" : "never staffed";
+                var resort = ResortState.NewGame(t); // BeachBar empty
+                var beachBar = resort.Get(BuildingId.BeachBar);
+                var sim = new WaveSimulation(resort, wave, t);
+                sim.StartWave();
+
+                // mirror the sim's bookkeeping: status and worker as they stand at the end of each tick
+                float total = 0f, unstaffed = 0f;
+                bool moved = false;
+                for (int i = 0; i < TickGuard && sim.Phase != WavePhase.WaveComplete; i++)
+                {
+                    sim.Tick(Dt);
+                    if (sim.StatusOf(NeedId.Drinks) != NeedStatus.Bottleneck) continue;
+                    total += Dt;
+                    if (!beachBar.HasWorker) unstaffed += Dt;
+                    if (move && !moved && total >= moveAfter)
+                        moved = sim.MoveWorker(BuildingId.Restaurant, BuildingId.BeachBar);
+                }
+                Assert.AreEqual(WavePhase.WaveComplete, sim.Phase, how);
+                var r = sim.Result;
+                Assert.AreEqual(NeedId.Drinks, r.WorstNeed, how);
+                Assert.Greater(unstaffed, 0f, how + ": Drinks bottlenecked while the BeachBar was empty");
+
+                if (move)
+                {
+                    Assert.IsTrue(moved, how);
+                    Assert.Less(unstaffed * 2f, total, how + ": setup must be staffed for most of the Bottleneck time");
+                    Assert.AreEqual(BottleneckCause.Capacity, r.WorstNeedCause, how + ": the worker came, the queue stayed -> too small");
+                }
+                else
+                {
+                    Assert.AreEqual(total, unstaffed, 1e-3f, how);
+                    Assert.AreEqual(BottleneckCause.Staffing, r.WorstNeedCause, how);
+                }
+            }
+        }
+
+        [Test]
+        public void Rush_ObservableFromTheTriggerTickOn()
+        {
+            var t = TuningConfig.Default;
+            var wave = WaveTable.Default8()[t.RushWaveIndex - 1];
+            Assert.IsTrue(wave.HasSuddenRush);
+
+            // the rush lands on whichever building is empty at trigger time
+            foreach (var empty in new[] { BuildingId.BeachBar, BuildingId.Reception })
+            {
+                var target = BuildingNeeds.Serves(empty);
+                var sim = new WaveSimulation(NewGameWithEmpty(t, empty), wave, t);
+                Assert.IsFalse(sim.RushFired, empty + ": AwaitingWave");
+                Assert.IsNull(sim.RushNeed, empty + ": AwaitingWave");
+                sim.StartWave();
+
+                int before = 0, after = 0;
+                for (int i = 0; i < TickGuard && sim.TimeInWave < t.RushTimeSeconds + 1f; i++)
+                {
+                    sim.Tick(Dt);
+                    string ctx = empty + " at " + sim.TimeInWave + " s";
+                    bool due = sim.TimeInWave >= t.RushTimeSeconds;
+                    Assert.AreEqual(due, sim.RushFired, ctx);
+                    if (due) Assert.AreEqual(target, sim.RushNeed, ctx);
+                    else Assert.IsNull(sim.RushNeed, ctx);
+                    Assert.AreEqual(wave.Demand[target] + (due ? t.RushUnits : 0), sim.DemandTotal(target),
+                        ctx + ": the flag and the demand move together");
+                    if (due) after++; else before++;
+                }
+                Assert.Greater(before, 0, empty.ToString());
+                Assert.Greater(after, 0, empty.ToString());
+
+                RunToComplete(sim);
+                Assert.IsTrue(sim.RushFired, empty + ": stays fired through WaveComplete");
+                Assert.AreEqual(target, sim.RushNeed, empty.ToString());
+            }
+
+            // a wave without the rush never fires, even well past the trigger time: wave 2's calm twin and wave 3
+            var calmTwin = new WaveDef { Index = wave.Index, HasSuddenRush = false };
+            foreach (var pair in wave.Demand) calmTwin.Demand[pair.Key] = pair.Value;
+            foreach (var calm in new[] { calmTwin, WaveTable.Default8()[2] })
+            {
+                var sim = new WaveSimulation(ResortState.NewGame(t), calm, t);
+                sim.StartWave();
+                for (int i = 0; i < TickGuard && sim.Phase != WavePhase.WaveComplete; i++)
+                {
+                    sim.Tick(Dt);
+                    if (sim.RushFired || sim.RushNeed.HasValue)
+                        Assert.Fail("wave " + calm.Index + " fired a rush at " + sim.TimeInWave + " s");
+                }
+                Assert.AreEqual(WavePhase.WaveComplete, sim.Phase);
+                Assert.Greater(sim.TimeInWave, t.RushTimeSeconds);
+                Assert.IsFalse(sim.RushFired);
+                Assert.IsNull(sim.RushNeed);
+            }
+        }
+
+        [Test]
+        public void Rush_PausedAcrossTheTriggerTimeDoesNotFire()
+        {
+            var t = TuningConfig.Default;
+            var resort = ResortState.NewGame(t); // BeachBar empty -> Drinks
+            var sim = new WaveSimulation(resort, WaveTable.Default8()[t.RushWaveIndex - 1], t);
+            sim.StartWave();
+            TickUntilTime(sim, t.RushTimeSeconds - 1f);
+            Assert.IsFalse(sim.RushFired);
+            float time = sim.TimeInWave;
+            int drinks = sim.DemandTotal(NeedId.Drinks);
+
+            sim.IsPaused = true;
+            int pausedTicks = (int)(2f * t.RushTimeSeconds / Dt); // far more wall time than the second left
+            for (int i = 0; i < pausedTicks; i++) sim.Tick(Dt);
+            Assert.AreEqual(time, sim.TimeInWave);
+            Assert.IsFalse(sim.RushFired, "paused across the trigger time");
+            Assert.IsNull(sim.RushNeed);
+            Assert.AreEqual(drinks, sim.DemandTotal(NeedId.Drinks));
+
+            sim.IsPaused = false;
+            TickUntilTime(sim, t.RushTimeSeconds);
+            Assert.IsTrue(sim.RushFired, "fires once the unpaused clock reaches the trigger time");
+            Assert.AreEqual(NeedId.Drinks, sim.RushNeed);
+            Assert.AreEqual(drinks + t.RushUnits, sim.DemandTotal(NeedId.Drinks));
+        }
+
+        [Test]
+        public void ResortValue_UpgradesAndUnlocksAddExactlyTheirTuning()
+        {
+            var t = TuningConfig.Default;
+            Assert.Greater(t.ResortValuePerUpgrade, 0, "Resort Value only ever grows");
+            Assert.Greater(t.ResortValuePerUnlock, 0, "Resort Value only ever grows");
+
+            var r = ResortState.NewGame(t);
+            int value = r.ResortValue;
+
+            r.Coins = t.UpgradeCostCoins[0] - 1;
+            Assert.IsFalse(r.Upgrade(BuildingId.Reception), "Coins short");
+            r.Coins = 100000;
+            Assert.IsFalse(r.Upgrade(BuildingId.Pool), "absent building");
+            Assert.IsFalse(r.Unlock(BuildingId.Pool), "before the gate");
+            Assert.IsFalse(r.Unlock(BuildingId.Reception), "not unlockable");
+            Assert.AreEqual(value, r.ResortValue, "refusals add nothing");
+
+            for (int level = 1; level < t.CapacityPerLevel.Length; level++)
+            {
+                Assert.IsTrue(r.Upgrade(BuildingId.Reception), "Lv" + level + "->" + (level + 1));
+                Assert.AreEqual(value + t.ResortValuePerUpgrade, r.ResortValue, "Lv" + level + "->" + (level + 1));
+                value = r.ResortValue;
+            }
+            Assert.IsFalse(r.Upgrade(BuildingId.Reception), "max level");
+            Assert.AreEqual(value, r.ResortValue, "a refused upgrade adds nothing");
+
+            r.WavesCompleted = t.BungalowsEligibleAfterWave;
+            foreach (var b in new[] { BuildingId.Pool, BuildingId.Bungalows })
+            {
+                Assert.IsTrue(r.Unlock(b), b.ToString());
+                Assert.AreEqual(value + t.ResortValuePerUnlock, r.ResortValue, b + " unlock");
+                value = r.ResortValue;
+                Assert.IsFalse(r.Unlock(b), b + " already unlocked");
+                Assert.AreEqual(value, r.ResortValue, b + ": a refused unlock adds nothing");
+            }
+
+            // in a wave both are refused and add nothing (WR6)
+            var w = ResortState.NewGame(t);
+            w.WavesCompleted = t.BungalowsEligibleAfterWave;
+            w.DebugGrant(100000, 0);
+            int inWaveValue = w.ResortValue;
+            var sim = new WaveSimulation(w, WaveTable.Default8()[0], t);
+            sim.StartWave();
+            Assert.IsFalse(w.Upgrade(BuildingId.Reception), "upgrade in a wave");
+            Assert.IsFalse(w.Unlock(BuildingId.Pool), "unlock in a wave");
+            Assert.AreEqual(inWaveValue, w.ResortValue, "in-wave refusals add nothing");
+        }
+
+        [Test]
+        public void ResortValue_NeverDecreasesOverFullRunWithUpgrades()
+        {
+            var t = TuningConfig.Default;
+            var resort = ResortState.NewGame(t);
+            int expected = resort.ResortValue, previous = resort.ResortValue;
+            int upgrades = 0, unlocks = 0;
+
+            foreach (var wave in WaveTable.Default8())
+            {
+                // between waves: unlock what the gate allows (Coins granted, as in WR7), then buy
+                // every upgrade the earned Coins cover
+                foreach (var b in new[] { BuildingId.Pool, BuildingId.Bungalows })
+                    if (resort.IsEligible(b))
+                    {
+                        resort.DebugGrant(resort.UnlockCost(b), 0);
+                        Assert.IsTrue(resort.Unlock(b), b.ToString());
+                        expected += t.ResortValuePerUnlock;
+                        unlocks++;
+                    }
+                foreach (var b in AllBuildings)
+                    while (resort.UpgradeCost(b) >= 0 && resort.Coins >= resort.UpgradeCost(b))
+                    {
+                        Assert.IsTrue(resort.Upgrade(b), b.ToString());
+                        expected += t.ResortValuePerUpgrade;
+                        upgrades++;
+                    }
+                Assert.GreaterOrEqual(resort.ResortValue, previous, "before wave " + wave.Index);
+                Assert.AreEqual(expected, resort.ResortValue, "before wave " + wave.Index);
+                previous = resort.ResortValue;
+
+                var sim = new WaveSimulation(resort, wave, t);
+                sim.StartWave();
+                for (int i = 0; i < TickGuard && sim.Phase != WavePhase.WaveComplete; i++)
+                {
+                    sim.Tick(Dt);
+                    if (resort.ResortValue < previous)
+                        Assert.Fail("Resort Value dropped in wave " + wave.Index + " at " + sim.TimeInWave + " s");
+                    previous = resort.ResortValue;
+                }
+                Assert.AreEqual(WavePhase.WaveComplete, sim.Phase, "wave " + wave.Index);
+                Assert.Greater(sim.Result.ResortValueGain, 0, "every wave adds Resort Value");
+                expected += sim.Result.ResortValueGain;
+                Assert.AreEqual(expected, resort.ResortValue, "after wave " + wave.Index);
+            }
+            Assert.AreEqual(2, unlocks);
+            Assert.Greater(upgrades, 0, "the run must actually buy upgrades");
+        }
+
+        [Test]
+        public void UpgradeCost_NextLevelPriceOrMinusOne()
+        {
+            var t = TuningConfig.Default;
+            var r = ResortState.NewGame(t);
+            r.Coins = 0;
+            Assert.AreEqual(t.UpgradeCostCoins[0], r.UpgradeCost(BuildingId.Reception), "Lv1, quoted even when unaffordable");
+            Assert.AreEqual(-1, r.UpgradeCost(BuildingId.Pool), "absent building");
+            Assert.AreEqual(-1, r.UpgradeCost(BuildingId.Bungalows), "absent building");
+
+            // Lv1 then Lv2: each quote is exactly what Upgrade then charges
+            r.Coins = 100000;
+            var reception = r.Get(BuildingId.Reception);
+            for (int level = 1; level < t.CapacityPerLevel.Length; level++)
+            {
+                Assert.AreEqual(level, reception.Level);
+                int cost = r.UpgradeCost(BuildingId.Reception);
+                Assert.AreEqual(t.UpgradeCostCoins[level - 1], cost, "Lv" + level);
+                int before = r.Coins;
+                Assert.IsTrue(r.Upgrade(BuildingId.Reception));
+                Assert.AreEqual(before - cost, r.Coins, "Lv" + level + ": charged the quote");
+            }
+            Assert.AreEqual(-1, r.UpgradeCost(BuildingId.Reception), "max level");
+            Assert.AreEqual(t.UpgradeCostCoins[0], r.UpgradeCost(BuildingId.Restaurant), "other buildings keep their own level");
+
+            // a fresh unlock starts at the Lv1 price; a restored max-level resort quotes nothing
+            r.WavesCompleted = t.PoolEligibleAfterWave;
+            Assert.IsTrue(r.Unlock(BuildingId.Pool));
+            Assert.AreEqual(t.UpgradeCostCoins[0], r.UpgradeCost(BuildingId.Pool));
+            var maxed = MakeResort(t, t.CapacityPerLevel.Length, BuildingId.BeachBar, AllBuildings);
+            foreach (var b in AllBuildings)
+                Assert.AreEqual(-1, maxed.UpgradeCost(b), b + " at max level");
+        }
+
+        [Test]
+        public void UnlockCostAndIsEligible_FollowTheWaveGate()
+        {
+            var t = TuningConfig.Default;
+            var r = ResortState.NewGame(t);
+            Assert.AreEqual(t.PoolUnlockCostCoins, r.UnlockCost(BuildingId.Pool));
+            Assert.AreEqual(t.BungalowsUnlockCostCoins, r.UnlockCost(BuildingId.Bungalows));
+            foreach (var b in new[] { BuildingId.Reception, BuildingId.Restaurant, BuildingId.BeachBar })
+            {
+                Assert.AreEqual(-1, r.UnlockCost(b), b + " is not unlockable");
+                Assert.IsFalse(r.IsEligible(b), b + " is not unlockable");
+            }
+            var partial = MakeResort(t, 1, BuildingId.BeachBar, BuildingId.Reception, BuildingId.BeachBar);
+            Assert.IsFalse(partial.IsEligible(BuildingId.Restaurant), "absent, but still not an unlockable building");
+
+            // the gate alone decides, Coins do not; between waves CanUnlock == eligible && affordable
+            foreach (int coins in new[] { 0, t.PoolUnlockCostCoins, t.BungalowsUnlockCostCoins })
+                for (int waves = 0; waves <= t.BungalowsEligibleAfterWave + 1; waves++)
+                {
+                    r.Coins = coins;
+                    r.WavesCompleted = waves;
+                    string ctx = waves + " waves, " + coins + " Coins";
+                    Assert.AreEqual(waves >= t.PoolEligibleAfterWave, r.IsEligible(BuildingId.Pool), "Pool, " + ctx);
+                    Assert.AreEqual(waves >= t.BungalowsEligibleAfterWave, r.IsEligible(BuildingId.Bungalows), "Bungalows, " + ctx);
+                    foreach (var b in AllBuildings)
+                        Assert.AreEqual(r.IsEligible(b) && r.Coins >= r.UnlockCost(b), r.CanUnlock(b, out _), b + ", " + ctx);
+                }
+
+            // InWave is ignored: the gate is met mid-wave, only the unlock itself waits (WR6)
+            r.WavesCompleted = t.BungalowsEligibleAfterWave;
+            r.Coins = 100000;
+            var sim = new WaveSimulation(r, WaveTable.Default8()[0], t);
+            sim.StartWave();
+            Assert.IsTrue(r.InWave);
+            Assert.IsTrue(r.IsEligible(BuildingId.Pool), "in a wave");
+            Assert.IsTrue(r.IsEligible(BuildingId.Bungalows), "in a wave");
+            Assert.IsFalse(r.CanUnlock(BuildingId.Pool, out _), "in a wave");
+            RunToComplete(sim);
+
+            // already unlocked: no longer eligible; the price tag stays fixed per building
+            Assert.IsTrue(r.Unlock(BuildingId.Pool));
+            Assert.IsFalse(r.IsEligible(BuildingId.Pool), "already unlocked");
+            Assert.IsTrue(r.IsEligible(BuildingId.Bungalows), "the other gate is independent");
+            Assert.AreEqual(t.PoolUnlockCostCoins, r.UnlockCost(BuildingId.Pool));
+        }
     }
 }

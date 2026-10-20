@@ -47,10 +47,25 @@ namespace ResortEmpire.Sim
             return null;
         }
 
+        // Fixed price per unlockable building; -1 for the three starting buildings.
+        public int UnlockCost(BuildingId b)
+        {
+            if (b == BuildingId.Pool) return _t.PoolUnlockCostCoins;
+            if (b == BuildingId.Bungalows) return _t.BungalowsUnlockCostCoins;
+            return -1;
+        }
+
+        int EligibleAfterWave(BuildingId b) =>
+            b == BuildingId.Pool ? _t.PoolEligibleAfterWave : _t.BungalowsEligibleAfterWave;
+
+        // The wave gate alone: ignores Coins and InWave, so the shop can show what is coming.
+        public bool IsEligible(BuildingId b) =>
+            UnlockCost(b) >= 0 && !IsUnlocked(b) && WavesCompleted >= EligibleAfterWave(b);
+
         public bool CanUnlock(BuildingId b, out string reason)
         {
             reason = null;
-            if (b != BuildingId.Pool && b != BuildingId.Bungalows)
+            if (UnlockCost(b) < 0)
             {
                 reason = "Only the Pool and the Bungalows can be unlocked.";
                 return false;
@@ -65,13 +80,13 @@ namespace ResortEmpire.Sim
                 reason = "Unlocks are only available between waves."; // WR6
                 return false;
             }
-            int afterWave = b == BuildingId.Pool ? _t.PoolEligibleAfterWave : _t.BungalowsEligibleAfterWave;
+            int afterWave = EligibleAfterWave(b);
             if (WavesCompleted < afterWave)
             {
                 reason = "Complete wave " + afterWave + " first.";
                 return false;
             }
-            int cost = b == BuildingId.Pool ? _t.PoolUnlockCostCoins : _t.BungalowsUnlockCostCoins;
+            int cost = UnlockCost(b);
             if (Coins < cost)
             {
                 reason = "Needs " + cost + " Coins.";
@@ -83,22 +98,30 @@ namespace ResortEmpire.Sim
         public bool Unlock(BuildingId b)
         {
             if (!CanUnlock(b, out _)) return false;
-            Coins -= b == BuildingId.Pool ? _t.PoolUnlockCostCoins : _t.BungalowsUnlockCostCoins;
+            Coins -= UnlockCost(b);
             // A new building arrives WITH a new worker already assigned, keeping the pool at buildings-1.
             _buildings.Add(new BuildingState { Id = b, Level = 1, HasWorker = true });
             Workers++;
+            ResortValue += _t.ResortValuePerUnlock; // only ever grows
             return true;
+        }
+
+        // Coins for the next level; -1 when the building is absent or already at max level.
+        public int UpgradeCost(BuildingId b)
+        {
+            var s = Get(b);
+            if (s == null || s.Level >= _t.CapacityPerLevel.Length) return -1;
+            return _t.UpgradeCostCoins[s.Level - 1];
         }
 
         public bool Upgrade(BuildingId b)
         {
             if (InWave) return false; // WR6: upgrades only between waves
-            var s = Get(b);
-            if (s == null || s.Level >= _t.CapacityPerLevel.Length) return false;
-            int cost = _t.UpgradeCostCoins[s.Level - 1];
-            if (Coins < cost) return false;
+            int cost = UpgradeCost(b);
+            if (cost < 0 || Coins < cost) return false;
             Coins -= cost;
-            s.Level++;                // capacity only; service speed never changes with level
+            Get(b).Level++;           // capacity only; service speed never changes with level
+            ResortValue += _t.ResortValuePerUpgrade; // only ever grows
             return true;
         }
 

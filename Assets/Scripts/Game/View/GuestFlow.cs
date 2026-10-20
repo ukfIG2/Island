@@ -5,24 +5,28 @@ using UnityEngine;
 
 namespace ResortEmpire.Game.View
 {
-    // Guest figures in motion: arrivals walking from the boat to their building's line, and a few
-    // served guests strolling to the beach. Purely visual — the sim decides who exists and where.
+    // Guest figures in motion: arrivals walking from the boat to their building's line, a few served
+    // guests strolling to the beach, and after a wave a handful heading home along the dock.
+    // Purely visual — the sim decides who exists and where.
     sealed class GuestFlow
     {
         const float WalkSpeed = 4.2f;
+        const float LeavingWalkSpeed = 3f;
         const float LeisureWalkSeconds = 3.5f;
         const float LeisureStaySeconds = 4.5f;
 
         static readonly Vector3 GuestScale = new Vector3(0.28f, 0.32f, 0.28f);
+
+        enum Kind { Arrival, Leisure, Leaving }
 
         sealed class Walker
         {
             public Transform Body;
             public Renderer Renderer;
             public Vector3 From, To;
-            public float Elapsed, Duration, Sway;
+            public float Elapsed, Delay, Duration, Sway;
             public NeedId Need;
-            public bool Leisure;
+            public Kind Kind;
         }
 
         readonly Transform _parent;
@@ -37,7 +41,7 @@ namespace ResortEmpire.Game.View
 
         public void SpawnArrival(NeedId need, Vector3 from, Vector3 to, int sequence)
         {
-            var w = Take(need, from, to);
+            var w = Take(need, from, to, Kind.Arrival);
             w.Duration = Mathf.Max(0.6f, Vector3.Distance(from, to) / WalkSpeed);
             w.Sway = ((sequence % 5) - 2) * 0.3f;
             _inTransit[(int)need]++;
@@ -45,10 +49,19 @@ namespace ResortEmpire.Game.View
 
         public void SpawnLeisure(NeedId need, Vector3 from, Vector3 to)
         {
-            var w = Take(need, from, to);
-            w.Leisure = true;
+            var w = Take(need, from, to, Kind.Leisure);
             w.Duration = LeisureWalkSeconds;
             w.Sway = 0.4f;
+        }
+
+        // Pops in after `delay`, walks off and shrinks away at the end of the path.
+        public void SpawnLeaving(NeedId need, Vector3 from, Vector3 to, float delay, int sequence)
+        {
+            var w = Take(need, from, to, Kind.Leaving);
+            w.Delay = delay;
+            w.Duration = Mathf.Max(0.6f, Vector3.Distance(from, to) / LeavingWalkSpeed);
+            w.Sway = ((sequence % 3) - 1) * 0.25f;
+            w.Body.localScale = Vector3.zero;
         }
 
         public void Tick(float dt)
@@ -57,33 +70,43 @@ namespace ResortEmpire.Game.View
             {
                 var w = _active[i];
                 w.Elapsed += dt;
-                float t = Mathf.Clamp01(w.Elapsed / w.Duration);
+                float walked = w.Elapsed - w.Delay;
+                float t = Mathf.Clamp01(walked / w.Duration);
 
                 var travel = w.To - w.From;
                 var side = new Vector3(-travel.z, 0f, travel.x).normalized;
                 var pos = Vector3.Lerp(w.From, w.To, t) + side * (Mathf.Sin(t * Mathf.PI) * w.Sway);
-                if (t < 1f) pos.y += Mathf.Abs(Mathf.Sin(w.Elapsed * 9f)) * 0.06f;
+                if (walked > 0f && t < 1f) pos.y += Mathf.Abs(Mathf.Sin(walked * 9f)) * 0.06f;
                 w.Body.position = pos;
 
-                if (!w.Leisure)
+                switch (w.Kind)
                 {
-                    if (t >= 1f) Recycle(i);
-                    continue;
-                }
+                    case Kind.Arrival:
+                        if (t >= 1f) Recycle(i);
+                        break;
 
-                float remaining = LeisureWalkSeconds + LeisureStaySeconds - w.Elapsed;
-                w.Body.localScale = GuestScale * Mathf.Clamp01(remaining);
-                if (remaining <= 0f) Recycle(i);
+                    case Kind.Leaving:
+                        w.Body.localScale = GuestScale * (Mathf.Clamp01(walked * 3f) * Mathf.Clamp01((w.Duration - walked) * 2f));
+                        if (walked >= w.Duration) Recycle(i);
+                        break;
+
+                    default:
+                        float remaining = LeisureWalkSeconds + LeisureStaySeconds - w.Elapsed;
+                        w.Body.localScale = GuestScale * Mathf.Clamp01(remaining);
+                        if (remaining <= 0f) Recycle(i);
+                        break;
+                }
             }
         }
 
+        // A new wave (or its end) drops arrivals still walking; strollers and leavers finish on their own.
         public void ClearArrivals()
         {
             for (int i = _active.Count - 1; i >= 0; i--)
-                if (!_active[i].Leisure) Recycle(i);
+                if (_active[i].Kind == Kind.Arrival) Recycle(i);
         }
 
-        Walker Take(NeedId need, Vector3 from, Vector3 to)
+        Walker Take(NeedId need, Vector3 from, Vector3 to, Kind kind)
         {
             Walker w;
             if (_pool.Count > 0)
@@ -103,8 +126,9 @@ namespace ResortEmpire.Game.View
             w.From = from;
             w.To = to;
             w.Need = need;
+            w.Kind = kind;
             w.Elapsed = 0f;
-            w.Leisure = false;
+            w.Delay = 0f;
             _active.Add(w);
             return w;
         }
@@ -112,7 +136,7 @@ namespace ResortEmpire.Game.View
         void Recycle(int index)
         {
             var w = _active[index];
-            if (!w.Leisure) _inTransit[(int)w.Need]--;
+            if (w.Kind == Kind.Arrival) _inTransit[(int)w.Need]--;
             w.Body.gameObject.SetActive(false);
             _active.RemoveAt(index);
             _pool.Push(w);

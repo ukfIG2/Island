@@ -18,6 +18,7 @@ namespace ResortEmpire.Game.Ui
         public static readonly Color Recovering = Hex(0xE3B23C);
         public static readonly Color Positive = Hex(0x3E8E5A);
         public static readonly Color Neutral = Hex(0x7FB2BF);
+        public static readonly Color Gold = new Color(0.94f, 0.78f, 0.37f);   // coins, stars, Resort Value
 
         static Font _font;
         static Sprite _rounded;
@@ -46,7 +47,8 @@ namespace ResortEmpire.Game.Ui
         {
             get
             {
-                if (_circle == null) _circle = MakeSprite(32, 15, Vector4.zero);
+                // High resolution because it is also drawn large (the sunset on the second S9 screen).
+                if (_circle == null) _circle = MakeSprite(128, 63, Vector4.zero);
                 return _circle;
             }
         }
@@ -66,8 +68,18 @@ namespace ResortEmpire.Game.Ui
         static readonly Vector2[] AlertShape =
             { new Vector2(0.5f, 0.96f), new Vector2(0.03f, 0.07f), new Vector2(0.97f, 0.07f) };
 
+        static readonly Vector2[] ArrowShape =
+        {
+            new Vector2(0.06f, 0.40f), new Vector2(0.56f, 0.40f), new Vector2(0.56f, 0.18f),
+            new Vector2(0.95f, 0.50f), new Vector2(0.56f, 0.82f), new Vector2(0.56f, 0.60f),
+            new Vector2(0.06f, 0.60f)
+        };
+
+        static Sprite _arrow;
+
         public static Sprite Star => _star != null ? _star : _star = MakeIcon(InStar);
         public static Sprite Bolt => _bolt != null ? _bolt : _bolt = MakeIcon((x, y) => InPolygon(BoltShape, x, y));
+        public static Sprite Arrow => _arrow != null ? _arrow : _arrow = MakeIcon((x, y) => InPolygon(ArrowShape, x, y));
 
         // Triangle with the exclamation mark cut out of it.
         public static Sprite Alert => _alert != null ? _alert : _alert = MakeIcon((x, y) =>
@@ -224,6 +236,57 @@ namespace ResortEmpire.Game.Ui
 
         public static Text ButtonLabel(Button b) => b.GetComponentInChildren<Text>();
 
+        // Full-screen tint that also swallows taps meant for whatever sits behind it.
+        public static Image Overlay(Transform parent, string name, Color color)
+        {
+            var img = Go(parent, name).AddComponent<Image>();
+            img.color = color;
+            Place(img.gameObject, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            return img;
+        }
+
+        // Non-interactive rounded chip with centered text, e.g. "Missing: 400 Coins" in place of a CTA.
+        public static Text Badge(Transform parent, string name, int fontSize, Color bg, Color fg)
+        {
+            var img = PanelImage(parent, name, bg);
+            img.raycastTarget = false;
+            var t = Label(img.transform, "Label", "", fontSize, fg, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Place(t.gameObject, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            return t;
+        }
+
+        // Horizontal run sized to its content (icon + text pieces), aligned inside its own rect.
+        public static RectTransform Row(Transform parent, string name, float spacing, TextAnchor align = TextAnchor.MiddleCenter)
+        {
+            var go = Go(parent, name);
+            var layout = go.AddComponent<HorizontalLayoutGroup>();
+            layout.childAlignment = align;
+            layout.spacing = spacing;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = false;
+            layout.childForceExpandHeight = true;
+            return (RectTransform)go.transform;
+        }
+
+        public static Image RowIcon(Transform row, string name, Sprite sprite, Color color, float size)
+        {
+            var img = Icon(row, name, sprite, color);
+            var element = img.gameObject.AddComponent<LayoutElement>();
+            element.minWidth = size;
+            element.preferredWidth = size;
+            return img;
+        }
+
+        public static void RowGap(Transform row, float width)
+        {
+            var element = Go(row, "Gap").AddComponent<LayoutElement>();
+            element.minWidth = width;
+            element.preferredWidth = width;
+        }
+
+        public static string Num(int value) => value.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+
         // --- display names and status styling --------------------------------
 
         public static string NeedName(NeedId n) => n == NeedId.OceanView ? "Ocean View" : n.ToString();
@@ -271,8 +334,8 @@ namespace ResortEmpire.Game.Ui
             }
         }
 
-        static Color Hex(int rgb)
-            => new Color(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f);
+        public static Color Hex(int rgb, float alpha = 1f)
+            => new Color(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f, alpha);
     }
 
     // Horizontal meter: rounded background with a left-anchored fill.

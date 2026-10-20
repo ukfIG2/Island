@@ -5,6 +5,7 @@ using UnityEngine.UI;
 namespace ResortEmpire.Game.Ui
 {
     // S1 between-waves screen: forecast card, the one START WAVE CTA, unlock banner, building action card.
+    // An eligible construction site opens S9 instead of this card (routed by GameUiDriver).
     public sealed class HomeUi
     {
         sealed class ForecastRow
@@ -30,8 +31,6 @@ namespace ResortEmpire.Game.Ui
         readonly Text _cardInfo;
         readonly Button _upgrade;
         readonly Text _upgradeLabel;
-        readonly Button _unlock;
-        readonly Text _unlockLabel;
         readonly Text _cardNote;
         readonly Button _worker;
         readonly Text _workerLabel;
@@ -99,10 +98,6 @@ namespace ResortEmpire.Game.Ui
             UiFactory.Place(_upgrade.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(24f, -164f), new Vector2(-24f, -106f));
             _upgradeLabel = UiFactory.ButtonLabel(_upgrade);
 
-            _unlock = UiFactory.TextButton(_card.transform, "Unlock", "", 26, UiFactory.Positive, UiFactory.Cream, OnUnlock);
-            UiFactory.Place(_unlock.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(24f, -164f), new Vector2(-24f, -106f));
-            _unlockLabel = UiFactory.ButtonLabel(_unlock);
-
             _cardNote = UiFactory.Label(_card.transform, "Note", "", 22, UiFactory.CreamDim);
             UiFactory.Place(_cardNote.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(24f, -204f), new Vector2(-24f, -170f));
 
@@ -116,11 +111,6 @@ namespace ResortEmpire.Game.Ui
         void OnUpgrade()
         {
             if (_cardBuilding != null) _game.Upgrade(_cardBuilding.Value);
-        }
-
-        void OnUnlock()
-        {
-            if (_cardBuilding != null) _game.Unlock(_cardBuilding.Value);
         }
 
         void OnWorker()
@@ -157,7 +147,8 @@ namespace ResortEmpire.Game.Ui
             if (wave != null) _startLabel.text = "START WAVE " + wave.Index;
             _complete.gameObject.SetActive(wave == null);
             RefreshForecast(wave);
-            _banner.SetActive(UnlockWaiting());
+            var r = _game.Resort;
+            _banner.SetActive(r.IsEligible(BuildingId.Pool) || r.IsEligible(BuildingId.Bungalows));
             RefreshCard();
         }
 
@@ -180,14 +171,6 @@ namespace ResortEmpire.Game.Ui
             _forecastRect.sizeDelta = new Vector2(380f, 112f + shown * 44f);
         }
 
-        bool UnlockWaiting()
-        {
-            var r = _game.Resort;
-            var t = _game.Tuning;
-            if (!r.IsUnlocked(BuildingId.Pool) && r.WavesCompleted >= t.PoolEligibleAfterWave) return true;
-            return !r.IsUnlocked(BuildingId.Bungalows) && r.WavesCompleted >= t.BungalowsEligibleAfterWave;
-        }
-
         void RefreshCard()
         {
             if (_cardBuilding == null || !_root.activeSelf)
@@ -204,29 +187,22 @@ namespace ResortEmpire.Game.Ui
             var state = r.Get(b);
             if (state == null)
             {
+                // Only sites still behind their wave gate get here; eligible ones open S9.
                 _upgrade.gameObject.SetActive(false);
                 _worker.gameObject.SetActive(false);
                 _cardInfo.text = "Locked area";
                 int afterWave = b == BuildingId.Pool ? t.PoolEligibleAfterWave : t.BungalowsEligibleAfterWave;
-                int cost = b == BuildingId.Pool ? t.PoolUnlockCostCoins : t.BungalowsUnlockCostCoins;
-                bool can = r.CanUnlock(b, out _);
-                _unlock.gameObject.SetActive(can);
-                _unlockLabel.text = "Unlock – " + cost + " Coins";
-                _cardNote.text = can ? ""
-                    : r.WavesCompleted < afterWave
-                        ? "Finish wave " + afterWave + " to unlock"
-                        : "Unlock costs " + cost + " Coins — the next waves will cover it";
+                _cardNote.text = "Finish wave " + afterWave + " to unlock";
                 return;
             }
 
-            _unlock.gameObject.SetActive(false);
             _cardInfo.text = "Lv " + state.Level + " · " + t.CapacityPerLevel[state.Level - 1] + " seats";
-            bool maxed = state.Level >= t.CapacityPerLevel.Length;
-            int upCost = maxed ? 0 : t.UpgradeCostCoins[state.Level - 1];
+            int upCost = r.UpgradeCost(b);
+            bool maxed = upCost < 0;
             bool canUpgrade = !maxed && _game.ActiveWave == null && r.Coins >= upCost; // never offered during a wave
             _upgrade.gameObject.SetActive(canUpgrade);
-            if (canUpgrade) _upgradeLabel.text = "Upgrade – " + upCost + " Coins";
-            _cardNote.text = maxed ? "Max level" : canUpgrade ? "" : "Upgrade costs " + upCost + " Coins";
+            if (canUpgrade) _upgradeLabel.text = "Upgrade – " + UiFactory.Num(upCost) + " Coins";
+            _cardNote.text = maxed ? "Max level" : canUpgrade ? "" : "Upgrade costs " + UiFactory.Num(upCost) + " Coins";
             _worker.gameObject.SetActive(true);
             _worker.interactable = !state.HasWorker;
             _workerLabel.text = state.HasWorker ? "Worker is here" : "Move worker here";

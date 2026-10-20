@@ -26,6 +26,8 @@ namespace ResortEmpire.Game
 
         public static string SavePath => Application.persistentDataPath + "/resort_save.json";
 
+        public static bool HasSave => File.Exists(SavePath);
+
         public static bool Delete()
         {
             if (!File.Exists(SavePath)) return false;

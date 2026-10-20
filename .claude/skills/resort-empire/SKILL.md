@@ -23,7 +23,7 @@ Mobile **landscape** resort tycoon (Unity 6, URP). Guests arrive in waves, the p
 | 3D view | `Assets/Scripts/Game/View/` | Reads sim state and reconciles visuals; **never mutates sim state**. |
 | UI | `Assets/Scripts/Game/Ui/` | uGUI built in code; subscribes to `GameController` events. |
 
-All tuning numbers live in `TuningConfig` — never hard-code a number in sim, view or UI.
+All gameplay tuning numbers (anything the economist would balance) live in `TuningConfig` — never hard-code them in sim, view or UI. Pure presentation values (animation timings, how many figures walk away after a wave, layout sizes) may stay in view/UI code as named constants.
 
 ## Hard rules (break none)
 

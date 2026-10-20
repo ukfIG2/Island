@@ -23,6 +23,7 @@ namespace ResortEmpire.Game
         public bool IsPaused => ActiveWave != null && ActiveWave.IsPaused;
         public IReadOnlyList<WaveDef> Waves => _waves;
         public WaveDef NextWaveDef => PrototypeComplete ? null : _waves[NextWaveIndex - 1];
+        public int LastWaveIndex => _waves[_waves.Count - 1].Index;
 
         public event Action WaveStarted;
         public event Action<WaveResult> WaveCompleted;             // fired exactly once per wave
@@ -36,7 +37,7 @@ namespace ResortEmpire.Game
             Resort = resort;
             _waves = waves;
             NextWaveIndex = Math.Min(Math.Max(nextWaveIndex, 1), waves.Count);
-            PrototypeComplete = resort.WavesCompleted >= waves[waves.Count - 1].Index;
+            PrototypeComplete = resort.WavesCompleted >= LastWaveIndex;
         }
 
         public void StartNextWave()

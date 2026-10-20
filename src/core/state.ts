@@ -67,6 +67,8 @@ export const PROTOTYPE_AREA_CATALOG = {
   bungalows: { buildingLabel: 'Bungalows', need: 'oceanView', eligibilityAfterWave: 6, includedWorkerId: 'worker-3' }
 } as const;
 export const PROTOTYPE_AREA_PROOF_TUNING: Readonly<Record<PrototypeAreaId, number>> = { pool: 10, bungalows: 20 };
+/** Provisional MVP balance values; FINAL(3) binds Reputation gating, not numeric thresholds. */
+export const MVP_AREA_REPUTATION_PROVISIONAL: Readonly<Record<PrototypeAreaId, number>> = { pool: 5, bungalows: 15 };
 export interface PrototypeAreaUnlockView {
   readonly areaId: PrototypeAreaId;
   readonly buildingLabel: string;
@@ -447,7 +449,10 @@ function completedWaveNumber(state: BootstrapState): number {
 export function prototypeAreaUnlockView(state: BootstrapState, areaId: PrototypeAreaId): PrototypeAreaUnlockView {
   const definition = PROTOTYPE_AREA_CATALOG[areaId];
   const coinCost = PROTOTYPE_AREA_PROOF_TUNING[areaId];
-  const status: PrototypeAreaStatus = state.purchasedAreas[areaId] ? 'unlocked' : completedWaveNumber(state) < definition.eligibilityAfterWave ? 'locked' : state.coins < coinCost ? 'not_affordable' : 'available';
+  const eligible = state.progressionStage === 'mvp'
+    ? state.reputation >= MVP_AREA_REPUTATION_PROVISIONAL[areaId]
+    : completedWaveNumber(state) >= definition.eligibilityAfterWave;
+  const status: PrototypeAreaStatus = state.purchasedAreas[areaId] ? 'unlocked' : !eligible ? 'locked' : state.coins < coinCost ? 'not_affordable' : 'available';
   return { areaId, ...definition, coinCost, status };
 }
 

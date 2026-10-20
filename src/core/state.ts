@@ -276,6 +276,8 @@ export interface BootstrapState {
  readonly reputation: number;
  readonly lastVipReward: MvpVipRewardReceipt | null;
   readonly materials: number;
+  readonly gems: number;
+  readonly premiumEntitlements: Readonly<{ resortCrest: boolean }>;
   readonly resortValue: number;
   readonly currentWaveNumber: PrototypeWaveNumber;
   readonly purchasedAreas: PrototypeAreaPurchases;
@@ -296,6 +298,7 @@ export type BootstrapCommand =
   | { readonly type: 'SHOW_VIP_PREVIEW'; readonly vipType: MvpVipType }
   | { readonly type: 'DECIDE_VIP_PREVIEW'; readonly decision: 'accept' | 'maybeLater' | 'declined' }
   | { readonly type: 'PURCHASE_VIP_MATERIALS' }
+  | { readonly type: 'PURCHASE_RESORT_CREST' }
   | { readonly type: 'FIX_VIP_CONSUMABLE' }
   | { readonly type: 'HIRE_WORKER'; readonly to: NormalWaveNeedId }
   | { readonly type: 'CONTINUE_TO_NEXT_WAVE' }
@@ -665,6 +668,9 @@ function advanceWaveSlice(wave: NormalWaveState, deltaMs: number): NormalWaveSta
   return phase === 'complete' ? { ...next, result: resultFor(next) } : next;
 }
 
+/** Provisional MVP-only premium demo balance and permanent cosmetic price; not FINAL(3) fixed values. */
+export const MVP_GEMS_PREMIUM_PROVISIONAL = { initialMvpGems: 2, resortCrestCostGems: 2 } as const;
+
 export function createInitialBootstrapState(
   bootId: string,
   tuning: NormalWaveProofTuning = NORMAL_WAVE_PROOF_TUNING,
@@ -682,6 +688,8 @@ export function createInitialBootstrapState(
     reputation: 0,
     lastVipReward: null,
     materials: 0,
+    gems: progressionStage === 'mvp' ? MVP_GEMS_PREMIUM_PROVISIONAL.initialMvpGems : 0,
+    premiumEntitlements: { resortCrest: false },
     resortValue: PROTOTYPE_UPGRADE_PROOF_TUNING.startingResortValue,
     currentWaveNumber: 1,
     purchasedAreas: { pool: false, bungalows: false },
@@ -693,7 +701,7 @@ export function createInitialBootstrapState(
 }
 
 export function enableMvpProgression(state: BootstrapState): BootstrapState {
-  return state.progressionStage === 'mvp' ? state : { ...state, progressionStage: 'mvp' };
+  return state.progressionStage === 'mvp' ? state : { ...state, progressionStage: 'mvp', gems: state.gems + MVP_GEMS_PREMIUM_PROVISIONAL.initialMvpGems };
 }
 
 export function hasSpecialistForVip(state: BootstrapState, specialistId: MvpSpecialistId): boolean {
@@ -824,6 +832,12 @@ export function applyBootstrapCommand(state: BootstrapState, command: BootstrapC
       return { ...state, vipLayer: decideMvpVipPreview(state.vipLayer, command.decision) };
     }
 
+    case 'PURCHASE_RESORT_CREST': {
+      if (state.progressionStage !== 'mvp') throw new Error('MVP_GEMS_STAGE_INVALID');
+      if (state.premiumEntitlements.resortCrest) throw new Error('MVP_PREMIUM_ALREADY_OWNED');
+      if (state.gems < MVP_GEMS_PREMIUM_PROVISIONAL.resortCrestCostGems) throw new Error('MVP_GEMS_INSUFFICIENT');
+      return { ...state, gems: state.gems - MVP_GEMS_PREMIUM_PROVISIONAL.resortCrestCostGems, premiumEntitlements: { ...state.premiumEntitlements, resortCrest: true } };
+    }
     case 'PURCHASE_VIP_MATERIALS': {
       if (state.progressionStage !== 'mvp') throw new Error('MVP_VIP_STAGE_INVALID');
       if (state.coins < MVP_VIP_MATERIALS_PROVISIONAL.supplyCostCoins) throw new Error('MVP_VIP_MATERIALS_COINS_INSUFFICIENT');

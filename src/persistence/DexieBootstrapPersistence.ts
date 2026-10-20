@@ -339,6 +339,12 @@ export function normalizePersistedState(...args: Parameters<typeof normalizePers
   const savedPrestige = (withSpa as Partial<BootstrapState>).resortValue;
   const validPrestige = typeof savedPrestige === 'number' && Number.isSafeInteger(savedPrestige) && savedPrestige >= 0;
   const withPrestige = validPrestige ? withSpa : { ...withSpa, resortValue: PROTOTYPE_UPGRADE_PROOF_TUNING.startingResortValue };
-  if (withPrestige.progressionStage === 'prototype' || withPrestige.progressionStage === 'mvp') return withPrestige;
-  return { ...withPrestige, progressionStage: 'prototype' };
+  // Gems belong exclusively to MVP permanent premium purchases. Legacy wallets normalize to zero without backpay.
+  const rawSavedGems = (withPrestige as Partial<BootstrapState>).gems;
+  const gems = withPrestige.progressionStage === 'mvp' && typeof rawSavedGems === 'number' && Number.isSafeInteger(rawSavedGems) && rawSavedGems >= 0 ? rawSavedGems : 0;
+  const rawPremiumEntitlements = (withPrestige as Partial<BootstrapState>).premiumEntitlements;
+  const premiumEntitlements = typeof rawPremiumEntitlements?.resortCrest === 'boolean' && (withPrestige.progressionStage === 'mvp' || rawPremiumEntitlements.resortCrest === false) ? rawPremiumEntitlements : { resortCrest: false };
+  const withPremium = rawSavedGems === gems && rawPremiumEntitlements === premiumEntitlements ? withPrestige : { ...withPrestige, gems, premiumEntitlements };
+  if (withPremium.progressionStage === 'prototype' || withPremium.progressionStage === 'mvp') return withPremium;
+  return { ...withPremium, progressionStage: 'prototype', gems: 0, premiumEntitlements: { resortCrest: false } };
 }

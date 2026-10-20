@@ -17,7 +17,7 @@ import {
 } from 'react';
 
 import { MVP_VIP_CATALOG, MVP_VIP_PROVISIONAL_TIMING, MVP_VIP_TYPES, mvpVipAttainableQualityCeiling, deriveMvpVipRequestCards } from '../core/vipLayer';
-import { mvpVipSpeedUpAvailable, MVP_VIP_SPEED_UP_PROVISIONAL } from '../core/state';
+import { mvpVipSpeedUpAvailable, MVP_VIP_SPEED_UP_PROVISIONAL, MVP_GEMS_PREMIUM_PROVISIONAL } from '../core/state';
 import { mvpVipSpaPurchaseAvailable, MVP_VIP_SPA_PROVISIONAL, MVP_AREA_REPUTATION_PROVISIONAL } from '../core/state';
 import { deriveMvpVipPreviewInfo } from '../core/vipPreview';
 import type { BootstrapCore } from '../core/runtime';
@@ -115,7 +115,8 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
           <div className="hud-brand">
             <p className="shell__eyebrow">Resort Empire</p>
             <h1>Wave {forecast.waveNumber}</h1>
-            <p className="hud-economy">Coins: {snapshot.coins} | Energy: {snapshot.energy} | Resort Value: {snapshot.resortValue}{snapshot.progressionStage === 'mvp' ? ' | Materials: ' + snapshot.materials + ' | Reputation: ' + snapshot.reputation : ''}</p>
+            {snapshot.progressionStage === 'mvp' && snapshot.premiumEntitlements.resortCrest ? <strong aria-label="Owned premium Resort Crest">Resort Crest</strong> : null}
+            <p className="hud-economy">Coins: {snapshot.coins} | Energy: {snapshot.energy} | Resort Value: {snapshot.resortValue}{snapshot.progressionStage === 'mvp' ? ' | Materials: ' + snapshot.materials + ' | Reputation: ' + snapshot.reputation + ' | Gems: ' + snapshot.gems : ''}</p>
           </div>
 
         </header>
@@ -173,6 +174,11 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
           
         <section className="context-card" aria-label="VIP visits">
             <h2>VIP Visits</h2>
+            <section className="context-card" aria-label="Permanent premium resort crest">
+              <h3>Resort Crest · Permanent</h3>
+              <p>Permanent cosmetic ownership only; no Energy conversion or gameplay acceleration.</p>
+              {snapshot.premiumEntitlements.resortCrest ? <p role="status">Resort Crest permanently owned.</p> : <button type="button" disabled={snapshot.gems < MVP_GEMS_PREMIUM_PROVISIONAL.resortCrestCostGems} onClick={() => core.dispatch({ type: 'PURCHASE_RESORT_CREST' })}>Unlock Resort Crest ({MVP_GEMS_PREMIUM_PROVISIONAL.resortCrestCostGems} Gems; provisional)</button>}
+            </section>
           <section className="context-card" aria-label="VIP Spa building">
         {!snapshot.vipBuildings.spa && snapshot.reputation < MVP_VIP_SPA_PROVISIONAL.reputationRequired ? <p role="status">Spa unlocks at {MVP_VIP_SPA_PROVISIONAL.reputationRequired} Reputation ({snapshot.reputation} earned). Coins are paid separately.</p> : null}
             <h2>Spa · VIP Building</h2>

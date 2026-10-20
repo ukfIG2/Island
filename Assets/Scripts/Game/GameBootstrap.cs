@@ -16,11 +16,26 @@ namespace ResortEmpire.Game
             var tuning = TuningConfig.Default; // the MVP configuration
             var loaded = SaveSystem.LoadOrNew(tuning);
             Game = new GameController(tuning, loaded.Resort, loaded.NextWaveIndex, loaded.LastSeenUnixSeconds);
+            Game.RestoreVip(loaded.VipOffer, loaded.VipActive, loaded.VipVisitCount, loaded.VipOfferSeen,
+                loaded.SavedAtUnixSeconds);
+            _lastRealSeconds = RealNow();
             View.IslandViewBuilder.Build(this, Game);
             Ui.GameUiBuilder.Build(this, Game);
         }
 
-        void Update() => Game.Tick(Time.deltaTime);
+        double _lastRealSeconds;
+
+        // Wall-clock seconds: VIP stays run on real time (P18), including time spent in the background.
+        static double RealNow() => System.DateTime.UtcNow.Ticks / (double)System.TimeSpan.TicksPerSecond;
+
+        void Update()
+        {
+            double now = RealNow();
+            float real = (float)(now - _lastRealSeconds);
+            _lastRealSeconds = now;
+            Game.TickVip(real);           // ignores negative clock jumps, caps long gaps
+            Game.Tick(Time.deltaTime);
+        }
 
         // New Game / Reset progress: wipe the save and rebuild the scene, so every layer starts fresh.
         public void StartOver()

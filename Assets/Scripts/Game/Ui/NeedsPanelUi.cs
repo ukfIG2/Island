@@ -30,7 +30,9 @@ namespace ResortEmpire.Game.Ui
         readonly Text _pauseLabel;
         readonly Text _speedLabel;
 
-        public NeedsPanelUi(Transform canvas, GameController game, WorkerSheetUi sheet)
+        readonly GameObject _vipTab;
+
+        public NeedsPanelUi(Transform canvas, GameController game, WorkerSheetUi sheet, System.Action onVipTab = null)
         {
             _game = game;
             var panel = UiFactory.PanelImage(canvas, "NeedsPanel", UiFactory.Panel);
@@ -39,6 +41,14 @@ namespace ResortEmpire.Game.Ui
 
             _title = UiFactory.Label(panel.transform, "Title", "", 26, UiFactory.Cream, TextAnchor.MiddleLeft, FontStyle.Bold);
             UiFactory.Place(_title.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(20f, -46f), new Vector2(-20f, -10f));
+
+            // Small "VIP" tab next to the title while a stay runs: switches this side to the Request
+            // Board (S7); the wave keeps running.
+            var vip = UiFactory.TextButton(panel.transform, "VipTab", "VIP", 20, VipStyle.Accent, UiFactory.Cream,
+                () => onVipTab?.Invoke());
+            UiFactory.PlaceFixed(vip.gameObject, Vector2.one, Vector2.one, new Vector2(-16f, -8f), new Vector2(110f, 38f));
+            _vipTab = vip.gameObject;
+            _vipTab.SetActive(false);
 
             var needs = (NeedId[])System.Enum.GetValues(typeof(NeedId));
             _rows = new Row[needs.Length];
@@ -126,6 +136,11 @@ namespace ResortEmpire.Game.Ui
         public void SetVisible(bool visible)
         {
             if (_root.activeSelf != visible) _root.SetActive(visible);
+        }
+
+        public void SetVipTab(bool visible)
+        {
+            if (_vipTab.activeSelf != visible) _vipTab.SetActive(visible);
         }
 
         public void Refresh()

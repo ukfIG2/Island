@@ -1,6 +1,6 @@
 # Resort Empire — Project Status
 
-Last updated: **2026-10-20** — prototype feature-complete (Sprints 1–3 done ahead of the Jira dates)
+Last updated: **2026-10-20** — prototype (Sprints 1–3) and MVP (Sprints 4–5) feature sets are built; next step is playtesting and the designer's review. MVP decisions — what the spec decided, what we chose provisionally, what is still open — are in [MVP_DECISIONS.md](MVP_DECISIONS.md).
 
 This document tracks three things: what is **done**, what is **planned**, and what the known **gaps** are. Update it at the end of every working session.
 
@@ -52,6 +52,28 @@ This document tracks three things: what is **done**, what is **planned**, and wh
 - **Tests: 29, all green** (8 new: bottleneck cause, rush observability incl. pause, Resort Value gains and monotonicity, upgrade/unlock prices and eligibility).
 - **Full play-through verified in play mode**, waves 1 → 8: S4/S5/S9 flow, both unlocks, rush prompt, pause menu, settings, prototype-complete screen, and "Start over" reloading into a fresh game. No errors or warnings in the console during the whole run.
 
+### MVP Sprint 4 — economy, staff, levels, endless waves (committed `6e4f439`)
+
+- **Two configurations:** `TuningConfig.Default` is the MVP; `TuningConfig.Prototype` keeps the prototype rules, and the prototype rule tests (WR1–WR9) run against it.
+- **New currencies:** Reputation (threshold unlocks, never decreases), Materials (Lv4–5 upgrades, VIP Fix), Gems (premium, shown but unused) — all in the top bar with their own icons.
+- **Building levels 4–5:** more worker slots and a quality tier, paid with Coins + Materials.
+- **Staff:** hire Managers (one per building, ×1.2 service), Specialists (Butler, Captain — for VIPs) and extra Workers (80 % slot cap, diminishing returns). New Staff screen; the building card hires too; the post-wave suggestion is now the spec's three-way choice (upgrade / hire Manager / hire Worker).
+- **Unlocks** by Reputation (Pool 10, Bungalows 30, Spa 45) instead of wave numbers.
+- **Endless waves** after wave 8 (generated, +6 % per wave, a rush every 3rd wave).
+- **Welcome-back gift** after 12 h away, **first-session tutorial** (5 hints, skippable), **test "Watch ad" button** for Energy.
+- **Save format v2** (old prototype saves are migrated).
+- **Simulation for the VIP layer** is complete and tested (12 tests); its screens are Sprint 5.
+- **Tests: 59, all green.** Verified in play mode: top bar, tutorial, building card, Staff screen, three-way suggestion with a real hire, Lv5 visuals.
+
+### MVP Sprint 5 — VIP layer, Spa, decor, shop (this session)
+
+- **VIP flow:** an offer arrives after waves 4, 7, 10, … and waits on the home screen as a small chip (never forced). **S6 preview card**: guest, difficulty, every request with Good / Risky — roster gaps such as "No Chef yet: max 3 stars" are visible *before* accepting — reward ranges, Open Requests / Maybe later / Decline.
+- **S7 request board** (right panel, island stays visible): satisfaction bar with the star thresholds, request cards with Fix (spends Materials), Quality boost (Energy Mode B), Speed Up, the optional bonus, rewards preview, SERVE ALL. During a wave a "VIP" tab switches the right panel between the wave and the VIP — the wave keeps running.
+- **VIP services run on real time**, also while the app is closed (saved and caught up on load, max 6 h).
+- **S8 VIP result** on the S4 template in VIP colors, Reputation first in the rewards.
+- **Spa** (VIP building, no seats/workers) with its own unlock screen; **decor** rewards appear on the island; **Shop** placeholder with the three spec packs as "Coming soon".
+- **Verified in play mode:** first VIP (Maya, Travel Blogger) offered after wave 4, accepted, two items fixed with Materials, served, completed — 5★ at 90 %, +30 Reputation (enough to open the Bungalows gate).
+
 ---
 
 ## 2. Planned
@@ -64,9 +86,12 @@ The prototype exists to answer one question: *is the wave loop fun?* (build doc 
 - Touch check on a phone (Android build) — tapping buildings through the UI on touchscreens is untested.
 - Instrument the metrics the build doc lists (wave_complete_rate, worker moves before/during waves, drain duration, rating distribution, upgrade take rate, session length) if the team wants numbers rather than observation.
 
-### Release 2 — MVP (Sprints 4–5, Nov 16 – Dec 13) — summary
+### After the MVP build
 
-Lv4–5 buildings (+Materials), Reputation thresholds, Manager/Specialist/Worker hiring with 80% slot cap, VIP layer (S6–S8, 4 VIP types, Spa), infinite waves after W8, tutorial, comeback reward, monetization hooks (places only, no tuning).
+- Playtest prototype and MVP with real players; the build doc's exit criteria (§4.12 and §5.9) are the checklist.
+- Designer and economist review [MVP_DECISIONS.md](MVP_DECISIONS.md): confirm or overrule the provisional choices, decide the open points.
+- Android build and a touch check on a phone.
+- Small UI polish found in testing: on the VIP board the "Quality boost · 3 Energy" label is slightly wider than its button; VIP buttons show costs as words ("· 2 Materials") rather than icons.
 
 ---
 
@@ -114,6 +139,8 @@ Lv4–5 buildings (+Materials), Reputation thresholds, Manager/Specialist/Worker
 
 *(updated at end of each session, newest first)*
 
+- **2026-10-20 13:00 — MVP Sprint 5 GREEN.** VIP code compiled clean on first try, 59/59 tests, full VIP visit verified in play mode. Save and tutorial flags reset. Committed on `dev-beta`. The MVP feature set is built; numbers are provisional (see MVP_DECISIONS.md).
+- **2026-10-20 — MVP Sprint 4 GREEN.** 59/59 tests, compiled clean, play-mode checks done; committed as `6e4f439`.
 - **2026-10-20 — Sprint 3 GREEN.** Zero compile errors, **29/29 tests pass**, full 8-wave play-through verified with screenshots, no console warnings. Save reset. Committed on `dev-beta`.
 - **2026-10-20 — Sprint 2 GREEN.** Zero compile errors. **21/21 EditMode tests pass.** Game scene generated and played: S1 home, wave panel, worker sheet and result card all verified with screenshots, including the full bottleneck → worker move → "catching up" sequence in wave 2. Save file reset so the next Play starts a new game. Committed on `dev-beta`.
 - **2026-10-15 — Sprint 1 GREEN.** Sim assembly and first 10 tests (WR1, WR3, WR5, WR7, WR8, WR9, AC2, pause, rush, rewards) passing; committed as `a30047f`.

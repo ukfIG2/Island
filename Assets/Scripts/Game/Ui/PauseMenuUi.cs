@@ -13,11 +13,12 @@ namespace ResortEmpire.Game.Ui
         public GameObject Root => _root;
         public bool Visible => _root.activeSelf;
 
-        public PauseMenuUi(Transform canvas, UnityAction onResume, UnityAction onSettings, UnityAction onMainMenu)
+        public PauseMenuUi(Transform canvas, UnityAction onResume, UnityAction onSettings, UnityAction onMainMenu,
+            UnityAction onShop = null)
         {
             _root = UiFactory.Overlay(canvas, "PauseMenu", new Color(0f, 0f, 0f, 0.45f)).gameObject;
             var card = UiFactory.PanelImage(_root.transform, "Card", UiFactory.Panel).transform;
-            UiFactory.PlaceFixed(card.gameObject, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(520f, 440f));
+            UiFactory.PlaceFixed(card.gameObject, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(520f, 528f));
 
             _title = UiFactory.Label(card, "Title", "", 42, UiFactory.Cream, TextAnchor.MiddleCenter, FontStyle.Bold);
             UiFactory.Place(_title.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(20f, -88f), new Vector2(-20f, -28f));
@@ -28,6 +29,8 @@ namespace ResortEmpire.Game.Ui
             UiFactory.PlaceFixed(settings.gameObject, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -226f), new Vector2(380f, 72f));
             var mainMenu = UiFactory.TextButton(card, "MainMenu", "Main Menu", 28, UiFactory.PanelLight, UiFactory.Cream, onMainMenu);
             UiFactory.PlaceFixed(mainMenu.gameObject, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -314f), new Vector2(380f, 72f));
+            var shop = UiFactory.TextButton(card, "Shop", "Shop", 28, UiFactory.PanelLight, UiFactory.Cream, onShop);
+            UiFactory.PlaceFixed(shop.gameObject, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -402f), new Vector2(380f, 72f));
 
             _root.SetActive(false);
         }

@@ -33,16 +33,29 @@ namespace ResortEmpire.Game.Ui
         readonly Text _improve;
         readonly Text _leaving;
 
+        // S8 VIP Complete shares this template (UI F.3): the same card in a lilac style variant.
+        readonly Action _onVipClaim;
+        readonly Image _card;
+        readonly Image _coinsIcon;
+        readonly Image _energyIcon;
+        readonly Image _valueIcon;
+        readonly Image _reputationImage;
+        readonly Image _materialsImage;
+        bool _vipMode;
+
         public GameObject Root => _root;
         public bool Visible => _root.activeSelf;
+        public bool ShowingVip => Visible && _vipMode;
 
-        public WaveCompleteUi(Transform canvas, GameController game, Action onClaim)
+        public WaveCompleteUi(Transform canvas, GameController game, Action onClaim, Action onVipClaim = null)
         {
             _game = game;
             _onClaim = onClaim;
+            _onVipClaim = onVipClaim;
             _root = UiFactory.Overlay(canvas, "WaveComplete", new Color(0f, 0f, 0f, 0.55f)).gameObject;
 
-            var card = UiFactory.PanelImage(_root.transform, "Card", UiFactory.Panel).transform;
+            _card = UiFactory.PanelImage(_root.transform, "Card", UiFactory.Panel);
+            var card = _card.transform;
             UiFactory.PlaceFixed(card.gameObject, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -20f), new Vector2(940f, 820f));
 
             _title = UiFactory.Label(card, "Title", "", 46, UiFactory.Cream, TextAnchor.MiddleCenter, FontStyle.Bold);
@@ -63,11 +76,14 @@ namespace ResortEmpire.Game.Ui
 
             var rewards = UiFactory.Row(card, "Rewards", 10f);
             UiFactory.Place(rewards.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(30f, -346f), new Vector2(-30f, -296f));
-            _coins = Reward(rewards, "Coins", UiFactory.Circle, UiFactory.Gold);
+            _coins = Reward(rewards, "Coins", UiFactory.Circle, UiFactory.Gold, out var coinsIcon);
             UiFactory.RowGap(rewards, 36f);
-            _energy = Reward(rewards, "Energy", UiFactory.Bolt, UiFactory.Recovering);
+            _energy = Reward(rewards, "Energy", UiFactory.Bolt, UiFactory.Recovering, out var energyIcon);
             UiFactory.RowGap(rewards, 36f);
-            _value = Reward(rewards, "ResortValue", UiFactory.Star, UiFactory.Gold);
+            _value = Reward(rewards, "ResortValue", UiFactory.Star, UiFactory.Gold, out var valueIcon);
+            _coinsIcon = coinsIcon.GetComponent<Image>();
+            _energyIcon = energyIcon.GetComponent<Image>();
+            _valueIcon = valueIcon.GetComponent<Image>();
 
             // Five rewards do not fit one 880-wide row at this size, so Reputation and Materials get their own.
             var extra = UiFactory.Row(card, "ExtraRewards", 10f);
@@ -79,6 +95,8 @@ namespace ResortEmpire.Game.Ui
             gapElement.minWidth = 36f;
             gapElement.preferredWidth = 36f;
             _materials = Reward(extra, "Materials", UiFactory.Crate, UiFactory.MaterialsColor, out _materialsIcon);
+            _reputationImage = _reputationIcon.GetComponent<Image>();
+            _materialsImage = _materialsIcon.GetComponent<Image>();
 
             var divider = UiFactory.Go(card, "Divider").AddComponent<Image>();
             divider.color = UiFactory.PanelLight;
@@ -120,8 +138,82 @@ namespace ResortEmpire.Game.Ui
             return body;
         }
 
+        // Wave style: Coins · Energy · Resort Value, then Reputation · Materials (only when earned).
+        void ApplyWaveStyle()
+        {
+            _vipMode = false;
+            _card.color = UiFactory.Panel;
+            _title.color = UiFactory.Cream;
+            SetIcon(_coinsIcon, UiFactory.Circle, UiFactory.Gold);
+            SetIcon(_energyIcon, UiFactory.Bolt, UiFactory.Recovering);
+            SetIcon(_valueIcon, UiFactory.Star, UiFactory.Gold);
+            SetIcon(_reputationImage, UiFactory.Medal, UiFactory.ReputationColor);
+            SetIcon(_materialsImage, UiFactory.Crate, UiFactory.MaterialsColor);
+        }
+
+        static void SetIcon(Image icon, Sprite sprite, Color color)
+        {
+            icon.sprite = sprite;
+            icon.color = color;
+        }
+
+        // S8: Reputation first, then Coins, Energy, Materials, Resort Value (UI S8). The sim already
+        // applied the rewards when the stay finished; CLAIM REWARDS only closes and clears the visit.
+        public void ShowVip(VipVisit visit)
+        {
+            var res = visit?.Result;
+            if (res == null) return;
+            ApplyWaveStyle();
+            _vipMode = true;
+            _root.SetActive(true);
+            _card.color = VipStyle.PanelDark;
+            _title.color = VipStyle.AccentLight;
+            _title.text = visit.GuestName + "'s stay is complete";
+            for (int i = 0; i < _stars.Length; i++)
+                _stars[i].color = i < res.Stars ? UiFactory.Gold : StarEmpty;
+            int percent = Mathf.FloorToInt(res.Satisfaction * 100f + 0.001f);
+            _satisfaction.text = "Guest satisfaction: " + percent + "%" + (res.Perfect ? " — Perfect stay!" : "");
+
+            int mains = VipStyle.MainCount(visit);
+            int mainDone = VipStyle.MainDone(visit);
+            _served.text = "Requests completed " + mainDone + "/" + mains + (res.BonusCompleted ? " (+ bonus)" : "");
+
+            SetIcon(_coinsIcon, UiFactory.Medal, UiFactory.ReputationColor);
+            _coins.text = "+" + UiFactory.Num(res.ReputationEarned) + " Reputation";
+            SetIcon(_energyIcon, UiFactory.Circle, UiFactory.Gold);
+            _energy.text = "+" + UiFactory.Num(res.CoinsEarned) + " Coins";
+            SetIcon(_valueIcon, UiFactory.Bolt, UiFactory.Recovering);
+            _value.text = "+" + res.EnergyEarned + " Energy";
+
+            _extraRewards.SetActive(true);
+            _reputationIcon.SetActive(true);
+            _reputation.gameObject.SetActive(true);
+            SetIcon(_reputationImage, UiFactory.Crate, UiFactory.MaterialsColor);
+            _reputation.text = "+" + res.MaterialsEarned + " Materials";
+            _extraGap.SetActive(true);
+            _materialsIcon.SetActive(true);
+            _materials.gameObject.SetActive(true);
+            SetIcon(_materialsImage, UiFactory.Star, UiFactory.Gold);
+            _materials.text = "+" + res.ResortValueGain + " Resort Value";
+
+            var good = new List<string>();
+            var capped = new List<string>();
+            foreach (var r in visit.Requests)
+            {
+                if (r.State == RequestState.Completed && !r.ServedMissing && r.Readiness == Readiness.Good) good.Add(r.Title);
+                else if (r.ServedMissing) capped.Add(r.Title + ": missing " + r.MaterialsLabel);
+                else if (r.Readiness == Readiness.Risky) capped.Add(r.Title + ": no " + r.RosterGap);
+            }
+            _wentWell.text = good.Count > 0 ? string.Join("\n", good) : "The guest was looked after in the end.";
+            _improve.text = capped.Count > 0 ? string.Join("\n", capped) : "Every request was fully prepared.";
+            _leaving.text = string.IsNullOrEmpty(res.DecorUnlocked)
+                ? (res.Perfect ? "Perfect stay bonus earned." : "")
+                : "New decor: " + VipCatalog.DecorDisplayName(res.DecorUnlocked) + " — now on your island";
+        }
+
         public void Show(WaveResult result)
         {
+            ApplyWaveStyle();
             _root.SetActive(true);
             _title.text = "Wave " + result.WaveIndex + " complete";
             for (int i = 0; i < _stars.Length; i++)
@@ -156,6 +248,12 @@ namespace ResortEmpire.Game.Ui
         void OnClaim()
         {
             _root.SetActive(false);
+            if (_vipMode)
+            {
+                _vipMode = false;
+                _onVipClaim?.Invoke();
+                return;
+            }
             _onClaim?.Invoke();
         }
 

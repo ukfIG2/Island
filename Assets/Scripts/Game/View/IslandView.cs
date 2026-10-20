@@ -31,6 +31,8 @@ namespace ResortEmpire.Game.View
         readonly List<BuildingView> _views = new List<BuildingView>();
         readonly Dictionary<NeedId, BuildingView> _byNeed = new Dictionary<NeedId, BuildingView>();
         GuestFlow _guests;
+        SpaView _spa;
+        DecorView _decor;
         Transform _boat;
         Vector3[] _beachSpots;
 
@@ -52,6 +54,8 @@ namespace ResortEmpire.Game.View
             AddBuilding(BuildingId.BeachBar, new Vector3(-5.6f, GroundY, 1.6f), +1f);
             AddBuilding(BuildingId.Pool, new Vector3(2.4f, GroundY, 5.6f), -1f);
             AddBuilding(BuildingId.Bungalows, new Vector3(3.2f, GroundY, 1.2f), -1f);
+            _spa = new SpaView(transform);
+            _decor = new DecorView(transform);
 
             _game.WaveCompleted += OnWaveCompleted;
         }
@@ -77,7 +81,8 @@ namespace ResortEmpire.Game.View
 
             for (int i = 0; i < count; i++)
             {
-                var from = Plaza + new Vector3(((i % 3) - 1) * 0.4f, 0f, (i / 3) * 0.35f);
+                // Rows start in front of the plaza center, where the marble fountain (P17 decor) may stand.
+                var from = Plaza + new Vector3(((i % 3) - 1) * 0.4f, 0f, -0.6f - (i / 3) * 0.3f);
                 _guests.SpawnLeaving(needs[i % needs.Count], from, WalkStart, i * LeavingStaggerSeconds, i);
             }
         }
@@ -104,6 +109,11 @@ namespace ResortEmpire.Game.View
                 view.Sync(_game.Resort.Get(view.Id), _game.Tuning, SiteAvailable(view.Id),
                     _game.Resort.HasManager(view.Id), seated, line, status, showStatus, time);
             }
+
+            var resort = _game.Resort;
+            _spa.Sync(resort.UnlockCost(BuildingId.Spa) >= 0, resort.IsUnlocked(BuildingId.Spa),
+                resort.IsEligible(BuildingId.Spa), time);
+            _decor.Sync(resort.Decor, Time.deltaTime);
 
             UpdateBoat(sim, animDt);
         }
@@ -207,7 +217,11 @@ namespace ResortEmpire.Game.View
             {
                 if (deg > 240 && deg < 300) continue;
                 float a = deg * Mathf.Deg2Rad;
-                spots.Add(c + new Vector3(Mathf.Cos(a) * 6.3f, 0.77f, Mathf.Sin(a) * 5.3f));
+                var spot = c + new Vector3(Mathf.Cos(a) * 6.3f, 0.77f, Mathf.Sin(a) * 5.3f);
+                var toSpa = spot - SpaView.Position;
+                toSpa.y = 0f;
+                if (toSpa.magnitude < SpaView.ClearRadius) continue; // strollers keep clear of the Spa
+                spots.Add(spot);
             }
             _beachSpots = spots.ToArray();
         }

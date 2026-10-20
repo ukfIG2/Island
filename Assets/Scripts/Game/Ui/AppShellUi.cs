@@ -18,11 +18,13 @@ namespace ResortEmpire.Game.Ui
         readonly PauseMenuUi _pause;
         readonly SettingsUi _settings;
         readonly ConfirmDialogUi _confirm;
+        readonly ShopUi _shop;
         Action _settingsBack;
+        Action _shopBack;
         bool _pausedWave;
         bool _sessionStarted;
 
-        public bool IsOpen => _main.Visible || _pause.Visible || _settings.Visible || _confirm.Visible;
+        public bool IsOpen => _main.Visible || _pause.Visible || _settings.Visible || _confirm.Visible || _shop.Visible;
 
         // onSessionStarted runs once, after the first PLAY / CONTINUE of this launch has closed the menu.
         public AppShellUi(Transform canvas, GameController game, Action startOver, Action onClosed, Action onSessionStarted)
@@ -32,9 +34,10 @@ namespace ResortEmpire.Game.Ui
             _onClosed = onClosed;
             _onSessionStarted = onSessionStarted;
             _main = new MainMenuUi(canvas, Play, () => AskStartOver(ShowMain), () => OpenSettings(ShowMain));
-            _pause = new PauseMenuUi(canvas, CloseAll, () => OpenSettings(ShowPause), ShowMain);
+            _pause = new PauseMenuUi(canvas, CloseAll, () => OpenSettings(ShowPause), ShowMain, () => ShowShop(ShowPause));
             _settings = new SettingsUi(canvas, () => _settingsBack?.Invoke(), () => AskStartOver(ShowSettings));
             _confirm = new ConfirmDialogUi(canvas);
+            _shop = new ShopUi(canvas, () => _shopBack?.Invoke());
         }
 
         public void BringToFront()
@@ -42,10 +45,30 @@ namespace ResortEmpire.Game.Ui
             _main.Root.transform.SetAsLastSibling();
             _pause.Root.transform.SetAsLastSibling();
             _settings.Root.transform.SetAsLastSibling();
+            _shop.Root.transform.SetAsLastSibling();
             _confirm.Root.transform.SetAsLastSibling();
         }
 
         public void OpenMainMenu() => ShowMain();
+
+        // From the top bar's Gems: like the pause menu, a running wave waits while the shop is open.
+        public void OpenShop()
+        {
+            if (IsOpen) return;
+            if (WaveRunning && !_game.IsPaused)
+            {
+                _game.SetPaused(true);
+                _pausedWave = true;
+            }
+            ShowShop(CloseAll);
+        }
+
+        void ShowShop(Action back)
+        {
+            _shopBack = back;
+            HideAll();
+            _shop.Show();
+        }
 
         // A running wave is paused while the menu is open; Resume only lifts a pause the menu itself set.
         public void OpenPauseMenu()
@@ -116,6 +139,7 @@ namespace ResortEmpire.Game.Ui
             _pause.Hide();
             _settings.Hide();
             _confirm.Hide();
+            _shop.Hide();
         }
     }
 }

@@ -99,8 +99,205 @@ namespace ResortEmpire.Game
             if (ActiveWave == null || ActiveWave.Phase != WavePhase.WaveComplete) return;
             NextWaveIndex++;
             ActiveWave = null;
+            TryOfferVip();
             SaveSystem.Save(this);
             StateChanged?.Invoke();
+        }
+
+        // --- VIP layer (S6-S8, P11, P18) ------------------------------------------
+
+        // Real time a stay may catch up after the app was closed; services last 1-3 minutes (P12).
+        public const float MaxOfflineVipSeconds = 6f * 60f * 60f;
+
+        public VipVisit VipOffer { get; private set; }     // offered, not accepted yet; null when none
+        public VipVisit ActiveVip { get; private set; }    // accepted stay; kept after it finishes until S8 is claimed
+        public int VipVisitCount { get; private set; }     // offers made so far; the next visit is VipVisitCount + 1
+        public bool VipOfferSeen { get; private set; }     // the player already looked at the offer ("Maybe later")
+        int _vipOpenedSites;                               // bit mask of sites whose gate the last stay opened
+
+        public event Action<VipVisit> VipOffered;
+        public event Action VipChanged;
+        public event Action<VipResult> VipFinished;
+
+        public bool VipResultPending => ActiveVip != null && ActiveVip.Result != null;
+
+        // Rebuilds the saved VIP state on load and lets the stay catch up the real time since the save.
+        public void RestoreVip(VipVisitSnapshot offer, VipVisitSnapshot active, int visitCount, bool offerSeen,
+            long savedAtUnixSeconds)
+        {
+            VipVisitCount = Math.Max(0, visitCount);
+            VipOffer = TryRestore(offer);
+            if (VipOffer != null && VipOffer.Accepted) VipOffer = null;
+            ActiveVip = TryRestore(active);
+            if (ActiveVip != null && !ActiveVip.Accepted) ActiveVip = null;
+            VipOfferSeen = VipOffer != null && offerSeen;
+            if (ActiveVip == null || savedAtUnixSeconds <= 0) return;
+            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            float away = Math.Min(MaxOfflineVipSeconds, Math.Max(0f, now - savedAtUnixSeconds));
+            bool wasFinished = ActiveVip.Result != null;
+            TickVip(away);
+            if (!wasFinished && ActiveVip.Result != null) SaveSystem.Save(this);
+        }
+
+        VipVisit TryRestore(VipVisitSnapshot snapshot)
+        {
+            if (snapshot == null) return null;
+            try { return VipVisit.FromSnapshot(snapshot, Resort, Tuning); }
+            catch (Exception) { return null; } // an unreadable stay is dropped, never the whole save
+        }
+
+        void TryOfferVip()
+        {
+            if (VipOffer != null || (ActiveVip != null && ActiveVip.Result == null)) return; // one at a time
+            if (!VipSchedule.OfferDue(Resort.WavesCompleted, Tuning)) return;
+            VipVisitCount++;
+            VipOffer = VipCatalog.Create(VipSchedule.NextType(VipVisitCount), Resort, Tuning, VipVisitCount);
+            VipOfferSeen = false;
+            Toast?.Invoke("VIP guest waiting: " + VipOffer.GuestName);
+            VipOffered?.Invoke(VipOffer);
+            VipChanged?.Invoke();
+        }
+
+        public bool AcceptVip()
+        {
+            if (VipOffer == null || ActiveVip != null) return false;
+            if (!VipOffer.Accept()) return false;
+            ActiveVip = VipOffer;
+            VipOffer = null;
+            VipOfferSeen = false;
+            AfterVipAction(ActiveVip.GuestName + " has checked in");
+            return true;
+        }
+
+        // The offer simply keeps waiting — no expiry (P11).
+        public void MaybeLaterVip()
+        {
+            if (VipOffer == null) return;
+            VipOfferSeen = true;
+            AfterVipAction(null);
+        }
+
+        // Never punished: the offer goes away until the next VIP slot (P11).
+        public bool DeclineVip()
+        {
+            if (VipOffer == null) return false;
+            string name = VipOffer.GuestName;
+            VipOffer = null;
+            VipOfferSeen = false;
+            AfterVipAction(name + " will visit another time");
+            return true;
+        }
+
+        public bool FixRequest(VipRequest r)
+        {
+            if (ActiveVip == null || !ActiveVip.Fix(r)) return false;
+            AfterVipAction("Ready: " + r.Title);
+            return true;
+        }
+
+        public bool ServeAllVip()
+        {
+            if (ActiveVip == null) return false;
+            int before = EligibleSiteMask();
+            if (!ActiveVip.ServeAll()) return false;
+            AfterVipAction("Services started for " + ActiveVip.GuestName);
+            CheckVipFinished(before);
+            return true;
+        }
+
+        public bool SpeedUpRequest(VipRequest r)
+        {
+            if (ActiveVip == null || !ActiveVip.SpeedUp(r)) return false;
+            AfterVipAction("Speed Up: " + r.Title);
+            return true;
+        }
+
+        public bool QualityBoostRequest(VipRequest r)
+        {
+            if (ActiveVip == null || !ActiveVip.QualityBoost(r)) return false;
+            AfterVipAction("Quality boost: " + r.Title);
+            return true;
+        }
+
+        // S8 CLAIM REWARDS: the sim applied the rewards when the stay finished; this only clears it.
+        public bool ClaimVipResult()
+        {
+            if (!VipResultPending) return false;
+            ActiveVip = null;
+            AfterVipAction(null);
+            return true;
+        }
+
+        // A site whose gate the last finished stay opened (S9 may follow S8); consumed once.
+        public BuildingId? TakeVipOpenedSite()
+        {
+            foreach (var b in UnlockableSites)
+                if ((_vipOpenedSites & (1 << (int)b)) != 0 && Resort.IsEligible(b))
+                {
+                    _vipOpenedSites = 0;
+                    return b;
+                }
+            _vipOpenedSites = 0;
+            return null;
+        }
+
+        static readonly BuildingId[] UnlockableSites = { BuildingId.Pool, BuildingId.Bungalows, BuildingId.Spa };
+
+        int EligibleSiteMask()
+        {
+            int mask = 0;
+            foreach (var b in UnlockableSites)
+                if (Resort.IsEligible(b)) mask |= 1 << (int)b;
+            return mask;
+        }
+
+        // Real seconds (unscaled wall-clock time): runs during waves, while a wave is paused and under menus,
+        // because VIP services are not wave time (P18).
+        public void TickVip(float realSeconds)
+        {
+            var v = ActiveVip;
+            if (v == null || !v.Served || v.Result != null || !(realSeconds > 0f)) return;
+            int before = EligibleSiteMask();
+            int done = CompletedCount(v);
+            v.Tick(Math.Min(realSeconds, MaxOfflineVipSeconds));
+            if (v.Result == null)
+            {
+                if (CompletedCount(v) > done)
+                {
+                    Toast?.Invoke(v.GuestName + ": a request is complete");
+                    VipChanged?.Invoke();
+                }
+                return;
+            }
+            CheckVipFinished(before);
+        }
+
+        void CheckVipFinished(int eligibleBefore)
+        {
+            var v = ActiveVip;
+            if (v == null || v.Result == null) return;
+            _vipOpenedSites = EligibleSiteMask() & ~eligibleBefore;
+            if (ActiveWave == null) SaveSystem.Save(this);
+            StateChanged?.Invoke();
+            Toast?.Invoke(v.GuestName + "'s stay is complete");
+            VipChanged?.Invoke();
+            VipFinished?.Invoke(v.Result);
+        }
+
+        static int CompletedCount(VipVisit v)
+        {
+            int n = 0;
+            foreach (var r in v.Requests)
+                if (r.State == RequestState.Completed) n++;
+            return n;
+        }
+
+        void AfterVipAction(string toast)
+        {
+            if (ActiveWave == null) SaveSystem.Save(this);
+            StateChanged?.Invoke();
+            if (toast != null) Toast?.Invoke(toast);
+            VipChanged?.Invoke();
         }
 
         // --- player actions -------------------------------------------------

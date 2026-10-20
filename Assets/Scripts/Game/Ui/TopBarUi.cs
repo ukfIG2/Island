@@ -34,7 +34,7 @@ namespace ResortEmpire.Game.Ui
         readonly Text _gems;
         readonly Text _status;
 
-        public TopBarUi(Transform canvas, GameController game, UnityAction onMenu)
+        public TopBarUi(Transform canvas, GameController game, UnityAction onMenu, UnityAction onGems = null)
         {
             _game = game;
             var bar = UiFactory.PanelImage(canvas, "TopBar", UiFactory.Panel);
@@ -49,6 +49,13 @@ namespace ResortEmpire.Game.Ui
             // Right to left, so each block's width only pushes the ones further left.
             float right = -RightPadding;
             _gems = RightGroup(bar.transform, "Gems", UiFactory.Gem, UiFactory.GemColor, 150f, ref right);
+            // Tapping Gems opens the Shop placeholder (P16); a transparent hit area over the block.
+            var gemsGroup = _gems.transform.parent.gameObject;
+            var hit = gemsGroup.AddComponent<Image>();
+            hit.color = new Color(1f, 1f, 1f, 0f);
+            var gemsButton = gemsGroup.AddComponent<Button>();
+            gemsButton.targetGraphic = hit;
+            if (onGems != null) gemsButton.onClick.AddListener(onGems);
             _materials = RightGroup(bar.transform, "Materials", UiFactory.Crate, UiFactory.MaterialsColor, 180f, ref right);
             _reputation = RightGroup(bar.transform, "Reputation", UiFactory.Medal, UiFactory.ReputationColor, 200f, ref right);
             _energy = RightGroup(bar.transform, "Energy", UiFactory.Bolt, UiFactory.Recovering, 160f, ref right);

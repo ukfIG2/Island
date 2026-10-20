@@ -63,7 +63,6 @@ namespace ResortEmpire.Game.Ui
             _building = building;
             _age = 0f;
             _title.text = "Sudden rush at " + GameController.DisplayName(building) + "!";
-            _boostLabel.text = "Speed Up " + _game.Tuning.EnergyBoostCost;
             _root.SetActive(true);
             Refresh();
         }
@@ -90,15 +89,34 @@ namespace ResortEmpire.Game.Ui
             if (!Visible) return;
             var sim = _game.ActiveWave;
             bool canBoost = sim != null && sim.CanBoost(_building);
-            _boost.gameObject.SetActive(canBoost);
-            _ignore.anchorMin = new Vector2(canBoost ? 0.5f : 0f, 1f);
+            // Energy short: the same spot offers the test rewarded video (P16); it never blocks the wave.
+            bool offerAd = !canBoost && _game.CanOfferTestAd(_building);
+            bool showButton = canBoost || offerAd;
+            _boost.gameObject.SetActive(showButton);
+            if (canBoost)
+            {
+                _boostLabel.fontSize = 22;
+                _boostLabel.text = "Speed Up " + _game.Tuning.EnergyBoostCost;
+            }
+            else if (offerAd)
+            {
+                _boostLabel.fontSize = 19;
+                _boostLabel.text = NeedsPanelUi.TestAdLabel(_game, 17);
+            }
+            _ignore.anchorMin = new Vector2(showButton ? 0.5f : 0f, 1f);
             _ignore.anchorMax = Vector2.one;
-            _ignore.offsetMin = new Vector2(canBoost ? 6f : 12f, -208f);
+            _ignore.offsetMin = new Vector2(showButton ? 6f : 12f, -208f);
             _ignore.offsetMax = new Vector2(-12f, -158f);
         }
 
         void OnBoost()
         {
+            if (_game.CanOfferTestAd(_building)) // only when Energy is short, so Speed Up was not possible
+            {
+                _game.WatchTestAd(); // the prompt stays: Speed Up is now affordable right here
+                Refresh();
+                return;
+            }
             if (_game.Boost(_building)) Hide();
             else Refresh();
         }

@@ -12,6 +12,8 @@ namespace ResortEmpire.Sim
         public int CoinsEarned;
         public int EnergyEarned;
         public int ResortValueGain;
+        public int ReputationEarned;   // P5: stars x ReputationPerWaveStar (0 under the Prototype rules)
+        public int MaterialsEarned;    // P6: MaterialsDropByStars (0 under the Prototype rules)
         public int TotalUnits;
         public Dictionary<NeedId, float> AverageWaitByNeed;
         public NeedId? WorstNeed;      // longest total Bottleneck time — the upgrade hint

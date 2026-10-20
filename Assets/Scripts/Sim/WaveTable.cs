@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace ResortEmpire.Sim
@@ -12,6 +13,8 @@ namespace ResortEmpire.Sim
 
     public static class WaveTable
     {
+        public const int ScriptedWaveCount = 8;
+
         // Build doc §4.8 wave progression table (8 scripted waves, not procedural).
         public static List<WaveDef> Default8()
         {
@@ -26,6 +29,31 @@ namespace ResortEmpire.Sim
                 Wave(7, true,  false, r: 25, d: 28, f: 22, x: 20, o: 10),
                 Wave(8, false, false, r: 31, d: 35, f: 28, x: 25, o: 16),
             };
+        }
+
+        // Any wave, 1-based: the scripted table for 1-8, then endless waves generated from wave 8 (P10):
+        // every need x EndlessGrowthPerWave per extra wave (compounded, rounded half away from zero),
+        // a Sudden rush on every EndlessRushEveryNthWave-th wave (9, 12, 15, ...), no new needs and no
+        // debut softening. Deterministic: the same index always gives the same wave. A fresh WaveDef
+        // on every call.
+        public static WaveDef WaveFor(int index, TuningConfig tuning = null)
+        {
+            if (index < 1) throw new ArgumentOutOfRangeException(nameof(index), "Waves are 1-based.");
+            var scripted = Default8();
+            if (index <= scripted.Count) return scripted[index - 1];
+
+            var t = tuning ?? TuningConfig.Default;
+            var last = scripted[scripted.Count - 1];
+            double factor = Math.Pow(t.EndlessGrowthPerWave, index - last.Index);
+            var wave = new WaveDef
+            {
+                Index = index,
+                IsDebut = false,
+                HasSuddenRush = t.EndlessRushEveryNthWave > 0 && index % t.EndlessRushEveryNthWave == 0
+            };
+            foreach (var pair in last.Demand)
+                wave.Demand[pair.Key] = (int)Math.Round(pair.Value * factor, MidpointRounding.AwayFromZero);
+            return wave;
         }
 
         static WaveDef Wave(int index, bool debut, bool rush, int r, int d, int f, int x = 0, int o = 0)

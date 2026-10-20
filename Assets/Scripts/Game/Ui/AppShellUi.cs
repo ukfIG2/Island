@@ -13,6 +13,7 @@ namespace ResortEmpire.Game.Ui
         readonly GameController _game;
         readonly Action _startOver;
         readonly Action _onClosed;
+        readonly Action _onSessionStarted;
         readonly MainMenuUi _main;
         readonly PauseMenuUi _pause;
         readonly SettingsUi _settings;
@@ -23,11 +24,13 @@ namespace ResortEmpire.Game.Ui
 
         public bool IsOpen => _main.Visible || _pause.Visible || _settings.Visible || _confirm.Visible;
 
-        public AppShellUi(Transform canvas, GameController game, Action startOver, Action onClosed)
+        // onSessionStarted runs once, after the first PLAY / CONTINUE of this launch has closed the menu.
+        public AppShellUi(Transform canvas, GameController game, Action startOver, Action onClosed, Action onSessionStarted)
         {
             _game = game;
             _startOver = startOver;
             _onClosed = onClosed;
+            _onSessionStarted = onSessionStarted;
             _main = new MainMenuUi(canvas, Play, () => AskStartOver(ShowMain), () => OpenSettings(ShowMain));
             _pause = new PauseMenuUi(canvas, CloseAll, () => OpenSettings(ShowPause), ShowMain);
             _settings = new SettingsUi(canvas, () => _settingsBack?.Invoke(), () => AskStartOver(ShowSettings));
@@ -90,8 +93,10 @@ namespace ResortEmpire.Game.Ui
 
         void Play()
         {
+            bool first = !_sessionStarted;
             _sessionStarted = true;
             CloseAll();
+            if (first) _onSessionStarted?.Invoke();
         }
 
         void CloseAll()

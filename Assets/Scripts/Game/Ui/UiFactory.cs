@@ -19,6 +19,21 @@ namespace ResortEmpire.Game.Ui
         public static readonly Color Positive = Hex(0x3E8E5A);
         public static readonly Color Neutral = Hex(0x7FB2BF);
         public static readonly Color Gold = new Color(0.94f, 0.78f, 0.37f);   // coins, stars, Resort Value
+        public static readonly Color ReputationColor = Hex(0xC3B1F5);          // medal
+        public static readonly Color MaterialsColor = Hex(0xD2A06A);           // crate
+        public static readonly Color GemColor = Hex(0x74DDEA);                 // diamond
+
+        // Every building that takes part in normal waves, in enum order. The Spa (VIP only) is left out
+        // on purpose: no wave need, no worker slot, no island spot yet.
+        public static readonly BuildingId[] WaveBuildings = CollectWaveBuildings();
+
+        static BuildingId[] CollectWaveBuildings()
+        {
+            var list = new System.Collections.Generic.List<BuildingId>();
+            foreach (BuildingId b in System.Enum.GetValues(typeof(BuildingId)))
+                if (BuildingNeeds.IsWaveBuilding(b)) list.Add(b);
+            return list.ToArray();
+        }
 
         static Font _font;
         static Sprite _rounded;
@@ -77,7 +92,53 @@ namespace ResortEmpire.Game.Ui
 
         static Sprite _arrow;
 
+        // Diamond with a thin girdle line, so it reads as a cut gem rather than a kite.
+        static readonly Vector2[] GemShape =
+        {
+            new Vector2(0.30f, 0.88f), new Vector2(0.70f, 0.88f), new Vector2(0.96f, 0.60f),
+            new Vector2(0.50f, 0.05f), new Vector2(0.04f, 0.60f)
+        };
+
+        // The two ribbon tails hanging above the medal disc.
+        static readonly Vector2[] RibbonLeft =
+            { new Vector2(0.18f, 0.98f), new Vector2(0.42f, 0.98f), new Vector2(0.58f, 0.62f), new Vector2(0.36f, 0.62f) };
+        static readonly Vector2[] RibbonRight =
+            { new Vector2(0.58f, 0.98f), new Vector2(0.82f, 0.98f), new Vector2(0.64f, 0.62f), new Vector2(0.42f, 0.62f) };
+
+        static Sprite _gem;
+        static Sprite _crate;
+        static Sprite _medal;
+        static Sprite _person;
+
         public static Sprite Star => _star != null ? _star : _star = MakeIcon(InStar);
+
+        // Gems: a cut diamond.
+        public static Sprite Gem => _gem != null ? _gem : _gem = MakeIcon((x, y) =>
+            InPolygon(GemShape, x, y) && !(y > 0.57f && y < 0.63f && x > 0.14f && x < 0.86f));
+
+        // Materials: a wooden crate — frame plus a middle plank, two slots cut out.
+        public static Sprite Crate => _crate != null ? _crate : _crate = MakeIcon((x, y) =>
+            x > 0.08f && x < 0.92f && y > 0.10f && y < 0.90f
+            && !(x > 0.21f && x < 0.79f && ((y > 0.23f && y < 0.44f) || (y > 0.56f && y < 0.77f))));
+
+        // Reputation: a medal — ringed disc under two ribbon tails, with a small gap between them.
+        public static Sprite Medal => _medal != null ? _medal : _medal = MakeIcon((x, y) =>
+        {
+            float dx = x - 0.5f, dy = y - 0.36f;
+            float d = Mathf.Sqrt(dx * dx + dy * dy);
+            if (d < 0.31f) return !(d > 0.18f && d < 0.225f);
+            return d > 0.35f && (InPolygon(RibbonLeft, x, y) || InPolygon(RibbonRight, x, y));
+        });
+
+        // Staff: head and shoulders.
+        public static Sprite Person => _person != null ? _person : _person = MakeIcon((x, y) =>
+        {
+            float hx = x - 0.5f, hy = y - 0.74f;
+            if (hx * hx + hy * hy < 0.17f * 0.17f) return true;
+            float bx = (x - 0.5f) / 0.36f, by = (y - 0.06f) / 0.44f;
+            return y > 0.06f && y < 0.52f && bx * bx + by * by < 1f;
+        });
+
         public static Sprite Bolt => _bolt != null ? _bolt : _bolt = MakeIcon((x, y) => InPolygon(BoltShape, x, y));
         public static Sprite Arrow => _arrow != null ? _arrow : _arrow = MakeIcon((x, y) => InPolygon(ArrowShape, x, y));
 
@@ -305,10 +366,45 @@ namespace ResortEmpire.Game.Ui
 
         public static BuildingId BuildingFor(NeedId n)
         {
-            foreach (BuildingId b in System.Enum.GetValues(typeof(BuildingId)))
+            foreach (var b in WaveBuildings) // Serves is only meaningful for wave buildings
                 if (BuildingNeeds.Serves(b) == n) return b;
             return BuildingId.Reception;
         }
+
+        // Seats at a level; clamped so a level beyond the configured table never throws.
+        public static int Seats(TuningConfig t, int level)
+            => t.CapacityPerLevel[Mathf.Clamp(level, 1, t.CapacityPerLevel.Length) - 1];
+
+        // "2,500 Coins + 4 Materials", or just "500 Coins" when no Materials are needed.
+        public static string CostText(int coins, int materials)
+        {
+            string text = Num(coins) + " Coins";
+            if (materials > 0) text += " + " + Num(materials) + " Materials";
+            return text;
+        }
+
+        public static bool CanAfford(ResortState r, int coins, int materials)
+            => r.Coins >= coins && r.Materials >= Mathf.Max(0, materials);
+
+        // "Missing: 300 Coins + 1 Materials" — only the parts that are actually short.
+        public static string MissingText(ResortState r, int coins, int materials)
+        {
+            int coinGap = Mathf.Max(0, coins - r.Coins);
+            int materialGap = Mathf.Max(0, materials - r.Materials);
+            string text = "Missing: ";
+            if (coinGap > 0) text += Num(coinGap) + " Coins";
+            if (coinGap > 0 && materialGap > 0) text += " + ";
+            if (materialGap > 0) text += Num(materialGap) + " Materials";
+            return text;
+        }
+
+        public static string ManagerTitle(BuildingId b) => GameController.ManagerTitle(b);
+
+        public static string SpecialistTitle(SpecialistId s) => GameController.SpecialistTitle(s);
+
+        // The Manager service bonus as shown to the player, e.g. "×1.2 service" (P7), read from the tuning.
+        public static string ManagerEffect(TuningConfig t)
+            => "×" + t.ManagerMultiplier.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + " service";
 
         public static Color StatusColor(NeedStatus s)
         {
@@ -364,5 +460,72 @@ namespace ResortEmpire.Game.Ui
             _fill.color = color;
             _fillRect.anchorMax = new Vector2(fraction, 1f);
         }
+    }
+
+    // One spot on a card that shows exactly one of: an action button, a non-interactive chip
+    // (e.g. "Missing: 300 Coins" or "Chef is here") or a plain note. Labels accept rich text, so a
+    // second, smaller line can carry the cost.
+    public sealed class ActionSlot
+    {
+        public readonly RectTransform Root;
+        readonly Button _button;
+        readonly Image _buttonImage;
+        readonly Text _buttonLabel;
+        readonly Image _chip;
+        readonly Text _chipLabel;
+        readonly Text _note;
+
+        public ActionSlot(Transform parent, string name, int fontSize, Color buttonColor,
+            UnityEngine.Events.UnityAction onClick)
+        {
+            Root = (RectTransform)UiFactory.Go(parent, name).transform;
+            _button = UiFactory.TextButton(Root, "Button", "", fontSize, buttonColor, UiFactory.Cream, onClick);
+            UiFactory.Place(_button.gameObject, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            _buttonImage = (Image)_button.targetGraphic;
+            _buttonLabel = UiFactory.ButtonLabel(_button);
+
+            _chipLabel = UiFactory.Badge(Root, "Chip", fontSize, UiFactory.PanelShade, UiFactory.CreamDim);
+            _chip = _chipLabel.transform.parent.GetComponent<Image>();
+            UiFactory.Place(_chip.gameObject, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+
+            _note = UiFactory.Label(Root, "Note", "", fontSize - 2, UiFactory.CreamDim, TextAnchor.MiddleCenter);
+            UiFactory.Place(_note.gameObject, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            Hide();
+        }
+
+        public void ShowButton(string text)
+        {
+            Root.gameObject.SetActive(true);
+            _button.gameObject.SetActive(true);
+            _chip.gameObject.SetActive(false);
+            _note.gameObject.SetActive(false);
+            _buttonLabel.text = text;
+        }
+
+        public void SetButtonColor(Color color) => _buttonImage.color = color;
+
+        public void ShowChip(string text) => ShowChip(text, UiFactory.PanelShade, UiFactory.CreamDim);
+
+        public void ShowChip(string text, Color background, Color textColor)
+        {
+            Root.gameObject.SetActive(true);
+            _button.gameObject.SetActive(false);
+            _chip.gameObject.SetActive(true);
+            _note.gameObject.SetActive(false);
+            _chip.color = background;
+            _chipLabel.color = textColor;
+            _chipLabel.text = text;
+        }
+
+        public void ShowNote(string text)
+        {
+            Root.gameObject.SetActive(true);
+            _button.gameObject.SetActive(false);
+            _chip.gameObject.SetActive(false);
+            _note.gameObject.SetActive(true);
+            _note.text = text;
+        }
+
+        public void Hide() => Root.gameObject.SetActive(false);
     }
 }

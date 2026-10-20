@@ -53,6 +53,9 @@ namespace ResortEmpire.Game.Ui
         readonly Text _missing;
         readonly Theme _pool;
         readonly Theme _bungalows;
+        readonly Theme _spa;
+        readonly Text _includes;
+        readonly Text _potential;
         Theme _theme;
         BuildingId _area;
         float _age;
@@ -83,8 +86,18 @@ namespace ResortEmpire.Game.Ui
                 Title = "The Bungalows",
                 Adds = "Adds: Ocean View demand — a premium need that counts extra"
             };
+            // Third occupant of the template (UI S9): a VIP building, so no new demand and no worker.
+            _spa = new Theme
+            {
+                Backdrop = UiFactory.Hex(0x2E2650, 0.95f),
+                Accent = UiFactory.Hex(0xC9B3F5),
+                Headline = "Something special for your VIP guests",
+                Title = "The Spa",
+                Adds = "Adds: Spa requests for VIP guests"
+            };
             BuildPoolScene(_pool);
             BuildSunsetScene(_bungalows);
+            BuildSpaScene(_spa);
 
             _content = UiFactory.Place(UiFactory.Go(_root.transform, "Content"), Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             var c = _content.transform;
@@ -109,10 +122,10 @@ namespace ResortEmpire.Game.Ui
             var includes = UiFactory.Row(c, "Includes", 12f);
             UiFactory.PlaceFixed(includes.gameObject, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, 80f), new Vector2(1100f, 44f));
             UiFactory.RowIcon(includes, "Worker", UiFactory.Circle, UiFactory.Cta, 24f);
-            UiFactory.Label(includes, "Text", "Includes: 1 Worker", 32, UiFactory.Cream, TextAnchor.MiddleLeft, FontStyle.Bold);
-            var potential = Centered(c, "Potential", 28, FontStyle.Normal, 34f, 40f);
-            potential.text = "Higher satisfaction potential";
-            potential.color = UiFactory.CreamDim;
+            _includes = UiFactory.Label(includes, "Text", "Includes: 1 Worker", 32, UiFactory.Cream, TextAnchor.MiddleLeft, FontStyle.Bold);
+            _potential = Centered(c, "Potential", 28, FontStyle.Normal, 34f, 40f);
+            _potential.text = "Higher satisfaction potential";
+            _potential.color = UiFactory.CreamDim;
 
             // What opened the gate: "Reached 10 Reputation" (MVP) — hidden under wave-count gates.
             var gate = UiFactory.Row(c, "Gate", 10f);
@@ -185,6 +198,30 @@ namespace ResortEmpire.Game.Ui
                 AddDecor(theme, s, UiFactory.Star, UiFactory.Hex(0xFFE7B8, 0.8f), stars[i], i * 1.3f, Drift.Twinkle);
         }
 
+        // Spa: soft lilac steam drifting over calm water, and a stack of smooth stones.
+        void BuildSpaScene(Theme theme)
+        {
+            theme.Scene = SceneRoot("SpaScene");
+            var s = theme.Scene.transform;
+            Band(s, "Water", 0f, 190f, UiFactory.Hex(0x4C3F7A, 0.6f));
+            Band(s, "Waterline", 190f, 10f, UiFactory.Hex(0xC9B3F5, 0.4f));
+            var stones = new[] { new Vector3(-720f, -300f, 200f), new Vector3(-720f, -190f, 150f), new Vector3(-720f, -105f, 100f) };
+            foreach (var st in stones)
+            {
+                var stone = UiFactory.Icon(s, "Stone", UiFactory.Circle, UiFactory.Hex(0x8E84A8, 0.85f));
+                UiFactory.PlaceFixed(stone.gameObject, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                    new Vector2(st.x, st.y), new Vector2(st.z, st.z * 0.5f));
+                stone.preserveAspect = false;
+            }
+            var steam = new[]
+            {
+                new Vector3(640f, 260f, 180f), new Vector3(780f, 40f, 120f), new Vector3(560f, -220f, 150f),
+                new Vector3(-560f, 330f, 110f), new Vector3(860f, 380f, 80f), new Vector3(-860f, 200f, 70f)
+            };
+            for (int i = 0; i < steam.Length; i++)
+                AddDecor(theme, s, UiFactory.Circle, UiFactory.Hex(0xE7DBFF, 0.16f), steam[i], i * 1.4f, Drift.Bob);
+        }
+
         GameObject SceneRoot(string name)
         {
             var go = UiFactory.Go(_root.transform, name);
@@ -214,8 +251,8 @@ namespace ResortEmpire.Game.Ui
             });
         }
 
-        // The two island sites S9 celebrates. The Spa (VIP layer) is unlocked elsewhere.
-        public static readonly BuildingId[] Sites = { BuildingId.Pool, BuildingId.Bungalows };
+        // The island sites S9 celebrates: Pool, Bungalows and (MVP) the Spa for VIP guests.
+        public static readonly BuildingId[] Sites = { BuildingId.Pool, BuildingId.Bungalows, BuildingId.Spa };
 
         // What a still-locked site waits for, for the construction-site card.
         public static string GateText(GameController game, BuildingId b)
@@ -225,16 +262,21 @@ namespace ResortEmpire.Game.Ui
                 return "Reach " + UiFactory.Num(r.ReputationGate(b)) + " Reputation to unlock — you have "
                        + UiFactory.Num(r.Reputation);
             var t = game.Tuning;
-            int afterWave = b == BuildingId.Pool ? t.PoolEligibleAfterWave : t.BungalowsEligibleAfterWave;
+            int afterWave = b == BuildingId.Pool ? t.PoolEligibleAfterWave
+                : b == BuildingId.Bungalows ? t.BungalowsEligibleAfterWave : t.SpaEligibleAfterWave;
             return "Finish wave " + afterWave + " to unlock";
         }
 
         public void Show(BuildingId area)
         {
             _area = area;
-            _theme = area == BuildingId.Bungalows ? _bungalows : _pool;
+            _theme = area == BuildingId.Bungalows ? _bungalows : area == BuildingId.Spa ? _spa : _pool;
             _pool.Scene.SetActive(_theme == _pool);
             _bungalows.Scene.SetActive(_theme == _bungalows);
+            _spa.Scene.SetActive(_theme == _spa);
+            bool wave = BuildingNeeds.IsWaveBuilding(area);
+            _includes.text = wave ? "Includes: 1 Worker" : "No worker needed";
+            _potential.text = wave ? "Higher satisfaction potential" : "Better VIP stays: no more Spa caps";
             _backdrop.color = _theme.Backdrop;
             _headline.text = _theme.Headline;
             _headline.color = _theme.Accent;

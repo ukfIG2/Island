@@ -57,6 +57,20 @@ All numbers below are starting values for tuning (they live in `TuningConfig`), 
 | P17 | Decor | Perfect VIP visits unlock a decor item (one per VIP type) shown on the island; each adds 25 Resort Value. | Spec mentions "rare decor" rewards; a visible reward suits the "my resort grows" pillar. |
 | P18 | Normal waves vs. VIP time | VIP services run on real time, normal waves on wave time; both can be active at once. | Spec: VIP is a layer on top, not a pause. |
 
+### Further provisional details, chosen while building (2026-10-20)
+
+| # | Topic | Our choice |
+|---|---|---|
+| P19 | VIP Coins / Energy / Resort Value | Coins = 1,500 × the wave Coins multiplier for the stars (Perfect = 1,950). Energy uses the same table as waves. Resort Value = 10 per star, +25 when decor is won. |
+| P20 | Bonus request not prepared | A bonus request still `MISSING` when the guest is served is simply skipped (the 40 % rule applies only to the three main requests). |
+| P21 | Roster check timing | A VIP's roster readiness (and so its quality caps) follows the resort live until the VIP is accepted, then freezes — a missing Butler cannot be hired mid-stay (spec). |
+| P22 | Hiring raises Resort Value | +10 Resort Value per hired Manager, Specialist or Worker (spec: "staff" feeds Resort Value; amount is ours). |
+| P23 | Free worker vs. hiring cap | The worker that comes with a newly unlocked building can push the total above the 80 % hiring cap; the cap then only blocks further hiring. Workers always stay below total slots. |
+| P24 | Old prototype saves | Load fine, but start with 0 Reputation — a player past wave 3 who never bought the Pool must earn 10 Reputation for it. |
+| P25 | Two unlocks in one wave | If two sites become available after the same wave, only the first opens its full-screen S9 automatically; the other is reached via the banner or by tapping its site. |
+| P26 | VIP content | Guest names alternate per rotation (e.g. Maya, then Jonas). Bonus requests need only Materials. The first VIP (Travel Blogger) needs exactly the 3 starting Materials. Decor items: Golden Palm, Flower Arch, Marble Fountain, Neon Flamingo. |
+| P27 | Test ads | "Watch ad (test)" grants one Speed Up's worth of Energy (3). |
+
 ## 3. Still open — not built (OPEN)
 
 - **Final tuning of every number** above and in `TuningConfig` (Product Backlog Q-03, Q-05, Q-07–Q-11). Needs the economist with `wave_sim.py`-style simulation.

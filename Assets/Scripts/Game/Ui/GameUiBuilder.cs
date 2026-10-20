@@ -55,6 +55,9 @@ namespace ResortEmpire.Game.Ui
         ComebackUi _comeback;
         TutorialUi _tutorial;
         AppShellUi _shell;
+        VipPreviewUi _vipPreview;
+        VipBoardUi _vipBoard;
+        bool _vipTab;                 // during a wave the right side shows the Request Board instead of S2
         NeedStatus[] _lastStatus;
         float _sinceRefresh;
 
@@ -70,24 +73,28 @@ namespace ResortEmpire.Game.Ui
         {
             _game = game;
             var canvas = transform;
-            _topBar = new TopBarUi(canvas, game, OnMenuPressed);
+            _topBar = new TopBarUi(canvas, game, OnMenuPressed, OnGemsPressed);
             _toasts = new ToastUi(canvas);
             _sheet = new WorkerSheetUi(canvas, game, _toasts);
-            _home = new HomeUi(canvas, game, _sheet, OpenStaff);
-            _needs = new NeedsPanelUi(canvas, game, _sheet);
+            _home = new HomeUi(canvas, game, _sheet, OpenStaff, OpenVip);
+            _needs = new NeedsPanelUi(canvas, game, _sheet, OnVipTab);
+            _vipBoard = new VipBoardUi(canvas, game, OnBoardBack);
             _rush = new RushPromptUi(canvas, game, _sheet);
-            _results = new WaveCompleteUi(canvas, game, OnResultsClaimed);
+            _vipPreview = new VipPreviewUi(canvas, game, OnVipAccepted, RefreshAll);
+            _results = new WaveCompleteUi(canvas, game, OnResultsClaimed, OnVipResultClaimed);
             _upgrade = new UpgradeSuggestionUi(canvas, game, OnUpgradeClosed);
             _unlock = new AreaUnlockUi(canvas, game, OnUnlockClosed);
             _staff = new StaffUi(canvas, game, RefreshAll);
             _comeback = new ComebackUi(canvas, game, RefreshAll);
             _tutorial = new TutorialUi(canvas, game);
             _shell = new AppShellUi(canvas, game, host.StartOver, RefreshAll, OnSessionStarted);
-            // Draw order, back to front: top bar, home, wave panel, rush prompt, sheet, toasts,
-            // S4, S5, S9, Staff, comeback card, coach hints, menus.
+            // Draw order, back to front: top bar, home, wave panel, VIP board, rush prompt, sheet, toasts,
+            // S6, S4 / S8, S5, S9, Staff, comeback card, coach hints, menus.
+            _vipBoard.Root.transform.SetAsLastSibling();
             _rush.Root.transform.SetAsLastSibling();
             _sheet.Root.transform.SetAsLastSibling();
             _toasts.Root.transform.SetAsLastSibling();
+            _vipPreview.Root.transform.SetAsLastSibling();
             _results.Root.transform.SetAsLastSibling();
             _upgrade.Root.transform.SetAsLastSibling();
             _unlock.Root.transform.SetAsLastSibling();
@@ -104,6 +111,7 @@ namespace ResortEmpire.Game.Ui
             _game.Toast += OnToast;
             _game.BuildingTapped += OnBuildingTapped;
             _game.WorkerMoved += OnWorkerMoved;
+            _game.VipChanged += RefreshAll;
 
             _shell.OpenMainMenu();
             RefreshAll();
@@ -118,6 +126,68 @@ namespace ResortEmpire.Game.Ui
             _game.Toast -= OnToast;
             _game.BuildingTapped -= OnBuildingTapped;
             _game.WorkerMoved -= OnWorkerMoved;
+            _game.VipChanged -= RefreshAll;
+        }
+
+        // --- VIP layer (S6 / S7 / S8) ---------------------------------------------
+
+        // Home chip: a waiting VIP opens S6, a running stay opens S7. Never auto-opened over other flows.
+        void OpenVip()
+        {
+            if (_game.ActiveWave != null || _flow != Flow.None) return;
+            _home.CloseCard();
+            _sheet.Close();
+            if (_game.ActiveVip != null) _vipBoard.Show(false);
+            else if (_game.VipOffer != null) _vipPreview.Show();
+            RefreshAll();
+        }
+
+        void OnVipAccepted()
+        {
+            if (_game.ActiveVip != null) _vipBoard.Show(_game.WaveRunning);
+            RefreshAll();
+        }
+
+        void OnVipTab()
+        {
+            if (!_game.WaveRunning || _game.ActiveVip == null) return;
+            _vipTab = true;
+            _vipBoard.Show(true);
+            RefreshAll();
+        }
+
+        void OnBoardBack()
+        {
+            _vipTab = false;
+            _vipBoard.Hide();
+            RefreshAll();
+        }
+
+        // Rewards were applied by the sim when the stay ended; claiming clears it. A gate the stay opened
+        // leads straight on to S9, like after a wave.
+        void OnVipResultClaimed()
+        {
+            _game.ClaimVipResult();
+            var site = _game.TakeVipOpenedSite();
+            if (site.HasValue && _game.ActiveWave == null && _flow == Flow.None)
+            {
+                _home.CloseCard();
+                _unlock.Show(site.Value);
+            }
+            RefreshAll();
+        }
+
+        // S8 shows by itself once nothing else is in the way: not during a wave or its post-wave flow,
+        // not under menus or other cards. Until then the finished stay simply waits.
+        void TryShowVipResult()
+        {
+            if (!_game.VipResultPending || _game.ActiveWave != null || _flow != Flow.None) return;
+            if (_shell.IsOpen || _unlock.Visible || _staff.Visible || _comeback.Visible || _vipPreview.Visible
+                || _results.Visible || _upgrade.Visible) return;
+            _vipBoard.Hide();
+            _home.CloseCard();
+            _sheet.Close();
+            _results.ShowVip(_game.ActiveVip);
         }
 
         void Update()
@@ -147,6 +217,12 @@ namespace ResortEmpire.Game.Ui
         void OnMenuPressed()
         {
             _shell.OpenPauseMenu();
+            RefreshAll();
+        }
+
+        void OnGemsPressed()
+        {
+            _shell.OpenShop();
             RefreshAll();
         }
 
@@ -198,6 +274,8 @@ namespace ResortEmpire.Game.Ui
         {
             _sheet.Close();
             _rush.Hide();
+            _vipTab = false;
+            _vipBoard.Hide();
             _tutorial.Resolve(TutorialUi.Hint.WavePanel);
             _tutorial.Resolve(TutorialUi.Hint.Bottleneck);
             _tutorial.Resolve(TutorialUi.Hint.WorkerMoved);
@@ -271,8 +349,13 @@ namespace ResortEmpire.Game.Ui
         // eligible construction site. During the post-wave flow and under any menu they do nothing.
         void OnBuildingTapped(BuildingId building)
         {
-            if (!BuildingNeeds.IsWaveBuilding(building)) return; // the Spa has no spot on the island yet
-            if (_flow != Flow.None || _shell.IsOpen || _unlock.Visible || _staff.Visible || _comeback.Visible) return;
+            if (_flow != Flow.None || _shell.IsOpen || _unlock.Visible || _staff.Visible || _comeback.Visible
+                || _vipPreview.Visible || _results.Visible || (_vipBoard.Visible && _game.ActiveWave == null)) return;
+            if (!BuildingNeeds.IsWaveBuilding(building))
+            {
+                OnSpaTapped();
+                return;
+            }
             var resort = _game.Resort;
             if (_game.ActiveWave == null)
             {
@@ -306,6 +389,22 @@ namespace ResortEmpire.Game.Ui
             if (target.HasValue) _sheet.Open(target.Value);
         }
 
+        // The Spa (VIP building): between waves an eligible site opens S9, a locked one the gate card,
+        // the built Spa a short info card. During a wave it does nothing — it has no worker slot.
+        void OnSpaTapped()
+        {
+            if (_game.ActiveWave != null) return;
+            _sheet.Close();
+            if (_game.Resort.IsEligible(BuildingId.Spa))
+            {
+                _home.CloseCard();
+                _unlock.Show(BuildingId.Spa);
+                RefreshAll();
+                return;
+            }
+            _home.OpenCard(BuildingId.Spa);
+        }
+
         // The Sudden rush prompt shows once per wave, as soon as the sim reports the rush.
         void WatchRush()
         {
@@ -313,6 +412,7 @@ namespace ResortEmpire.Game.Ui
             if (sim == null || sim == _rushSeenIn || !sim.RushFired) return;
             _rushSeenIn = sim;
             if (sim.Phase == WavePhase.WaveComplete || !sim.RushNeed.HasValue) return;
+            _vipTab = false; // the rush prompt lives on the wave panel, so the wave side comes back
             _rush.Show(UiFactory.BuildingFor(sim.RushNeed.Value));
         }
 
@@ -354,13 +454,35 @@ namespace ResortEmpire.Game.Ui
             bool betweenWaves = _game.ActiveWave == null;
             bool waveRunning = _game.WaveRunning;
             _topBar.Refresh();
-            // One main button per screen: START WAVE stays hidden under S5 / S9, Staff, the comeback card
-            // and the menus.
+            TryShowVipResult();
+
+            // The Request Board: a tab of the right side during a wave, its own screen between waves.
+            if (waveRunning)
+            {
+                if (_vipTab && _game.ActiveVip != null && !_rush.Visible)
+                {
+                    if (!_vipBoard.Visible) _vipBoard.Show(true);
+                }
+                else
+                {
+                    _vipTab = false;
+                    _vipBoard.Hide();
+                }
+            }
+            else if (!betweenWaves) _vipBoard.Hide();
+            _vipBoard.Refresh();
+            _vipPreview.Refresh();
+            bool boardScreen = _vipBoard.Visible && betweenWaves;
+
+            // One main button per screen: START WAVE stays hidden under S5 / S9, Staff, the comeback card,
+            // the VIP screens and the menus.
             bool homeVisible = betweenWaves && _flow == Flow.None && !_unlock.Visible && !_staff.Visible
-                               && !_comeback.Visible && !_shell.IsOpen;
+                               && !_comeback.Visible && !_shell.IsOpen && !_vipPreview.Visible && !_results.Visible
+                               && !boardScreen;
             _home.SetVisible(homeVisible);
             if (homeVisible) _home.Refresh();
-            _needs.SetVisible(waveRunning);
+            _needs.SetVisible(waveRunning && !_vipTab);
+            _needs.SetVipTab(_game.ActiveVip != null);
             if (waveRunning) _needs.Refresh();
             _rush.Refresh();
             _staff.Refresh();
@@ -370,7 +492,8 @@ namespace ResortEmpire.Game.Ui
             if (homeVisible) _tutorial.Trigger(TutorialUi.Hint.StartWave);
             bool hintOffScreen = _tutorial.Current == TutorialUi.Hint.StartWave && !homeVisible;
             _tutorial.SetSuppressed(_shell.IsOpen || _comeback.Visible || _staff.Visible || _unlock.Visible
-                                    || _sheet.IsOpen || hintOffScreen);
+                                    || _sheet.IsOpen || hintOffScreen || _vipPreview.Visible || _results.ShowingVip
+                                    || boardScreen);
         }
     }
 }

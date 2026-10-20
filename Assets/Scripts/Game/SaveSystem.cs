@@ -20,6 +20,15 @@ namespace ResortEmpire.Game
             public int nextWaveIndex;
             public long lastSeenUnixSeconds;   // UTC; feeds the comeback reward (P14)
             public ResortSnapshot resort;
+
+            // VIP layer (Sprint 5). Absent in older version-2 saves: the flags then read false.
+            public long savedAtUnixSeconds;    // UTC wall clock when written; a running stay catches up from here
+            public int vipVisitCount;          // offers made so far (drives the next visit number and type)
+            public bool hasVipOffer;
+            public bool vipOfferSeen;          // "Maybe later" was pressed
+            public VipVisitSnapshot vipOffer;  // offered, not accepted
+            public bool hasVipActive;
+            public VipVisitSnapshot vipActive; // accepted stay, also finished but not yet claimed
         }
 
         // Version 1 (prototype): parallel building arrays, migrated through ResortState.Restore.
@@ -49,6 +58,11 @@ namespace ResortEmpire.Game
             public ResortState Resort;
             public int NextWaveIndex = 1;
             public long LastSeenUnixSeconds; // 0 when there was no usable save
+            public long SavedAtUnixSeconds;
+            public int VipVisitCount;
+            public bool VipOfferSeen;
+            public VipVisitSnapshot VipOffer;   // null when none
+            public VipVisitSnapshot VipActive;  // null when none
         }
 
         public static string SavePath => Application.persistentDataPath + "/resort_save.json";
@@ -67,11 +81,19 @@ namespace ResortEmpire.Game
             if (game == null || game.Resort.InWave) return;
             try
             {
+                long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
                 var data = new SaveData
                 {
                     nextWaveIndex = game.NextWaveIndex,
-                    lastSeenUnixSeconds = game.LastSeenForSave(DateTimeOffset.UtcNow.ToUnixTimeSeconds()),
-                    resort = game.Resort.ToSnapshot()
+                    lastSeenUnixSeconds = game.LastSeenForSave(now),
+                    resort = game.Resort.ToSnapshot(),
+                    savedAtUnixSeconds = now,
+                    vipVisitCount = game.VipVisitCount,
+                    hasVipOffer = game.VipOffer != null,
+                    vipOfferSeen = game.VipOfferSeen,
+                    vipOffer = game.VipOffer?.ToSnapshot(),
+                    hasVipActive = game.ActiveVip != null,
+                    vipActive = game.ActiveVip?.ToSnapshot()
                 };
                 File.WriteAllText(SavePath, JsonUtility.ToJson(data));
             }
@@ -113,7 +135,12 @@ namespace ResortEmpire.Game
             {
                 Resort = resort,
                 NextWaveIndex = Math.Max(1, data.nextWaveIndex),
-                LastSeenUnixSeconds = Math.Max(0L, data.lastSeenUnixSeconds)
+                LastSeenUnixSeconds = Math.Max(0L, data.lastSeenUnixSeconds),
+                SavedAtUnixSeconds = data.savedAtUnixSeconds > 0 ? data.savedAtUnixSeconds : Math.Max(0L, data.lastSeenUnixSeconds),
+                VipVisitCount = Math.Max(0, data.vipVisitCount),
+                VipOfferSeen = data.vipOfferSeen,
+                VipOffer = data.hasVipOffer ? data.vipOffer : null,
+                VipActive = data.hasVipActive ? data.vipActive : null
             };
         }
 

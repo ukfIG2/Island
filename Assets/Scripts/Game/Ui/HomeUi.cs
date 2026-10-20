@@ -48,12 +48,33 @@ namespace ResortEmpire.Game.Ui
         readonly ActionSlot _move;
         BuildingId? _cardBuilding;
 
-        public HomeUi(Transform canvas, GameController game, WorkerSheetUi sheet, Action openStaff)
+        // Spec F.4: a conditional, secondary VIP chip — only while a VIP waits or a stay runs.
+        readonly GameObject _vipChip;
+        readonly Image _vipPortrait;
+        readonly Text _vipInitial;
+        readonly Text _vipLine1;
+        readonly Text _vipLine2;
+
+        public HomeUi(Transform canvas, GameController game, WorkerSheetUi sheet, Action openStaff, Action openVip = null)
         {
             _game = game;
             _sheet = sheet;
             _root = UiFactory.Go(canvas, "Home");
             UiFactory.Place(_root, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+
+            // Top right under the bar (1400-1900 x, 88-164 from the top): clear of the unlock banner (670-1250).
+            var chip = UiFactory.TextButton(_root.transform, "VipChip", "", 20, VipStyle.PanelDark, UiFactory.Cream,
+                () => openVip?.Invoke());
+            _vipChip = chip.gameObject;
+            UiFactory.PlaceFixed(_vipChip, Vector2.one, Vector2.one, new Vector2(-20f, -88f), new Vector2(500f, 76f));
+            UiFactory.ButtonLabel(chip).gameObject.SetActive(false);
+            _vipInitial = VipStyle.Portrait(chip.transform, "Portrait", 52f, out _vipPortrait);
+            UiFactory.PlaceFixed(_vipPortrait.gameObject, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(12f, 0f), new Vector2(52f, 52f));
+            _vipLine1 = UiFactory.Label(chip.transform, "Line1", "", 22, VipStyle.AccentLight, TextAnchor.MiddleLeft, FontStyle.Bold);
+            UiFactory.Place(_vipLine1.gameObject, new Vector2(0f, 0.5f), Vector2.one, new Vector2(78f, 0f), new Vector2(-12f, -6f));
+            _vipLine2 = UiFactory.Label(chip.transform, "Line2", "", 20, UiFactory.Cream);
+            UiFactory.Place(_vipLine2.gameObject, Vector2.zero, new Vector2(1f, 0.5f), new Vector2(78f, 6f), new Vector2(-12f, 0f));
+            _vipChip.SetActive(false);
 
             var start = UiFactory.TextButton(_root.transform, "StartWave", "START WAVE", 40, UiFactory.Cta, UiFactory.Cream,
                 () => _game.StartNextWave());
@@ -184,8 +205,33 @@ namespace ResortEmpire.Game.Ui
             _startLabel.text = "START WAVE " + wave.Index;
             RefreshForecast(wave);
             var r = _game.Resort;
-            _banner.SetActive(r.IsEligible(BuildingId.Pool) || r.IsEligible(BuildingId.Bungalows));
+            bool siteOpen = false;
+            foreach (var site in AreaUnlockUi.Sites) siteOpen |= r.IsEligible(site);
+            _banner.SetActive(siteOpen);
+            RefreshVipChip();
             RefreshCard();
+        }
+
+        void RefreshVipChip()
+        {
+            var stay = _game.ActiveVip;
+            var offer = _game.VipOffer;
+            var v = stay ?? offer;
+            _vipChip.SetActive(v != null);
+            if (v == null) return;
+            _vipPortrait.color = VipStyle.PortraitColor(v.Type);
+            _vipInitial.text = VipStyle.Initial(v);
+            if (stay == null)
+            {
+                _vipLine1.text = "VIP waiting";
+                _vipLine2.text = v.GuestName + " — " + VipCatalog.DisplayName(v.Type);
+                return;
+            }
+            _vipLine1.text = "VIP stay: " + v.GuestName;
+            int mains = VipStyle.MainCount(v);
+            if (v.Result != null) _vipLine2.text = "Stay complete";
+            else if (v.Served) _vipLine2.text = VipStyle.MainDone(v) + " of " + mains + " requests done";
+            else _vipLine2.text = VipStyle.MainReady(v) + " of " + mains + " requests ready to serve";
         }
 
         void RefreshForecast(WaveDef wave)
@@ -221,6 +267,19 @@ namespace ResortEmpire.Game.Ui
             if (state == null)
             {
                 RefreshSite(b);
+                return;
+            }
+            if (!BuildingNeeds.IsWaveBuilding(b))
+            {
+                // The Spa: a VIP building with no seats, no worker slot and a single level (P3).
+                _cardRect.sizeDelta = new Vector2(CardWidth, CardHeightSite);
+                _cardInfo.text = "VIP building · no worker needed";
+                foreach (var star in _qualityStars) star.SetActive(false);
+                _upgrade.ShowNote("Spa requests for VIP guests are ready");
+                _manager.Hide();
+                _workersRow.SetActive(false);
+                _hireWorker.Hide();
+                _move.Hide();
                 return;
             }
 

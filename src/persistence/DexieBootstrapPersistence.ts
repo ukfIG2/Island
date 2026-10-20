@@ -327,7 +327,10 @@ export function normalizePersistedState(...args: Parameters<typeof normalizePers
   const rawReputation = (withVip as Partial<BootstrapState>).reputation;
  const reputation = typeof rawReputation === 'number' && Number.isSafeInteger(rawReputation) && rawReputation >= 0 ? rawReputation : 0;
  const rawReceipt = (withVip as Partial<BootstrapState>).lastVipReward;
- const lastVipReward = rawReceipt && MVP_VIP_TYPES.some(type => type === rawReceipt.vipType) && Number.isSafeInteger(rawReceipt.reputation) && rawReceipt.reputation > 0 && Number.isInteger(rawReceipt.qualityCeiling) && rawReceipt.qualityCeiling >= 1 && rawReceipt.qualityCeiling <= 5 && Number.isSafeInteger(rawReceipt.completedVisitCount) && rawReceipt.completedVisitCount > 0 ? rawReceipt : null;
+ const validReceipt = rawReceipt && MVP_VIP_TYPES.some(type => type === rawReceipt.vipType) && Number.isSafeInteger(rawReceipt.reputation) && rawReceipt.reputation > 0 && Number.isInteger(rawReceipt.qualityCeiling) && rawReceipt.qualityCeiling >= 1 && rawReceipt.qualityCeiling <= 5 && Number.isSafeInteger(rawReceipt.completedVisitCount) && rawReceipt.completedVisitCount > 0;
+  const rawReceiptMaterials = rawReceipt?.materials;
+  const receiptMaterials = typeof rawReceiptMaterials === 'number' && Number.isSafeInteger(rawReceiptMaterials) && rawReceiptMaterials >= 0 ? rawReceiptMaterials : 0;
+  const lastVipReward = validReceipt ? (rawReceiptMaterials === receiptMaterials ? rawReceipt : { ...rawReceipt!, materials: receiptMaterials }) : null;
  const hydrated = legacyMaterials === materials && rawReputation === reputation && withVip.lastVipReward === lastVipReward ? withVip : { ...withVip, materials, reputation, lastVipReward };
   // Legacy snapshots predate VIP buildings. Missing or corrupt Spa ownership means not built.
   const rawVipBuildings = (hydrated as Partial<BootstrapState>).vipBuildings;

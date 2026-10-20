@@ -2,6 +2,8 @@ import { mvpVipAttainableQualityCeiling, advanceMvpVipLayer, beginMvpVipVisit, m
 import { deriveMvpVipPreviewInfo } from './vipPreview';
 /** FR-040 provisional economics, not a canonically fixed balance. */
 export const MVP_VIP_MATERIALS_PROVISIONAL = { supplyCostCoins: 5, supplyUnits: 1, fixCostMaterials: 1 } as const;
+/** FR-051: tunable earned Materials for each actual completed VIP visit. */
+export const MVP_VIP_COMPLETION_MATERIALS_PROVISIONAL = { perVisit: 1 } as const;
 import { MVP_BUILDING_EXTENSION_PROOF_TUNING, mvpAdditionalCapacityForLevel, mvpQualityBonusForLevel, mvpWorkerSlotIncreaseOnUpgrade, nextBuildingLevel, type MvpBuildingLevel, type ResortProgressionStage } from './mvpBuildingProgression';
 
 export const BOOTSTRAP_STATE_SCHEMA = 'resort-bootstrap-state/v1' as const;
@@ -260,7 +262,7 @@ export interface NormalWaveState {
   readonly result: NormalWaveResult | null;
 }
 
-export interface MvpVipRewardReceipt { readonly vipType: MvpVipType; readonly qualityCeiling: number; readonly reputation: number; readonly completedVisitCount: number; }
+export interface MvpVipRewardReceipt { readonly vipType: MvpVipType; readonly qualityCeiling: number; readonly reputation: number; readonly completedVisitCount: number; readonly materials: number; }
 
 export interface BootstrapState {
   readonly schema: typeof BOOTSTRAP_STATE_SCHEMA;
@@ -787,13 +789,13 @@ export function normalWaveEnergyModeAvailable(state: BootstrapState, need: Norma
 
 // FR-046: one core-owned reward settlement per actual VIP active-to-completed transition.
 // Tuning numbers in the preview proof catalog are provisional, not canonical constants.
-function settleMvpVipCompletion(state: BootstrapState, vipLayer: MvpVipLayerState): Pick<BootstrapState, 'vipLayer' | 'reputation' | 'lastVipReward'> {
+function settleMvpVipCompletion(state: BootstrapState, vipLayer: MvpVipLayerState): Pick<BootstrapState, 'vipLayer' | 'reputation' | 'materials' | 'lastVipReward'> {
  const active = state.vipLayer.active;
- if (active === null || vipLayer.active !== null || vipLayer.completed.length !== state.vipLayer.completed.length + 1) return { vipLayer, reputation: state.reputation, lastVipReward: state.lastVipReward };
+ if (active === null || vipLayer.active !== null || vipLayer.completed.length !== state.vipLayer.completed.length + 1) return { vipLayer, reputation: state.reputation, materials: state.materials, lastVipReward: state.lastVipReward };
  const qualityCeiling = mvpVipAttainableQualityCeiling(active.preparedness) ?? 1;
  const preview = deriveMvpVipPreviewInfo(state, active.type).potentialReward;
  const reputation = Math.round(preview.minimum + (preview.maximum - preview.minimum) * (qualityCeiling - 1) / 4);
- return { vipLayer, reputation: state.reputation + reputation, lastVipReward: { vipType: active.type, qualityCeiling, reputation, completedVisitCount: vipLayer.completed.length } };
+ return { vipLayer, reputation: state.reputation + reputation, materials: state.materials + MVP_VIP_COMPLETION_MATERIALS_PROVISIONAL.perVisit, lastVipReward: { vipType: active.type, qualityCeiling, reputation, completedVisitCount: vipLayer.completed.length, materials: MVP_VIP_COMPLETION_MATERIALS_PROVISIONAL.perVisit } };
 }
 
 export function applyBootstrapCommand(state: BootstrapState, command: BootstrapCommand): BootstrapState {

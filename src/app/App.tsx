@@ -196,7 +196,7 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
               ))}
             </div>
             {snapshot.vipLayer.active !== null ? <p>Attainable VIP quality ceiling: {mvpVipAttainableQualityCeiling(snapshot.vipLayer.active.preparedness) ?? 'Unknown (legacy visit)'} / 5 (provisional; locked from prerequisites at visit start)</p> : null}
-            {snapshot.lastVipReward !== null ? <p role="status">Latest VIP reward: +{snapshot.lastVipReward.reputation} Reputation ({MVP_VIP_CATALOG[snapshot.lastVipReward.vipType].label}; quality {snapshot.lastVipReward.qualityCeiling}/5; visit #{snapshot.lastVipReward.completedVisitCount})</p> : null}
+            {snapshot.lastVipReward !== null ? <p role="status">Latest VIP reward: +{snapshot.lastVipReward.reputation} Reputation, +{snapshot.lastVipReward.materials} Materials ({MVP_VIP_CATALOG[snapshot.lastVipReward.vipType].label}; quality {snapshot.lastVipReward.qualityCeiling}/5; visit #{snapshot.lastVipReward.completedVisitCount})</p> : null}
             {snapshot.vipLayer.resolutions.length ? <p>Latest completed VIP quality ceiling: {mvpVipAttainableQualityCeiling(snapshot.vipLayer.resolutions[snapshot.vipLayer.resolutions.length - 1].preparedness)} / 5 (provisional)</p> : null}
             {snapshot.vipLayer.preview !== null ? (
               <aside className="progression-offer" aria-label="VIP Preview">

@@ -16,7 +16,7 @@ namespace ResortEmpire.Sim
         sealed class Lane
         {
             public NeedId Need;
-            public BuildingState Building;                    // null -> Locked, need never spawns (WR9)
+            public BuildingState Building;                    // null -> Locked, need never spawns (WR9); resolved at StartWave
             public int Demand;                                // rush raises this at trigger time
             public List<float> Pending = new List<float>();   // sorted spawn times
             public int NextSpawn;
@@ -29,6 +29,7 @@ namespace ResortEmpire.Sim
             public int PrevQueue;
             public float NonDecreasingSeconds;
             public float BottleneckSeconds;
+            public float HelpGrace;                           // AC2: no return to Bottleneck while > 0
         }
 
         sealed class Boost
@@ -60,17 +61,28 @@ namespace ResortEmpire.Sim
             _lanes = new Lane[needs.Length];
             foreach (var need in needs)
             {
-                var lane = new Lane { Need = need, Building = resort.Get(BuildingFor(need)) };
+                var lane = new Lane { Need = need };
                 wave.Demand.TryGetValue(need, out lane.Demand);
-                lane.Status = lane.Building == null ? NeedStatus.Locked : NeedStatus.Ok;
-                if (lane.Building != null && lane.Demand > 0)
-                    for (int k = 0; k < lane.Demand; k++)         // unit k at k * T / N, no randomness
-                        lane.Pending.Add(k * _t.WaveTimerSeconds / lane.Demand);
                 _lanes[(int)need] = lane;
             }
+            ResolveLanes(); // preview for AwaitingWave; StartWave resolves again
 
             foreach (BuildingId b in Enum.GetValues(typeof(BuildingId)))
                 _boosts[b] = new Boost();
+        }
+
+        // Read at StartWave so a building unlocked in AwaitingWave takes part in this wave.
+        void ResolveLanes()
+        {
+            foreach (var lane in _lanes)
+            {
+                lane.Building = _resort.Get(BuildingFor(lane.Need));
+                lane.Status = lane.Building == null ? NeedStatus.Locked : NeedStatus.Ok;
+                lane.Pending.Clear();
+                if (lane.Building != null)
+                    for (int k = 0; k < lane.Demand; k++)         // unit k at k * T / N, no randomness
+                        lane.Pending.Add(k * _t.WaveTimerSeconds / lane.Demand);
+            }
         }
 
         static BuildingId BuildingFor(NeedId need)
@@ -82,7 +94,8 @@ namespace ResortEmpire.Sim
 
         public void StartWave()
         {
-            if (Phase != WavePhase.AwaitingWave) return;
+            if (IsPaused || Phase != WavePhase.AwaitingWave) return;
+            ResolveLanes();
             Phase = WavePhase.WaveIncoming;
             _resort.InWave = true;
         }
@@ -128,6 +141,7 @@ namespace ResortEmpire.Sim
             if (f == null || t == null || !f.HasWorker || t.HasWorker) return false;
             f.HasWorker = false;
             t.HasWorker = true; // takes effect immediately, including units already seated
+            HelpLanded(to);     // the building left behind keeps normal hysteresis
             return true;
         }
 
@@ -147,7 +161,20 @@ namespace ResortEmpire.Sim
             var boost = _boosts[b];
             boost.Used++;
             boost.Remaining += _t.EnergyBoostDurationSeconds;
+            HelpLanded(b);
             return true;
+        }
+
+        // AC2: help on a bottlenecked building turns the warning into Recovering in the same
+        // interaction; the faster service then gets RecoveringGraceSeconds to show before
+        // the warning may return.
+        void HelpLanded(BuildingId b)
+        {
+            var lane = _lanes[(int)BuildingNeeds.Serves(b)];
+            if (lane.Status != NeedStatus.Bottleneck) return;
+            lane.Status = NeedStatus.Recovering;
+            lane.HelpGrace = _t.RecoveringGraceSeconds;
+            lane.NonDecreasingSeconds = 0f;
         }
 
         public float BoostRemaining(BuildingId b) => _boosts[b].Remaining;
@@ -252,13 +279,15 @@ namespace ResortEmpire.Sim
                 int q = lane.Queue.Count;
                 if (q < lane.PrevQueue) lane.NonDecreasingSeconds = 0f;
                 else lane.NonDecreasingSeconds += dt;
+                if (lane.HelpGrace > 0f) lane.HelpGrace = Math.Max(0f, lane.HelpGrace - dt);
+                bool mayWarn = lane.HelpGrace <= 0f; // also covers Recovering -> Ok -> Bottleneck flicker
 
                 if (closed && q == 0 && lane.Seated.Count == 0)
                     lane.Status = NeedStatus.Satisfied;
                 else switch (lane.Status)
                 {
                     case NeedStatus.Ok:
-                        if (q > _t.BottleneckThresholdUnits && lane.NonDecreasingSeconds >= _t.BottleneckHysteresisSeconds)
+                        if (mayWarn && q > _t.BottleneckThresholdUnits && lane.NonDecreasingSeconds >= _t.BottleneckHysteresisSeconds)
                             lane.Status = NeedStatus.Bottleneck;
                         break;
                     case NeedStatus.Bottleneck:
@@ -267,7 +296,7 @@ namespace ResortEmpire.Sim
                         break;
                     case NeedStatus.Recovering:
                         if (q <= _t.BottleneckThresholdUnits) lane.Status = NeedStatus.Ok;
-                        else if (q >= lane.PrevQueue && lane.NonDecreasingSeconds >= _t.BottleneckHysteresisSeconds)
+                        else if (mayWarn && q >= lane.PrevQueue && lane.NonDecreasingSeconds >= _t.BottleneckHysteresisSeconds)
                             lane.Status = NeedStatus.Bottleneck;
                         break;
                 }
@@ -279,8 +308,12 @@ namespace ResortEmpire.Sim
 
         void UpdatePhase()
         {
-            if (Phase == WavePhase.WaveActive && ArrivalsClosed && AllQueuesEmpty())
-                Phase = WavePhase.WaveResolving; // WR3: arrivals close, the wave itself always finishes
+            if (Phase == WavePhase.WaveActive)
+            {
+                if (ArrivalsClosed && AllQueuesEmpty())
+                    Phase = WavePhase.WaveResolving; // WR3: arrivals close, the wave itself always finishes
+                return; // WaveResolving lasts at least one tick, even if nobody is seated
+            }
             if (Phase == WavePhase.WaveResolving && NothingSeated())
                 Complete();
         }

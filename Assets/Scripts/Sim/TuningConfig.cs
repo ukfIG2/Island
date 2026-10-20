@@ -28,6 +28,7 @@ namespace ResortEmpire.Sim
 
         public int BottleneckThresholdUnits = 4;      // queued units, seated do not count
         public float BottleneckHysteresisSeconds = 3f;
+        public float RecoveringGraceSeconds = 12f;    // AC2: after help lands, one service time before the warning may return
 
         public float OceanViewSatisfactionWeight = 1.5f; // premium need hurts more while waiting
         public float VolumeNeedWeight = 1.0f;

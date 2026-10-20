@@ -18,7 +18,7 @@ namespace ResortEmpire.Sim
         Bungalows
     }
 
-    // Spec (project rules §6): the calm state is AwaitingWave — the word "idle" is banned project-wide.
+    // Spec (project rules §6): the calm state is AwaitingWave; the i-word is banned project-wide.
     public enum WavePhase
     {
         AwaitingWave,

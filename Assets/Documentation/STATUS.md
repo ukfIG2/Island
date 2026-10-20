@@ -91,7 +91,7 @@ The prototype exists to answer one question: *is the wave loop fun?* (build doc 
 - Playtest prototype and MVP with real players; the build doc's exit criteria (§4.12 and §5.9) are the checklist.
 - Designer and economist review [MVP_DECISIONS.md](MVP_DECISIONS.md): confirm or overrule the provisional choices, decide the open points.
 - Android build and a touch check on a phone.
-- Small UI polish found in testing: on the VIP board the "Quality boost · 3 Energy" label is slightly wider than its button; VIP buttons show costs as words ("· 2 Materials") rather than icons.
+- Small UI polish found in testing: VIP buttons show costs as words ("· 2 Materials") rather than icons.
 
 ---
 

@@ -300,7 +300,7 @@ namespace ResortEmpire.Game.Ui
             }
             else if (r.State == RequestState.Ready && !v.Served && !r.QualityBoosted && r.QualityCap < 1f - 1e-6f)
             {
-                if (v.CanQualityBoost(r)) c.Action.ShowButton("Quality boost · " + t.EnergyBoostCost + " Energy");
+                if (v.CanQualityBoost(r)) c.Action.ShowButton("Boost · " + t.EnergyBoostCost + " Energy");
                 else c.Action.ShowButton(NeedsPanelUi.TestAdLabel(_game, 14));
                 c.Action.SetButtonColor(UiFactory.Recovering);
             }

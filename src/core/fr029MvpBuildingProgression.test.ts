@@ -4,7 +4,7 @@ import { normalizePersistedState } from '../persistence/DexieBootstrapPersistenc
 
 function completed(stage: 'prototype' | 'mvp' = 'mvp', needIds: readonly NormalWaveNeedId[] = ['reception', 'food', 'drinks']): BootstrapState {
   const state = createInitialBootstrapState('fr029-mvp-proof', undefined, stage);
-  return { ...state, coins: 500, normalWave: { ...state.normalWave, phase: 'complete', activeNeedIds: needIds, result: { rating: 5 } as BootstrapState['normalWave']['result'] } };
+  return { ...state, coins: 500, materials: 50, normalWave: { ...state.normalWave, phase: 'complete', activeNeedIds: needIds, result: { rating: 5 } as BootstrapState['normalWave']['result'] } };
 }
 function buy(state: BootstrapState, need: NormalWaveNeedId): BootstrapState {
   expect(normalWaveUpgradeQuote(state, need)).not.toBeNull();

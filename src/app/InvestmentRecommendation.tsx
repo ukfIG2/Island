@@ -14,7 +14,7 @@ export function InvestmentRecommendation({ state, selectedNeed }: InvestmentReco
   const quote = normalWaveUpgradeQuote(state, selectedNeed);
   const capacityOffer = quote === null
     ? 'No further building capacity upgrade is currently available.'
-    : 'Upgrade ' + building + ' from ' + quote.beforeCapacity + ' to ' + quote.afterCapacity + ' service places for ' + quote.coinCost + ' Coins.';
+    : 'Upgrade ' + building + ' from ' + quote.beforeCapacity + ' to ' + quote.afterCapacity + ' service places for ' + quote.coinCost + ' Coins' + (quote.materialCost > 0 ? ' and ' + quote.materialCost + ' Materials' : '') + '.';
   const advice = result.bottleneckCause === 'staffing'
     ? 'Staffing was the observed cause at ' + building + '. Reassign a Worker after selecting Next wave and before starting it. ' + (quote === null ? capacityOffer : 'Optional longer-term investment: ' + capacityOffer) + ' Extra building capacity does not substitute for an assigned Worker.'
     : 'Capacity was the observed cause at ' + building + '. ' + (quote === null ? capacityOffer : 'Optional investment: ' + capacityOffer);

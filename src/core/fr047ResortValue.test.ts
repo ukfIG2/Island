@@ -6,7 +6,8 @@ function betweenWaves(stage: 'prototype' | 'mvp'): BootstrapState {
  let state = dispatch(createInitialBootstrapState('fr047-' + stage, undefined, stage), { type: 'START_WAVE' });
  for (let i = 0; i < 12 && state.normalWave.phase !== 'complete'; i++) state = dispatch(state, { type: 'ADVANCE_SIMULATION', deltaMs: 90000 });
  expect(state.normalWave.phase).toBe('complete');
- return { ...state, coins: 1000 };
+ // FR-050: prestige progression must fund both MVP upgrade resources.
+ return { ...state, coins: 1000, materials: 10 };
 }
 
 describe('FR-047 Resort Value remains prestige rather than spendable currency', () => {
@@ -21,6 +22,7 @@ describe('FR-047 Resort Value remains prestige rather than spendable currency', 
    expect(next.resortValue).toBe(state.resortValue + quote!.resortValueGain);
    expect(next.resortValue).toBeGreaterThan(state.resortValue);
    expect(next.coins).toBe(state.coins - quote!.coinCost);
+   expect(next.materials).toBe(state.materials - quote!.materialCost);
    state = next;
   }
   expect(normalWaveUpgradeQuote(state, 'reception')).toBeNull();

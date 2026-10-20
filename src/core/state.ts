@@ -112,6 +112,7 @@ export interface PrototypeUpgradeQuote {
   readonly beforeCapacity: number;
   readonly afterCapacity: number;
   readonly coinCost: number;
+  readonly materialCost: number;
   readonly resortValueGain: number;
 }
 
@@ -503,6 +504,7 @@ export function normalWaveUpgradeQuote(
     qualityBonusBefore: mvpQualityBonusForLevel(fromLevel),
     qualityBonusAfter: mvpQualityBonusForLevel(toLevel),
     coinCost: extension ? extension.coinCost : wave.upgradeTuning.coinCostByTargetLevel[toLevel as PrototypeUpgradeTargetLevel],
+    materialCost: extension ? extension.materialCost : 0,
     resortValueGain
   };
 }
@@ -899,11 +901,12 @@ export function applyBootstrapCommand(state: BootstrapState, command: BootstrapC
 
     case 'UPGRADE_BUILDING': {
       const quote = normalWaveUpgradeQuote(state, command.need);
-      if (quote === null || state.coins < quote.coinCost) return state;
+      if (quote === null || state.coins < quote.coinCost || state.materials < quote.materialCost) return state;
     if (!Number.isSafeInteger(state.resortValue) || state.resortValue < 0 || !Number.isSafeInteger(quote.resortValueGain) || quote.resortValueGain <= 0 || !Number.isSafeInteger(state.resortValue + quote.resortValueGain)) throw new Error('RESORT_VALUE_INVARIANT');
       return {
         ...state,
         coins: state.coins - quote.coinCost,
+        materials: state.materials - quote.materialCost,
         resortValue: state.resortValue + quote.resortValueGain,
         normalWave: {
           ...state.normalWave,

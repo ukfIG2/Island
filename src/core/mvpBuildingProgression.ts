@@ -7,12 +7,13 @@ export interface MvpExtensionEffect {
   readonly workerSlotsIncrease: number;
   readonly qualityBonus: number;
   readonly coinCost: number;
+  readonly materialCost: number;
   readonly resortValueGain: number;
 }
 // Level 4 has deliberately no capacity increase. Values other than structural effects are provisional.
 export const MVP_BUILDING_EXTENSION_PROOF_TUNING: Readonly<Record<MvpExtensionLevel, MvpExtensionEffect>> = {
-  4: { capacityIncrease: 0, workerSlotsIncrease: 1, qualityBonus: 1, coinCost: 30, resortValueGain: 3 },
-  5: { capacityIncrease: 2, workerSlotsIncrease: 1, qualityBonus: 2, coinCost: 40, resortValueGain: 4 }
+  4: { capacityIncrease: 0, workerSlotsIncrease: 1, qualityBonus: 1, coinCost: 30, materialCost: 1, resortValueGain: 3 },
+  5: { capacityIncrease: 2, workerSlotsIncrease: 1, qualityBonus: 2, coinCost: 40, materialCost: 2, resortValueGain: 4 }
 };
 export function nextBuildingLevel(stage: ResortProgressionStage, level: MvpBuildingLevel): MvpBuildingLevel | null {
   return level >= (stage === 'mvp' ? 5 : 3) ? null : (level + 1) as MvpBuildingLevel;

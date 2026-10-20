@@ -114,6 +114,22 @@ namespace ResortEmpire.Sim
             return true;
         }
 
+        // Save-system entry point: rebuilds a between-waves snapshot verbatim. Purely constructive —
+        // no costs, no gameplay rules; the caller is responsible for handing in a consistent snapshot.
+        public static ResortState Restore(TuningConfig t, int coins, int energy, int resortValue,
+            int wavesCompleted, int workers, BuildingId[] ids, int[] levels, bool[] hasWorker)
+        {
+            var s = new ResortState(t);
+            for (int i = 0; i < ids.Length; i++)
+                s._buildings.Add(new BuildingState { Id = ids[i], Level = levels[i], HasWorker = hasWorker[i] });
+            s.Workers = workers;
+            s.Coins = coins;
+            s.Energy = energy;
+            s.ResortValue = resortValue;
+            s.WavesCompleted = wavesCompleted;
+            return s;
+        }
+
         public void DebugGrant(int coins, int energy)
         {
             Coins += coins;

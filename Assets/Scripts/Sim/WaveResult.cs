@@ -15,5 +15,6 @@ namespace ResortEmpire.Sim
         public int TotalUnits;
         public Dictionary<NeedId, float> AverageWaitByNeed;
         public NeedId? WorstNeed;      // longest total Bottleneck time — the upgrade hint
+        public BottleneckCause WorstNeedCause; // Staffing if its building sat empty for over half of that time; None without WorstNeed
     }
 }

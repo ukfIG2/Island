@@ -29,6 +29,7 @@ namespace ResortEmpire.Sim
             public int PrevQueue;
             public float NonDecreasingSeconds;
             public float BottleneckSeconds;
+            public float UnstaffedBottleneckSeconds;          // part of BottleneckSeconds with no worker on the building
             public float HelpGrace;                           // AC2: no return to Bottleneck while > 0
         }
 
@@ -50,6 +51,8 @@ namespace ResortEmpire.Sim
         public bool IsPaused { get; set; }
         public float TimeInWave { get; private set; } // seconds inside WaveActive, pause-frozen
         public WaveResult Result { get; private set; }
+        public bool RushFired { get; private set; }     // true from the trigger tick on; pause-frozen with the clock
+        public NeedId? RushNeed { get; private set; }   // the need the rush landed on; null until it fires
 
         public WaveSimulation(ResortState resort, WaveDef wave, TuningConfig tuning)
         {
@@ -208,11 +211,13 @@ namespace ResortEmpire.Sim
             Lane target = null;
             foreach (var b in _resort.Buildings)        // the unlocked building with no worker, right now
                 if (!b.HasWorker) { target = _lanes[(int)b.Serves]; break; }
-            if (target == null) return;
+            if (target == null) return;                 // every building staffed: no rush, nothing to report
             target.Demand += _t.RushUnits;              // rush raises the displayed demand total too
             for (int j = 0; j < _t.RushUnits; j++)
                 target.Pending.Add(_t.RushTimeSeconds + j * _t.RushDurationSeconds / _t.RushUnits);
             target.Pending.Sort();                      // rush times never precede already-spawned ones
+            RushNeed = target.Need;
+            RushFired = true;
         }
 
         void SpawnDue()
@@ -301,7 +306,11 @@ namespace ResortEmpire.Sim
                         break;
                 }
 
-                if (lane.Status == NeedStatus.Bottleneck) lane.BottleneckSeconds += dt;
+                if (lane.Status == NeedStatus.Bottleneck)
+                {
+                    lane.BottleneckSeconds += dt;
+                    if (!lane.Building.HasWorker) lane.UnstaffedBottleneckSeconds += dt;
+                }
                 lane.PrevQueue = q;
             }
         }
@@ -363,6 +372,10 @@ namespace ResortEmpire.Sim
                 {
                     worstSeconds = lane.BottleneckSeconds;
                     r.WorstNeed = lane.Need;
+                    // AC2d: empty for more than half of its Bottleneck time -> staffing, else too small
+                    r.WorstNeedCause = lane.UnstaffedBottleneckSeconds * 2f > lane.BottleneckSeconds
+                        ? BottleneckCause.Staffing
+                        : BottleneckCause.Capacity;
                 }
             }
 

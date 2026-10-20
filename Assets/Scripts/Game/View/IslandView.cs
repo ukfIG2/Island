@@ -17,8 +17,15 @@ namespace ResortEmpire.Game.View
         const int MaxSpawnsPerFrame = 4;
 
         static readonly Vector3 WalkStart = new Vector3(-1.2f, 0.77f, -3.8f);   // end of the dock
+        static readonly Vector3 Plaza = new Vector3(-1.2f, 0.85f, 3f);
         static readonly Vector3 BoatDocked = new Vector3(0.5f, 0f, -3.8f);
         static readonly Vector3 BoatAway = new Vector3(16f, 0f, -7f);
+
+        // Guests seen heading home after a wave, by stars 1..5 — a picture of the result, no mechanical effect.
+        static readonly int[] LeavingByStars = { 8, 6, 4, 2, 0 };
+        const float LeavingStaggerSeconds = 0.25f;
+
+        public static int LeavingGuestCount(int stars) => LeavingByStars[Mathf.Clamp(stars, 1, 5) - 1];
 
         GameController _game;
         readonly List<BuildingView> _views = new List<BuildingView>();
@@ -45,6 +52,34 @@ namespace ResortEmpire.Game.View
             AddBuilding(BuildingId.BeachBar, new Vector3(-5.6f, GroundY, 1.6f), +1f);
             AddBuilding(BuildingId.Pool, new Vector3(2.4f, GroundY, 5.6f), -1f);
             AddBuilding(BuildingId.Bungalows, new Vector3(3.2f, GroundY, 1.2f), -1f);
+
+            _game.WaveCompleted += OnWaveCompleted;
+        }
+
+        void OnDestroy()
+        {
+            if (_game != null) _game.WaveCompleted -= OnWaveCompleted;
+        }
+
+        // A few guests walk from the plaza down to the dock; tinted by the needs that waited longest.
+        void OnWaveCompleted(WaveResult result)
+        {
+            int count = LeavingGuestCount(result.Stars);
+            if (count == 0) return;
+            var waits = result.AverageWaitByNeed;
+            var needs = new List<NeedId>();
+            if (waits != null)
+            {
+                needs.AddRange(waits.Keys);
+                needs.Sort((a, b) => waits[b].CompareTo(waits[a]));
+            }
+            if (needs.Count == 0) needs.Add(NeedId.Rooms);
+
+            for (int i = 0; i < count; i++)
+            {
+                var from = Plaza + new Vector3(((i % 3) - 1) * 0.4f, 0f, (i / 3) * 0.35f);
+                _guests.SpawnLeaving(needs[i % needs.Count], from, WalkStart, i * LeavingStaggerSeconds, i);
+            }
         }
 
         void Update()
@@ -130,14 +165,7 @@ namespace ResortEmpire.Game.View
             if (_boat.gameObject.activeSelf != visible) _boat.gameObject.SetActive(visible);
         }
 
-        bool SiteAvailable(BuildingId id)
-        {
-            var t = _game.Tuning;
-            int done = _game.Resort.WavesCompleted;
-            if (id == BuildingId.Pool) return done >= t.PoolEligibleAfterWave;
-            if (id == BuildingId.Bungalows) return done >= t.BungalowsEligibleAfterWave;
-            return false;
-        }
+        bool SiteAvailable(BuildingId id) => _game.Resort.IsEligible(id);
 
         void AddBuilding(BuildingId id, Vector3 position, float queueSide)
         {

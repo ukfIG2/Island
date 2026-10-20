@@ -37,6 +37,14 @@ namespace ResortEmpire.Sim
         Satisfied
     }
 
+    // AC2d: is the bottlenecked building empty (Staffing) or too small (Capacity)?
+    public enum BottleneckCause
+    {
+        None,
+        Staffing,
+        Capacity
+    }
+
     public static class BuildingNeeds
     {
         // Build doc §4.5: Reception = hotel block -> Rooms; Bungalows = premium ocean huts -> OceanView.

@@ -761,9 +761,13 @@ export function mvpVipSpeedUpAvailable(state: BootstrapState): boolean {
 /** FR-044: Spa is exclusively VIP infrastructure, not a normal-wave need or staffing target. */
 export const MVP_VIP_SPA_BUILDING = { id: 'spa', label: 'Spa', role: 'vip', normalWaveNeed: null, workerSlots: 0 } as const;
 /** Temporary purchase price; FINAL(3) does not set Spa cost. */
-export const MVP_VIP_SPA_PROVISIONAL = { coinCost: 25 } as const;
+/** Provisional MVP tuning; FINAL(3) specifies no numeric Reputation threshold. */
+export const MVP_VIP_SPA_PROVISIONAL = { coinCost: 25, reputationRequired: 10 } as const;
+export function mvpVipSpaPurchaseEligible(state: BootstrapState): boolean {
+  return state.progressionStage === 'mvp' && !state.vipBuildings.spa && state.reputation >= MVP_VIP_SPA_PROVISIONAL.reputationRequired;
+}
 export function mvpVipSpaPurchaseAvailable(state: BootstrapState): boolean {
- return state.progressionStage === 'mvp' && state.vipBuildings.spa === false && state.coins >= MVP_VIP_SPA_PROVISIONAL.coinCost;
+ return mvpVipSpaPurchaseEligible(state) && state.coins >= MVP_VIP_SPA_PROVISIONAL.coinCost;
 }
 export function normalWaveEnergyModeAvailable(state: BootstrapState, need: NormalWaveNeedId): boolean {
   const wave = state.normalWave;
@@ -870,6 +874,7 @@ export function applyBootstrapCommand(state: BootstrapState, command: BootstrapC
     case 'PURCHASE_VIP_SPA': {
       if (state.progressionStage !== 'mvp') throw new Error('MVP_VIP_SPA_STAGE_INVALID');
       if (state.vipBuildings.spa) return state;
+      if (state.reputation < MVP_VIP_SPA_PROVISIONAL.reputationRequired) throw new Error('MVP_VIP_SPA_REPUTATION_INSUFFICIENT');
       if (state.coins < MVP_VIP_SPA_PROVISIONAL.coinCost) throw new Error('MVP_VIP_SPA_COINS_INSUFFICIENT');
       return { ...state, coins: state.coins - MVP_VIP_SPA_PROVISIONAL.coinCost, vipBuildings: { ...state.vipBuildings, spa: true } };
     }

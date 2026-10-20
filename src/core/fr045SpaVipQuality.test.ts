@@ -11,7 +11,7 @@ function preparedWithoutSpa(type: MvpVipType): BootstrapState {
  return { ...initial, hiredSpecialists: [...profile.specialists], purchasedAreas: { pool: true, bungalows: true }, normalWave: { ...initial.normalWave, hiredManagers: { ...initial.normalWave.hiredManagers, ...Object.fromEntries(profile.managers.map(id => [id, true])) } } };
 }
 function buildSpa(state: BootstrapState): BootstrapState {
- return dispatch({ ...state, coins: MVP_VIP_SPA_PROVISIONAL.coinCost }, { type: 'PURCHASE_VIP_SPA' });
+ return dispatch({ ...state, reputation: MVP_VIP_SPA_PROVISIONAL.reputationRequired, coins: MVP_VIP_SPA_PROVISIONAL.coinCost }, { type: 'PURCHASE_VIP_SPA' });
 }
 describe('FR-045 Spa-dependent attainable VIP request quality', () => {
  it('selects exactly two of the four canonical VIP types with Spa prerequisites', () => {

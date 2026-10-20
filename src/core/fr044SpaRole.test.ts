@@ -11,7 +11,7 @@ describe('FR-044: Spa is exclusively VIP-oriented infrastructure', () => {
  });
  it('purchases Spa using core-owned Coins without changing normal waves or staffing', () => {
   const initial = createInitialBootstrapState('fr044', undefined, 'mvp');
-  const ready: BootstrapState = { ...initial, coins: MVP_VIP_SPA_PROVISIONAL.coinCost + 5 };
+  const ready: BootstrapState = { ...initial, reputation: MVP_VIP_SPA_PROVISIONAL.reputationRequired, coins: MVP_VIP_SPA_PROVISIONAL.coinCost + 5 };
   expect(mvpVipSpaPurchaseAvailable(ready)).toBe(true);
   const bought = applyBootstrapCommand(ready, { type: 'PURCHASE_VIP_SPA' });
   expect(bought.vipBuildings.spa).toBe(true);
@@ -31,7 +31,7 @@ describe('FR-044: Spa is exclusively VIP-oriented infrastructure', () => {
   expect(mvpVipSpaPurchaseAvailable(prototype)).toBe(false);
   expect(() => applyBootstrapCommand(prototype, { type: 'PURCHASE_VIP_SPA' })).toThrow('MVP_VIP_SPA_STAGE_INVALID');
   const poor = createInitialBootstrapState('fr044-poor', undefined, 'mvp');
-  const empty: BootstrapState = { ...poor, coins: 0 };
+  const empty: BootstrapState = { ...poor, reputation: MVP_VIP_SPA_PROVISIONAL.reputationRequired, coins: 0 };
   expect(mvpVipSpaPurchaseAvailable(empty)).toBe(false);
   expect(() => applyBootstrapCommand(empty, { type: 'PURCHASE_VIP_SPA' })).toThrow('MVP_VIP_SPA_COINS_INSUFFICIENT');
   expect(empty.vipBuildings.spa).toBe(false);
@@ -42,7 +42,7 @@ describe('FR-044: Spa is exclusively VIP-oriented infrastructure', () => {
   delete (legacy as unknown as Record<string, unknown>).vipBuildings;
   const normalized = normalizePersistedState(legacy);
   expect(normalized.vipBuildings).toEqual({ spa: false });
-  const purchased = applyBootstrapCommand({ ...normalized, coins: MVP_VIP_SPA_PROVISIONAL.coinCost }, { type: 'PURCHASE_VIP_SPA' });
+  const purchased = applyBootstrapCommand({ ...normalized, reputation: MVP_VIP_SPA_PROVISIONAL.reputationRequired, coins: MVP_VIP_SPA_PROVISIONAL.coinCost }, { type: 'PURCHASE_VIP_SPA' });
   const restored = normalizePersistedState(JSON.parse(JSON.stringify(purchased)) as BootstrapState);
   expect(restored.vipBuildings.spa).toBe(true);
   expect(restored.normalWave).toEqual(purchased.normalWave);

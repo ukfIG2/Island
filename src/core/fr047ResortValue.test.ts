@@ -28,7 +28,7 @@ describe('FR-047 Resort Value remains prestige rather than spendable currency', 
  });
  it('purchasing a Spa and simulation passage do not spend Resort Value', () => {
   const start = betweenWaves('mvp');
-  const purchased = dispatch(start, { type: 'PURCHASE_VIP_SPA' });
+  const purchased = dispatch({ ...start, reputation: MVP_VIP_SPA_PROVISIONAL.reputationRequired }, { type: 'PURCHASE_VIP_SPA' });
   expect(purchased.coins).toBe(start.coins - MVP_VIP_SPA_PROVISIONAL.coinCost);
   expect(purchased.resortValue).toBe(start.resortValue);
   const advanced = dispatch(purchased, { type: 'ADVANCE_SIMULATION', deltaMs: 1000 });

@@ -173,6 +173,7 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
         <section className="context-card" aria-label="VIP visits">
             <h2>VIP Visits</h2>
           <section className="context-card" aria-label="VIP Spa building">
+        {!snapshot.vipBuildings.spa && snapshot.reputation < MVP_VIP_SPA_PROVISIONAL.reputationRequired ? <p role="status">Spa unlocks at {MVP_VIP_SPA_PROVISIONAL.reputationRequired} Reputation ({snapshot.reputation} earned). Coins are paid separately.</p> : null}
             <h2>Spa · VIP Building</h2>
             <p>VIP-only facility; no normal guest-wave need or Worker slot.</p>
             <p role="status">Spa: {snapshot.vipBuildings.spa ? 'Built' : 'Not built'}</p>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyBootstrapCommand as dispatch, createInitialBootstrapState, normalWaveCoinReward, type BootstrapState } from './state';
+import { applyBootstrapCommand as dispatch, createInitialBootstrapState, normalWaveCoinReward, MVP_VIP_SPA_PROVISIONAL, type BootstrapState } from './state';
 import { MVP_VIP_PROVISIONAL_TIMING, mvpVipAttainableQualityCeiling, type MvpVipType } from './vipLayer';
 import { deriveMvpVipPreviewInfo, MVP_VIP_PREVIEW_PROOF_CATALOG } from './vipPreview';
 import { normalizePersistedState } from '../persistence/DexieBootstrapPersistence';
@@ -55,7 +55,7 @@ describe('FR-046 core-owned VIP completion rewards', () => {
   const base = prepared('weddingCouple', false);
   const started = dispatch(base, { type: 'BEGIN_VIP_VISIT', vipType: 'weddingCouple' });
   expect(mvpVipAttainableQualityCeiling(started.vipLayer.active?.preparedness)).toBe(4);
-  const invested = dispatch({ ...started, coins: 100 }, { type: 'PURCHASE_VIP_SPA' });
+  const invested = dispatch({ ...started, reputation: MVP_VIP_SPA_PROVISIONAL.reputationRequired, coins: 100 }, { type: 'PURCHASE_VIP_SPA' });
   const paid = dispatch(invested, { type: 'ADVANCE_SIMULATION', deltaMs: MVP_VIP_PROVISIONAL_TIMING.visitDurationMs });
   expect(paid.lastVipReward?.qualityCeiling).toBe(4);
   expect(paid.lastVipReward?.reputation).toBe(finish('weddingCouple', false).reputation);

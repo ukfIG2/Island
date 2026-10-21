@@ -323,14 +323,14 @@ export function normalizePersistedState(...args: Parameters<typeof normalizePers
   const vipLayer = normalizeMvpVipLayer((state as Partial<BootstrapState>).vipLayer);
   const withVip = state.vipLayer === vipLayer ? state : { ...state, vipLayer };
   const legacyMaterials = (withVip as Partial<BootstrapState>).materials;
-  const materials = typeof legacyMaterials === 'number' && Number.isSafeInteger(legacyMaterials) && legacyMaterials >= 0 ? legacyMaterials : 0;
+  const materials = withVip.progressionStage === 'mvp' && typeof legacyMaterials === 'number' && Number.isSafeInteger(legacyMaterials) && legacyMaterials >= 0 ? legacyMaterials : 0;
   const rawReputation = (withVip as Partial<BootstrapState>).reputation;
- const reputation = typeof rawReputation === 'number' && Number.isSafeInteger(rawReputation) && rawReputation >= 0 ? rawReputation : 0;
+ const reputation = withVip.progressionStage === 'mvp' && typeof rawReputation === 'number' && Number.isSafeInteger(rawReputation) && rawReputation >= 0 ? rawReputation : 0;
  const rawReceipt = (withVip as Partial<BootstrapState>).lastVipReward;
  const validReceipt = rawReceipt && MVP_VIP_TYPES.some(type => type === rawReceipt.vipType) && Number.isSafeInteger(rawReceipt.reputation) && rawReceipt.reputation > 0 && Number.isInteger(rawReceipt.qualityCeiling) && rawReceipt.qualityCeiling >= 1 && rawReceipt.qualityCeiling <= 5 && Number.isSafeInteger(rawReceipt.completedVisitCount) && rawReceipt.completedVisitCount > 0;
   const rawReceiptMaterials = rawReceipt?.materials;
   const receiptMaterials = typeof rawReceiptMaterials === 'number' && Number.isSafeInteger(rawReceiptMaterials) && rawReceiptMaterials >= 0 ? rawReceiptMaterials : 0;
-  const lastVipReward = validReceipt ? (rawReceiptMaterials === receiptMaterials ? rawReceipt : { ...rawReceipt!, materials: receiptMaterials }) : null;
+  const lastVipReward = withVip.progressionStage === 'mvp' && validReceipt ? (rawReceiptMaterials === receiptMaterials ? rawReceipt : { ...rawReceipt!, materials: receiptMaterials }) : null;
  const hydrated = legacyMaterials === materials && rawReputation === reputation && withVip.lastVipReward === lastVipReward ? withVip : { ...withVip, materials, reputation, lastVipReward };
   // Legacy snapshots predate VIP buildings. Missing or corrupt Spa ownership means not built.
   const rawVipBuildings = (hydrated as Partial<BootstrapState>).vipBuildings;
@@ -346,5 +346,5 @@ export function normalizePersistedState(...args: Parameters<typeof normalizePers
   const premiumEntitlements = typeof rawPremiumEntitlements?.resortCrest === 'boolean' && (withPrestige.progressionStage === 'mvp' || rawPremiumEntitlements.resortCrest === false) ? rawPremiumEntitlements : { resortCrest: false };
   const withPremium = rawSavedGems === gems && rawPremiumEntitlements === premiumEntitlements ? withPrestige : { ...withPrestige, gems, premiumEntitlements };
   if (withPremium.progressionStage === 'prototype' || withPremium.progressionStage === 'mvp') return withPremium;
-  return { ...withPremium, progressionStage: 'prototype', gems: 0, premiumEntitlements: { resortCrest: false } };
+  return { ...withPremium, progressionStage: 'prototype', reputation: 0, materials: 0, lastVipReward: null, gems: 0, premiumEntitlements: { resortCrest: false } };
 }

@@ -1007,7 +1007,7 @@ export function applyBootstrapCommand(state: BootstrapState, command: BootstrapC
  const vipReward = settleMvpVipCompletion(state, vipLayer);
       const completedNow = state.normalWave.phase !== 'complete' && normalWave.phase === 'complete';
       const rushTriggeredNow = !state.normalWave.suddenRush.triggered && normalWave.suddenRush.triggered;
-      return { ...state, ...vipReward, simulationTick: state.simulationTick + 1, elapsedSimulationMs: state.elapsedSimulationMs + command.deltaMs, coins: state.coins + (completedNow ? normalWaveCoinReward(normalWave) : 0), reputation: vipReward.reputation + (completedNow ? (normalWave.result?.rating ?? 0) : 0), energy: state.energy + (completedNow ? PROTOTYPE_ENERGY_PROOF_TUNING.earnedPerCompletedWave : 0), suddenRushOccurred: state.suddenRushOccurred || rushTriggeredNow, normalWave };
+      return { ...state, ...vipReward, simulationTick: state.simulationTick + 1, elapsedSimulationMs: state.elapsedSimulationMs + command.deltaMs, coins: state.coins + (completedNow ? normalWaveCoinReward(normalWave) : 0), reputation: state.progressionStage === 'mvp' ? vipReward.reputation + (completedNow ? (normalWave.result?.rating ?? 0) : 0) : 0, energy: state.energy + (completedNow ? PROTOTYPE_ENERGY_PROOF_TUNING.earnedPerCompletedWave : 0), suddenRushOccurred: state.suddenRushOccurred || rushTriggeredNow, normalWave };
     }
   }
 }

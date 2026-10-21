@@ -523,3 +523,15 @@ button:disabled {
 .wave-needs-panel__need[aria-pressed="true"]{border-color:#f5d978;background:rgba(245,217,120,.12)}
 .wave-needs-panel__need span,.wave-needs-panel__need small{font-size:12px;overflow-wrap:anywhere}
 @media(max-width:520px){.wave-needs-panel__grid{grid-template-columns:1fr}.wave-needs-panel{padding:10px}}
+
+/* FR-060 map-side expansions: keep 3D interactions outside the small control surface. */
+.shell__panel > .area-unlock-map { position:absolute;z-index:8;left:20px;bottom:100px;width:min(244px,calc(100vw - 40px));max-height:min(37vh,330px);overflow-y:auto;display:grid;gap:7px;padding:12px;border:1px solid rgba(245,217,120,.35);border-radius:14px;background:rgba(5,22,28,.88);color:#ecf7ee;backdrop-filter:blur(10px);pointer-events:auto }
+.area-unlock-map h2 { margin:0;font-size:13px }
+.area-unlock-map__area { display:grid;gap:4px;padding:8px;border:1px solid rgba(255,255,255,.13);border-radius:10px;background:rgba(29,63,66,.6) }
+.area-unlock-map__heading { display:flex;align-items:baseline;justify-content:space-between;gap:6px }
+.area-unlock-map__heading strong { font-size:12px }
+.area-unlock-map__heading span { font-size:10px;color:#f5d978 }
+.area-unlock-map__area small { color:#c4d8d6;font-size:10px }
+.area-unlock-map__area button { font-size:11px;padding:6px 8px }
+.area-unlock-map__area button:disabled { opacity:.55;cursor:not-allowed }
+@media (max-width:600px) { .shell__panel > .area-unlock-map { left:12px;bottom:96px;width:min(220px,calc(100vw - 24px));max-height:27vh;padding:8px } }

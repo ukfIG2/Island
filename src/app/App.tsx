@@ -35,6 +35,7 @@ import { WaveNeedsPanel } from './WaveNeedsPanel';
 import { eligibleWorkerDestinations } from './workerAllocation';
 import { InvestmentRecommendation } from './InvestmentRecommendation';
 import { WaveToUpgradeFlow } from './WaveToUpgradeFlow';
+import { AreaUnlockMap } from './AreaUnlockMap';
 
 export interface AppProps {
   core: BootstrapCore;
@@ -341,6 +342,7 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
           </div>
         ) : null}
 
+        <AreaUnlockMap state={snapshot} onSelectNeed={setSelectedNeed} onPurchase={(areaId) => core.dispatch({ type: 'PURCHASE_AREA', areaId })} />
       </section>
 
       <section className="shell__world" aria-label="Resort world projection">

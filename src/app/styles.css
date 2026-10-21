@@ -543,6 +543,7 @@ button:disabled {
 .vip-management[open] { padding:0 8px 8px;background:rgba(5,20,25,.92);border-radius:14px;border:1px solid rgba(255,255,255,.15) }
 .vip-management[open] > summary { margin:0 -8px 8px }
 .vip-management__contents { display:grid;gap:9px;padding:5px }
+.vip-management:not([open]) > .vip-management__contents { display:none }
 .vip-management__contents > .context-card { position:static;width:auto;padding:10px;box-shadow:none }
 .vip-management__contents .progression-offer { max-width:100% }
 .shell__panel > .vip-opportunity-panel { position:absolute;z-index:9;top:126px;right:18px;width:min(292px,calc(100vw - 36px));max-height:min(49vh,410px);overflow:auto;pointer-events:auto;padding:12px;border:1px solid rgba(245,217,120,.45);border-radius:16px;background:rgba(6,26,30,.92);color:#eef7f0;box-shadow:0 12px 38px rgba(0,0,0,.3) }

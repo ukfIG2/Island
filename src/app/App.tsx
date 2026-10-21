@@ -30,6 +30,7 @@ import {
 } from '../core/state';
 import { ResortWorld3D } from '../render/ResortWorld3D';
 import { WaveCompletionSummary } from './WaveCompletionSummary';
+import { WaveNeedsPanel } from './WaveNeedsPanel';
 import { InvestmentRecommendation } from './InvestmentRecommendation';
 
 export interface AppProps {
@@ -128,6 +129,8 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
             <span>Comeback reward: +{visibleComebackReward} Coins</span>
           </section>
         ) : null}
+
+        <WaveNeedsPanel wave={wave} waveNumber={forecast.waveNumber} selectedNeed={selectedNeed} onSelectNeed={setSelectedNeed} />
 
         <nav className="world-status" aria-label="Resort buildings">
           {NORMAL_SERVICE_IDS.filter((need) => need !== 'relax' && need !== 'oceanView' || need === 'relax' && snapshot.purchasedAreas.pool || need === 'oceanView' && snapshot.purchasedAreas.bungalows).map((need) => (

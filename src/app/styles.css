@@ -512,3 +512,14 @@ button:disabled {
 .wave-result-review p{margin:0;font-size:11px;line-height:1.42;overflow-wrap:anywhere}
 .wave-result-review p strong{font-weight:800}
 @media(max-width:760px){.phase-command--complete{max-height:min(65vh,390px)}.wave-result-review p{font-size:11px}}
+
+/* FR-055: Core-projected live Wave Needs Panel */
+.wave-needs-panel{display:grid;gap:10px;min-width:0;margin:12px 0;padding:12px;border:1px solid rgba(245,217,120,.32);border-radius:12px;background:rgba(10,23,39,.88)}
+.wave-needs-panel__header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px}
+.wave-needs-panel__header h2{margin:0;font-size:16px}
+.wave-needs-panel__header span{font-size:12px;opacity:.85}
+.wave-needs-panel__grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:8px;min-width:0}
+.wave-needs-panel__need{display:grid;gap:4px;min-width:0;padding:10px;text-align:left;border:1px solid rgba(255,255,255,.2);border-radius:8px;background:rgba(255,255,255,.06);color:inherit;cursor:pointer}
+.wave-needs-panel__need[aria-pressed="true"]{border-color:#f5d978;background:rgba(245,217,120,.12)}
+.wave-needs-panel__need span,.wave-needs-panel__need small{font-size:12px;overflow-wrap:anywhere}
+@media(max-width:520px){.wave-needs-panel__grid{grid-template-columns:1fr}.wave-needs-panel{padding:10px}}

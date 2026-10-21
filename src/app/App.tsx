@@ -12,6 +12,7 @@ MVP_VIP_MATERIALS_PROVISIONAL,
 } from '../core/state';
 import {
   useEffect,
+  useRef,
   useState,
   useSyncExternalStore
 } from 'react';
@@ -31,6 +32,7 @@ import {
 import { ResortWorld3D } from '../render/ResortWorld3D';
 import { WaveCompletionSummary } from './WaveCompletionSummary';
 import { WaveNeedsPanel } from './WaveNeedsPanel';
+import { eligibleWorkerDestinations } from './workerAllocation';
 import { InvestmentRecommendation } from './InvestmentRecommendation';
 
 export interface AppProps {
@@ -52,6 +54,9 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
     core.getSnapshot
   );
   const [workerSheetOpen, setWorkerSheetOpen] = useState(false);
+  const workerOriginRef = useRef<NormalWaveNeedId>('reception');
+  const moveWorkerButtonRef = useRef<HTMLButtonElement | null>(null);
+  const returnWorkerFocusRef = useRef(false);
   const [selectedNeed, setSelectedNeed] = useState<NormalWaveNeedId>('reception');
   const [visibleComebackReward, setVisibleComebackReward] = useState(comebackRewardCoins);
 
@@ -89,6 +94,19 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
     wave.phase === 'awaiting' ||
     wave.phase === 'incoming' ||
     wave.phase === 'draining';
+  const closeWorkerSheet = (): void => {
+    setSelectedNeed(workerOriginRef.current);
+    returnWorkerFocusRef.current = true;
+    setWorkerSheetOpen(false);
+  };
+
+  useEffect(() => {
+    if (!workerSheetOpen && returnWorkerFocusRef.current) {
+      returnWorkerFocusRef.current = false;
+      moveWorkerButtonRef.current?.focus();
+    }
+  }, [workerSheetOpen, selectedNeed]);
+
   const currentQueue = wave.activeNeedIds.reduce(
     (sum, need) => sum + wave.queueByNeed[need],
     0
@@ -287,7 +305,7 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
           {wave.result?.bottleneckNeed === selectedNeed ? <p className="context-card__guidance">{wave.result.guidance}</p> : null}
           <InvestmentRecommendation state={snapshot} selectedNeed={selectedNeed} />
           <div className="context-card__actions">
-            {canReassign ? <button type="button" onClick={() => setWorkerSheetOpen(true)}>Move worker</button> : null}
+            {canReassign ? <button type="button" ref={moveWorkerButtonRef} onClick={() => { workerOriginRef.current = selectedNeed; setWorkerSheetOpen(true); }}>Move worker</button> : null}
             {(wave.phase === 'incoming' || wave.phase === 'draining') && wave.activeNeedIds.includes(selectedNeed) ? <button type="button" disabled={!normalWaveEnergyModeAvailable(snapshot, selectedNeed)} onClick={() => core.dispatch({ type: 'ACTIVATE_ENERGY_MODE', need: selectedNeed })}>{wave.energyMode?.need === selectedNeed ? 'Boost active' : 'Boost - 1 Energy'}</button> : null}
             {upgradeQuote?.need === selectedNeed ? <><div className="progression-offer"><span>Optional building investment</span><strong>Lv.{upgradeQuote.fromLevel} to Lv.{upgradeQuote.toLevel} · {upgradeQuote.beforeCapacity} to {upgradeQuote.afterCapacity} places{upgradeQuote.beforeCapacity === upgradeQuote.afterCapacity ? " (unchanged)" : ""}</strong><small>+{upgradeQuote.addedWorkerSlots} Worker slots · +{upgradeQuote.qualityBonusAfter - upgradeQuote.qualityBonusBefore} quality</small><small>+{upgradeQuote.resortValueGain} Resort Value</small></div><button type="button" disabled={snapshot.coins < upgradeQuote.coinCost || snapshot.materials < upgradeQuote.materialCost} onClick={() => core.dispatch({ type: 'UPGRADE_BUILDING', need: selectedNeed })}>Upgrade - {upgradeQuote.coinCost} Coins{upgradeQuote.materialCost > 0 ? ` + ${upgradeQuote.materialCost} Materials` : ""}</button></> : null}
             {(wave.phase === 'awaiting' || wave.phase === 'complete') && wave.activeNeedIds.includes(selectedNeed) ? <button type="button" disabled={!normalWaveCanHireWorker(snapshot, selectedNeed)} onClick={() => core.dispatch({ type: 'HIRE_WORKER', to: selectedNeed })}>Hire Worker · {MVP_WORKER_PROOF_TUNING.hireCostCoins} Coins · {selectedWorkers.length}/{wave.workerSlotsByNeed[selectedNeed]} slots</button> : null}
@@ -298,19 +316,19 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
         )}
 
         {workerSheetOpen && !finalWaveComplete ? (
-          <div className="worker-sheet__backdrop" role="presentation" onClick={() => setWorkerSheetOpen(false)}>
-            <section className="worker-sheet" role="dialog" aria-modal="true" aria-label="Worker Allocation" onClick={(event) => event.stopPropagation()}>
+          <div className="worker-sheet__backdrop" role="presentation" onClick={closeWorkerSheet}>
+            <section className="worker-sheet" role="dialog" aria-modal="true" aria-label="Worker Allocation" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); closeWorkerSheet(); } }}>
               <header className="worker-sheet__header">
                 <div><p className="shell__eyebrow">Worker Allocation</p><h2>{workers.length} workers · live control</h2></div>
-                <button type="button" onClick={() => setWorkerSheetOpen(false)}>Close</button>
+                <button type="button" autoFocus onClick={closeWorkerSheet}>Close</button>
               </header>
               <div className="worker-sheet__workers">
                 {workers.map(([workerId, workerNeed]) => (
                   <article className="worker-row" key={workerId}>
                     <div><strong>{workerId}</strong><small>At {NORMAL_SERVICE_CATALOG[workerNeed].buildingLabel} · {normalWaveServiceCapacity(snapshot, workerNeed)} places · staffed</small></div>
                     <div className="worker-row__destinations">
-                      {wave.activeNeedIds.filter((need) => need !== workerNeed && !workers.some(([, assignedNeed]) => assignedNeed === need)).map((need) => (
-                        <button type="button" key={need} onClick={() => core.dispatch({ type: 'REASSIGN_WORKER', workerId, to: need })}>
+                      {eligibleWorkerDestinations(wave, workerNeed).map((need) => (
+                        <button type="button" key={need} onClick={() => { core.dispatch({ type: 'REASSIGN_WORKER', workerId, to: need }); closeWorkerSheet(); }}>
                           {NORMAL_SERVICE_CATALOG[need].buildingLabel} · Worker boosts service speed
                         </button>
                       ))}

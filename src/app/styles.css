@@ -535,3 +535,17 @@ button:disabled {
 .area-unlock-map__area button { font-size:11px;padding:6px 8px }
 .area-unlock-map__area button:disabled { opacity:.55;cursor:not-allowed }
 @media (max-width:600px) { .shell__panel > .area-unlock-map { left:12px;bottom:96px;width:min(220px,calc(100vw - 24px));max-height:27vh;padding:8px } }
+
+/* FR-061: VIP offer appears only when waiting; management remains a small collapsible secondary control. */
+.shell__panel > .vip-management { position:absolute;z-index:8;top:76px;right:18px;width:min(265px,calc(100vw - 36px));max-height:min(64vh,530px);overflow:auto;pointer-events:auto;color:#eef7f0 }
+.vip-management > summary { display:block;cursor:pointer;list-style:none;text-align:center;padding:8px 12px;border:1px solid rgba(255,255,255,.19);border-radius:12px;background:rgba(5,20,25,.84);font-size:12px;font-weight:700 }
+.vip-management > summary::-webkit-details-marker { display:none }
+.vip-management[open] { padding:0 8px 8px;background:rgba(5,20,25,.92);border-radius:14px;border:1px solid rgba(255,255,255,.15) }
+.vip-management[open] > summary { margin:0 -8px 8px }
+.vip-management__contents { display:grid;gap:9px;padding:5px }
+.vip-management__contents > .context-card { position:static;width:auto;padding:10px;box-shadow:none }
+.vip-management__contents .progression-offer { max-width:100% }
+.shell__panel > .vip-opportunity-panel { position:absolute;z-index:9;top:126px;right:18px;width:min(292px,calc(100vw - 36px));max-height:min(49vh,410px);overflow:auto;pointer-events:auto;padding:12px;border:1px solid rgba(245,217,120,.45);border-radius:16px;background:rgba(6,26,30,.92);color:#eef7f0;box-shadow:0 12px 38px rgba(0,0,0,.3) }
+.vip-opportunity-panel h2 { font-size:14px;margin:0 0 8px }
+.vip-opportunity-panel .progression-offer { position:static;max-width:100%;margin:5px 0 }
+@media (max-width:600px) { .shell__panel > .vip-management { top:72px;right:12px;width:min(192px,calc(100vw - 24px)) } .shell__panel > .vip-opportunity-panel { top:118px;right:12px;width:min(240px,calc(100vw - 24px));max-height:38vh } }

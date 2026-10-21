@@ -195,38 +195,10 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
 
         {snapshot.progressionStage === 'mvp' ? (
           
-        <section className="context-card" aria-label="VIP visits">
-            <h2>VIP Visits</h2>
-            <section className="context-card" aria-label="Permanent premium resort crest">
-              <h3>Resort Crest · Permanent</h3>
-              <p>Permanent cosmetic ownership only; no Energy conversion or gameplay acceleration.</p>
-              {snapshot.premiumEntitlements.resortCrest ? <p role="status">Resort Crest permanently owned.</p> : <button type="button" disabled={snapshot.gems < MVP_GEMS_PREMIUM_PROVISIONAL.resortCrestCostGems} onClick={() => core.dispatch({ type: 'PURCHASE_RESORT_CREST' })}>Unlock Resort Crest ({MVP_GEMS_PREMIUM_PROVISIONAL.resortCrestCostGems} Gems; provisional)</button>}
-            </section>
-          <section className="context-card" aria-label="VIP Spa building">
-        {!snapshot.vipBuildings.spa && snapshot.reputation < MVP_VIP_SPA_PROVISIONAL.reputationRequired ? <p role="status">Spa unlocks at {MVP_VIP_SPA_PROVISIONAL.reputationRequired} Reputation ({snapshot.reputation} earned). Coins are paid separately.</p> : null}
-            <h2>Spa · VIP Building</h2>
-            <p>VIP-only facility; no normal guest-wave need or Worker slot.</p>
-            <p role="status">Spa: {snapshot.vipBuildings.spa ? 'Built' : 'Not built'}</p>
-            {!snapshot.vipBuildings.spa ? <button type="button" disabled={!mvpVipSpaPurchaseAvailable(snapshot)} onClick={() => core.dispatch({ type: 'PURCHASE_VIP_SPA' })}>Build Spa ({MVP_VIP_SPA_PROVISIONAL.coinCost} Coins · provisional)</button> : null}
-          </section>
-            <p>Optional VIP visits run alongside regular guest waves. They do not use normal Workers or interrupt service.</p>
-            {snapshot.vipLayer.active !== null ? (
-              <p role="status">{MVP_VIP_CATALOG[snapshot.vipLayer.active.type].label} visiting · {Math.min(100, Math.round(100 * snapshot.vipLayer.active.elapsedMs / MVP_VIP_PROVISIONAL_TIMING.visitDurationMs))}% complete</p>
-            ) : <p>No VIP visit active.</p>}
-            <p>Visits completed: {snapshot.vipLayer.completed.length}</p>
-            {snapshot.vipLayer.active !== null ? <button type="button" disabled={!mvpVipSpeedUpAvailable(snapshot)} onClick={() => core.dispatch({ type: 'VIP_SPEED_UP' })}>Speed Up VIP (-{MVP_VIP_SPEED_UP_PROVISIONAL.energyCost} Energy, +{MVP_VIP_SPEED_UP_PROVISIONAL.advanceMs / 1000}s; provisional)</button> : null}
-            <div aria-label="VIP request lifecycle">
-              {deriveMvpVipRequestCards(snapshot.vipLayer).map(card => (
-                <div className="progression-offer" key={card.key} aria-label={`${MVP_VIP_CATALOG[card.vipType].label} request ${card.status}`}>
-                  <strong>{MVP_VIP_CATALOG[card.vipType].label}</strong>
-                  <span>Request status: {card.status}</span>
-                  {card.status === 'IN_PROGRESS' || card.status === 'COMPLETED' ? <span>Attainable quality ceiling: {card.attainableQualityCeiling === null ? 'Unknown (legacy evidence)' : `${card.attainableQualityCeiling} / 5 (provisional)`}</span> : null}
-                </div>
-              ))}
-            </div>
-            {snapshot.vipLayer.active !== null ? <p>Attainable VIP quality ceiling: {mvpVipAttainableQualityCeiling(snapshot.vipLayer.active.preparedness) ?? 'Unknown (legacy visit)'} / 5 (provisional; locked from prerequisites at visit start)</p> : null}
-            {snapshot.lastVipReward !== null ? <p role="status">Latest VIP reward: +{snapshot.lastVipReward.reputation} Reputation, +{snapshot.lastVipReward.materials} Materials ({MVP_VIP_CATALOG[snapshot.lastVipReward.vipType].label}; quality {snapshot.lastVipReward.qualityCeiling}/5; visit #{snapshot.lastVipReward.completedVisitCount})</p> : null}
-            {snapshot.vipLayer.resolutions.length ? <p>Latest completed VIP quality ceiling: {mvpVipAttainableQualityCeiling(snapshot.vipLayer.resolutions[snapshot.vipLayer.resolutions.length - 1].preparedness)} / 5 (provisional)</p> : null}
+        <>
+          {(snapshot.vipLayer.preview !== null || (snapshot.vipLayer.accepted !== null && snapshot.vipLayer.requestsOpen)) ? (
+            <aside className="vip-opportunity-panel" aria-label="VIP opportunity waiting">
+              <h2>VIP opportunity</h2>
             {snapshot.vipLayer.preview !== null ? (
               <aside className="progression-offer" aria-label="VIP Preview">
                 <h3>{MVP_VIP_CATALOG[snapshot.vipLayer.preview].label} — VIP Preview</h3>
@@ -258,6 +230,43 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
                 <button type="button" disabled={!snapshot.vipLayer.consumableReady} onClick={() => core.dispatch({ type: 'BEGIN_VIP_VISIT', vipType: snapshot.vipLayer.accepted! })}>Begin VIP visit</button>
               </aside>
             ) : null}
+
+            </aside>
+          ) : null}
+          <details className="vip-management" aria-label="VIP management">
+            <summary>VIP management</summary>
+            <div className="vip-management__contents">
+            <h2>VIP Visits</h2>
+            <section className="context-card" aria-label="Permanent premium resort crest">
+              <h3>Resort Crest · Permanent</h3>
+              <p>Permanent cosmetic ownership only; no Energy conversion or gameplay acceleration.</p>
+              {snapshot.premiumEntitlements.resortCrest ? <p role="status">Resort Crest permanently owned.</p> : <button type="button" disabled={snapshot.gems < MVP_GEMS_PREMIUM_PROVISIONAL.resortCrestCostGems} onClick={() => core.dispatch({ type: 'PURCHASE_RESORT_CREST' })}>Unlock Resort Crest ({MVP_GEMS_PREMIUM_PROVISIONAL.resortCrestCostGems} Gems; provisional)</button>}
+            </section>
+          <section className="context-card" aria-label="VIP Spa building">
+        {!snapshot.vipBuildings.spa && snapshot.reputation < MVP_VIP_SPA_PROVISIONAL.reputationRequired ? <p role="status">Spa unlocks at {MVP_VIP_SPA_PROVISIONAL.reputationRequired} Reputation ({snapshot.reputation} earned). Coins are paid separately.</p> : null}
+            <h2>Spa · VIP Building</h2>
+            <p>VIP-only facility; no normal guest-wave need or Worker slot.</p>
+            <p role="status">Spa: {snapshot.vipBuildings.spa ? 'Built' : 'Not built'}</p>
+            {!snapshot.vipBuildings.spa ? <button type="button" disabled={!mvpVipSpaPurchaseAvailable(snapshot)} onClick={() => core.dispatch({ type: 'PURCHASE_VIP_SPA' })}>Build Spa ({MVP_VIP_SPA_PROVISIONAL.coinCost} Coins · provisional)</button> : null}
+          </section>
+            <p>Optional VIP visits run alongside regular guest waves. They do not use normal Workers or interrupt service.</p>
+            {snapshot.vipLayer.active !== null ? (
+              <p role="status">{MVP_VIP_CATALOG[snapshot.vipLayer.active.type].label} visiting · {Math.min(100, Math.round(100 * snapshot.vipLayer.active.elapsedMs / MVP_VIP_PROVISIONAL_TIMING.visitDurationMs))}% complete</p>
+            ) : <p>No VIP visit active.</p>}
+            <p>Visits completed: {snapshot.vipLayer.completed.length}</p>
+            {snapshot.vipLayer.active !== null ? <button type="button" disabled={!mvpVipSpeedUpAvailable(snapshot)} onClick={() => core.dispatch({ type: 'VIP_SPEED_UP' })}>Speed Up VIP (-{MVP_VIP_SPEED_UP_PROVISIONAL.energyCost} Energy, +{MVP_VIP_SPEED_UP_PROVISIONAL.advanceMs / 1000}s; provisional)</button> : null}
+            <div aria-label="VIP request lifecycle">
+              {deriveMvpVipRequestCards(snapshot.vipLayer).map(card => (
+                <div className="progression-offer" key={card.key} aria-label={`${MVP_VIP_CATALOG[card.vipType].label} request ${card.status}`}>
+                  <strong>{MVP_VIP_CATALOG[card.vipType].label}</strong>
+                  <span>Request status: {card.status}</span>
+                  {card.status === 'IN_PROGRESS' || card.status === 'COMPLETED' ? <span>Attainable quality ceiling: {card.attainableQualityCeiling === null ? 'Unknown (legacy evidence)' : `${card.attainableQualityCeiling} / 5 (provisional)`}</span> : null}
+                </div>
+              ))}
+            </div>
+            {snapshot.vipLayer.active !== null ? <p>Attainable VIP quality ceiling: {mvpVipAttainableQualityCeiling(snapshot.vipLayer.active.preparedness) ?? 'Unknown (legacy visit)'} / 5 (provisional; locked from prerequisites at visit start)</p> : null}
+            {snapshot.lastVipReward !== null ? <p role="status">Latest VIP reward: +{snapshot.lastVipReward.reputation} Reputation, +{snapshot.lastVipReward.materials} Materials ({MVP_VIP_CATALOG[snapshot.lastVipReward.vipType].label}; quality {snapshot.lastVipReward.qualityCeiling}/5; visit #{snapshot.lastVipReward.completedVisitCount})</p> : null}
+            {snapshot.vipLayer.resolutions.length ? <p>Latest completed VIP quality ceiling: {mvpVipAttainableQualityCeiling(snapshot.vipLayer.resolutions[snapshot.vipLayer.resolutions.length - 1].preparedness)} / 5 (provisional)</p> : null}
             {MVP_VIP_TYPES.map(vipType => (
               <div className="progression-offer" key={vipType}>
                 <span>{MVP_VIP_CATALOG[vipType].label}</span>
@@ -266,7 +275,10 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
                 </button>
               </div>
             ))}
-          </section>
+
+          </div>
+          </details>
+        </>
         ) : null}
         {finalWaveComplete ? (
           <aside className="context-card context-card--entered" aria-label="Resort finale">

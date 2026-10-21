@@ -18,6 +18,7 @@ import {
 } from 'react';
 
 import { MVP_VIP_CATALOG, MVP_VIP_PROVISIONAL_TIMING, MVP_VIP_TYPES, mvpVipAttainableQualityCeiling, deriveMvpVipRequestCards } from '../core/vipLayer';
+import { ACCOMMODATION_EXPERIENCE_BY_NEED } from '../core/state';
 import { mvpVipSpeedUpAvailable, MVP_VIP_SPEED_UP_PROVISIONAL, MVP_GEMS_PREMIUM_PROVISIONAL } from '../core/state';
 import { mvpVipSpaPurchaseAvailable, MVP_VIP_SPA_PROVISIONAL, MVP_AREA_REPUTATION_PROVISIONAL } from '../core/state';
 import { deriveMvpVipPreviewInfo } from '../core/vipPreview';
@@ -162,6 +163,7 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
             >
               <strong>{NORMAL_SERVICE_CATALOG[need].buildingLabel}</strong>
               <span>{normalNeedOperationalState(snapshot, need)}{wave.queueByNeed[need] > 0 ? ' · ' + normalNeedBottleneckCause(snapshot, need)?.toUpperCase() : ''}</span>
+              {(need === 'reception' || need === 'oceanView') ? <small className="world-status__accommodation">{ACCOMMODATION_EXPERIENCE_BY_NEED[need].copy}</small> : null}
             </button>
           ))}
         </nav>

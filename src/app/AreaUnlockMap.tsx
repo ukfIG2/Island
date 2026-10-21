@@ -1,4 +1,4 @@
-import { MVP_AREA_REPUTATION_PROVISIONAL, NORMAL_SERVICE_CATALOG, PROTOTYPE_AREA_IDS, prototypeAreaUnlockView, type BootstrapState, type NormalWaveNeedId, type PrototypeAreaId } from '../core/state';
+import { ACCOMMODATION_EXPERIENCE_BY_NEED, MVP_AREA_REPUTATION_PROVISIONAL, NORMAL_SERVICE_CATALOG, PROTOTYPE_AREA_IDS, prototypeAreaUnlockView, type BootstrapState, type NormalWaveNeedId, type PrototypeAreaId } from '../core/state';
 
 export interface AreaUnlockMapProps { readonly state: BootstrapState; readonly onSelectNeed: (need: NormalWaveNeedId) => void; readonly onPurchase: (areaId: PrototypeAreaId) => void; }
 const statusLabel = { locked: 'Locked', available: 'Available', not_affordable: 'Not affordable', unlocked: 'Unlocked' } as const;
@@ -14,6 +14,7 @@ export function AreaUnlockMap({ state, onSelectNeed, onPurchase }: AreaUnlockMap
       return <article key={areaId} className="area-unlock-map__area" data-area={areaId} data-status={view.status}>
         <div className="area-unlock-map__heading"><strong>{view.buildingLabel}</strong><span>{statusLabel[view.status]}</span></div>
         <small>New {NORMAL_SERVICE_CATALOG[view.need].needLabel} service + included Worker {view.includedWorkerId}</small>
+        {areaId === 'bungalows' ? <small>{ACCOMMODATION_EXPERIENCE_BY_NEED.oceanView.copy}</small> : null}
         <small>Price: {view.coinCost} Coins</small>
         {view.status === 'locked' ? <small>{state.progressionStage === 'mvp' ? 'Requires ' + MVP_AREA_REPUTATION_PROVISIONAL[areaId] + ' Reputation' : 'Available after wave ' + view.eligibilityAfterWave}</small> : null}
         {view.status === 'not_affordable' ? <small>Need {view.coinCost - state.coins} more Coins</small> : null}

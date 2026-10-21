@@ -26,6 +26,12 @@ export const NORMAL_SERVICE_CATALOG: Readonly<Record<NormalWaveNeedId, NormalSer
   oceanView: { buildingLabel: 'Bungalows', needLabel: 'Ocean View' }
 };
 
+/** FR-062: semantic accommodation classification, not an economic modifier. */
+export const ACCOMMODATION_EXPERIENCE_BY_NEED = {
+  reception: { category: 'standard', copy: 'Standard accommodation: Rooms served through Reception.' },
+  oceanView: { category: 'premium', copy: 'Premium ocean-view accommodation: a distinct Bungalows experience.' }
+} as const satisfies Readonly<Record<'reception' | 'oceanView', { readonly category: 'standard' | 'premium'; readonly copy: string }>>;
+
 export interface NormalWaveForecast {
   readonly waveNumber: PrototypeWaveNumber;
   readonly totalWaves: 8;

@@ -34,6 +34,7 @@ import { WaveCompletionSummary } from './WaveCompletionSummary';
 import { WaveNeedsPanel } from './WaveNeedsPanel';
 import { eligibleWorkerDestinations } from './workerAllocation';
 import { InvestmentRecommendation } from './InvestmentRecommendation';
+import { WaveToUpgradeFlow } from './WaveToUpgradeFlow';
 
 export interface AppProps {
   core: BootstrapCore;
@@ -184,7 +185,7 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
             {wave.phase === 'awaiting' ? <button className="hud-primary-action" type="button" onClick={() => core.dispatch({ type: 'START_WAVE' })}>Start wave</button> : null}
             {snapshot.progressionStage === 'mvp' && (wave.phase === 'awaiting' || wave.phase === 'complete') ? areaUnlocks.filter((unlock) => unlock.status === 'locked').map((unlock) => <p key={unlock.areaId} role="status">{unlock.buildingLabel} unlock: {snapshot.reputation}/{MVP_AREA_REPUTATION_PROVISIONAL[unlock.areaId]} cumulative Reputation. Purchase requires {unlock.coinCost} Coins separately.</p>) : null}
             {(wave.phase === 'awaiting' || wave.phase === 'complete') ? areaUnlocks.filter((unlock) => unlock.status === 'available').map((unlock) => <button className="phase-command__offer" key={unlock.areaId} type="button" onClick={() => { setSelectedNeed(unlock.need); core.dispatch({ type: 'PURCHASE_AREA', areaId: unlock.areaId }); }}><strong>Open {unlock.buildingLabel}</strong><small>New {NORMAL_SERVICE_CATALOG[unlock.need].needLabel} service + {unlock.includedWorkerId}</small><span>{unlock.coinCost} Coins</span></button>) : null}
-            {wave.phase === 'complete' && !finalWaveComplete ? <button className="hud-primary-action" type="button" onClick={() => core.dispatch({ type: 'CONTINUE_TO_NEXT_WAVE' })}>Next wave</button> : null}
+            {wave.phase === 'complete' && !finalWaveComplete ? <WaveToUpgradeFlow key={snapshot.bootId + ':' + snapshot.currentWaveNumber} state={snapshot} onUpgrade={(need) => core.dispatch({ type: 'UPGRADE_BUILDING', need })} onNextWave={() => core.dispatch({ type: 'CONTINUE_TO_NEXT_WAVE' })} /> : null}
             {finalWaveComplete ? <button className="hud-primary-action" type="button" onClick={() => { void onNewResort(); }}>New resort</button> : null}
           </div>
         </section>

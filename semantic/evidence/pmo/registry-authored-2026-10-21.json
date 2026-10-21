@@ -1,0 +1,2473 @@
+{
+  "schemaVersion": 1,
+  "coordinateSpace": "world",
+  "objects": [
+    {
+      "id": "pmo-519d1658-cfbc-46da-829a-9fa14366c789",
+      "name": "building_1",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "pt-f52e5e0f-ba7c-4c19-a325-0c24937fb1b8": [
+            2.5979,
+            -0.9621,
+            3.12
+          ]
+        },
+        "edges": []
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 5
+    },
+    {
+      "id": "pmo-5570d5ee-3a4d-41aa-abcc-f44be507d694",
+      "name": "building_2",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "pt-57651820-3fbe-49ef-aca0-fbe969b529f5": [
+            4.1868,
+            -0.9568,
+            3.4021
+          ]
+        },
+        "edges": []
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 3
+    },
+    {
+      "id": "pmo-0e856759-fe15-4241-bb2a-46cfbc64a5c4",
+      "name": "building_3",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "pt-00d20db1-b220-4489-8df8-3137d8bc34d5": [
+            1.0643,
+            -0.9709,
+            2.557
+          ]
+        },
+        "edges": []
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 3
+    },
+    {
+      "id": "pmo-1212f1c6-6012-415b-abd4-7f8dc8751f0a",
+      "name": "building_4",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "pt-c3533e43-d3cb-44a2-ba5e-0ad8915701f1": [
+            2.7875,
+            -0.9627,
+            2.0431
+          ]
+        },
+        "edges": []
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 3
+    },
+    {
+      "id": "pmo-932be736-c380-4aff-9765-bac420349b5e",
+      "name": "building_5",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "pt-f1ec3076-5387-4213-9aff-12bbeb813bd9": [
+            3.8798,
+            -0.5225,
+            -0.0742
+          ]
+        },
+        "edges": []
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 3
+    },
+    {
+      "id": "pmo-43da1713-bffe-4888-aea1-44957b3b7bec",
+      "name": "stairs from place_4 to place_5",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "pt-4ccf59d7-ee9f-4413-8cb7-961b3248baad": [
+            2.7129,
+            -0.9812,
+            1.1988
+          ],
+          "pt-8947211a-982b-4b9a-ac44-cb9a2a876bc3": [
+            3.3713,
+            -0.4341,
+            0.4165
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-f2055f2f-b53e-432d-81f2-d5164bd4f82c",
+            "from": "pt-4ccf59d7-ee9f-4413-8cb7-961b3248baad",
+            "to": "pt-8947211a-982b-4b9a-ac44-cb9a2a876bc3",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 4
+    },
+    {
+      "id": "pmo-0a36f1a4-c8de-440d-acae-0fe8240b6325",
+      "name": "building_6",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "pt-d1f4cb1e-a3f7-47ef-9a3d-67d65c0ea041": [
+            2.7131,
+            0.2414,
+            -2.5428
+          ]
+        },
+        "edges": []
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 3
+    },
+    {
+      "id": "pmo-2d1f3e6f-85ee-4abd-96fe-fd42943edcd4",
+      "name": "lift from place_5 to place_6",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "pt-bcd1fc34-9e38-4494-acdb-253155e15d76": [
+            3.8532,
+            -0.4064,
+            -0.5487
+          ],
+          "pt-e08ef451-3a7e-4226-b8fa-e7e095d00e56": [
+            3.2765,
+            0.5647,
+            -1.202
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-29b0f8d7-cb3e-4ef5-9c1d-fea6f7c0cffb",
+            "from": "pt-bcd1fc34-9e38-4494-acdb-253155e15d76",
+            "to": "pt-e08ef451-3a7e-4226-b8fa-e7e095d00e56",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 4
+    },
+    {
+      "id": "pmo-4857a734-792e-4798-b102-c0ecb92daf1d",
+      "name": "bridge from place_6 to place_7",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "pt-9dbefc41-1d63-4d34-af98-8a7bc4180676": [
+            1.8613,
+            0.2132,
+            -2.6254
+          ],
+          "pt-b5383794-3ade-4853-866d-c2ee48cf95b6": [
+            -0.0104,
+            -0.0295,
+            -3.4471
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-c3f782c1-e6a3-4898-97f4-4d8562ee537a",
+            "from": "pt-9dbefc41-1d63-4d34-af98-8a7bc4180676",
+            "to": "pt-b5383794-3ade-4853-866d-c2ee48cf95b6",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 4
+    },
+    {
+      "id": "pmo-debba52a-56be-4113-9bc5-9c910ccd9d20",
+      "name": "building_7",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "pt-a8edcdca-bd68-4e90-be56-2946b117b4af": [
+            -1.3573,
+            -0.3608,
+            -3.9022
+          ]
+        },
+        "edges": []
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 3
+    },
+    {
+      "id": "pmo-02971a36-0dbc-47ed-a6c4-d532f148c2c0",
+      "name": "bridge from place_3 to place_8",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "pt-ba960b3d-6b1d-4cde-a8a7-192f5ff4ce17": [
+            0.5513,
+            -1.0402,
+            2.7778
+          ],
+          "pt-ee5f4a02-6f11-4104-9879-a3c34bf58092": [
+            -0.7173,
+            -0.8695,
+            3.48
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-5a42cd2c-9284-4bbe-8b97-3a7229859c5e",
+            "from": "pt-ba960b3d-6b1d-4cde-a8a7-192f5ff4ce17",
+            "to": "pt-ee5f4a02-6f11-4104-9879-a3c34bf58092",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 5
+    },
+    {
+      "id": "pmo-8d93f0b5-c6e9-49d1-8bcb-934b5425d12d",
+      "name": "building_8",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "pt-e5858ca7-213d-4e1e-936c-cb716e64b708": [
+            -1.4041,
+            -0.9461,
+            3.3013
+          ]
+        },
+        "edges": []
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 3
+    },
+    {
+      "id": "pmo-bcd1f9a0-b520-473a-bef8-bccfc8ac2e41",
+      "name": "lift from place_8 to place_9",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "pt-67204e23-77ac-426a-8573-54716ac08eaf": [
+            -2.0794,
+            -0.9096,
+            2.9613
+          ],
+          "pt-6eb808f9-5ed9-4262-899d-18f597ae41cf": [
+            -2.4687,
+            -0.176,
+            2.5048
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-5c288e01-9ef8-4019-8f46-e2651517e672",
+            "from": "pt-67204e23-77ac-426a-8573-54716ac08eaf",
+            "to": "pt-6eb808f9-5ed9-4262-899d-18f597ae41cf",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 4
+    },
+    {
+      "id": "pmo-5512bdf0-99db-4c87-a0bc-8575704e6a1f",
+      "name": "building_9",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "pt-f2518f3e-e34e-40aa-a618-8dc454dff531": [
+            -3.3693,
+            -0.171,
+            2.2274
+          ]
+        },
+        "edges": []
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 3
+    },
+    {
+      "id": "pmo-6bc60e4a-1f8f-421e-97e4-e7784a9f94d7",
+      "name": "zone_main_beach_entries",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-c65307da-b622-4904-9455-e9a4e9fff3bc",
+            "radius": 0.51,
+            "color": "#000000",
+            "points": [
+              [
+                -0.8188,
+                -2.3236,
+                5.5066
+              ]
+            ]
+          },
+          {
+            "id": "stroke-f414b239-4d78-4a4d-a711-4088a8b81f2c",
+            "radius": 0.51,
+            "color": "#000000",
+            "points": [
+              [
+                0.0993,
+                -2.3249,
+                5.7186
+              ]
+            ]
+          },
+          {
+            "id": "stroke-a57ec582-8292-433a-854f-097cb414f515",
+            "radius": 0.51,
+            "color": "#000000",
+            "points": [
+              [
+                1.503,
+                -2.2873,
+                6.0265
+              ]
+            ]
+          },
+          {
+            "id": "stroke-e3c5cddd-c3b4-4c2c-9deb-6b8521460308",
+            "radius": 0.51,
+            "color": "#000000",
+            "points": [
+              [
+                2.3088,
+                -2.3243,
+                5.7419
+              ]
+            ]
+          },
+          {
+            "id": "stroke-ee4c7fa7-546f-45f2-a730-b285a83cff4d",
+            "radius": 0.51,
+            "color": "#000000",
+            "points": [
+              [
+                2.9771,
+                -2.3749,
+                5.1924
+              ]
+            ]
+          },
+          {
+            "id": "stroke-18facb73-0ab5-4847-8818-a26c7b8f4c24",
+            "radius": 0.51,
+            "color": "#000000",
+            "points": [
+              [
+                3.9069,
+                -2.3289,
+                5.4194
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 7
+    },
+    {
+      "id": "pmo-86ae7796-80dc-4dbc-a332-d4479ef3d307",
+      "name": "zone_main_beach",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-0980e53d-762f-421c-9974-2e8aa07dcc56",
+            "radius": 0.51,
+            "color": "#fffdc7",
+            "points": [
+              [
+                4.0721,
+                -2.272,
+                4.7513
+              ]
+            ]
+          },
+          {
+            "id": "stroke-a2f34801-e8bb-4037-89a9-88f8726fc5fd",
+            "radius": 0.51,
+            "color": "#fffdc7",
+            "points": [
+              [
+                3.2311,
+                -2.2458,
+                4.6385
+              ]
+            ]
+          },
+          {
+            "id": "stroke-eb56d1fc-f396-4a48-ab68-e3425a42db5f",
+            "radius": 0.51,
+            "color": "#fffdc7",
+            "points": [
+              [
+                2.3323,
+                -2.2456,
+                4.5835
+              ]
+            ]
+          },
+          {
+            "id": "stroke-988361b0-0b69-461b-95fa-295b6debec35",
+            "radius": 0.51,
+            "color": "#fffdc7",
+            "points": [
+              [
+                1.3867,
+                -2.2573,
+                4.7764
+              ]
+            ]
+          },
+          {
+            "id": "stroke-4c9fa29a-7956-4a92-b8eb-ca271c328eb9",
+            "radius": 0.51,
+            "color": "#fffdc7",
+            "points": [
+              [
+                0.3218,
+                -2.2703,
+                4.5958
+              ]
+            ]
+          },
+          {
+            "id": "stroke-88a3a422-8909-40e8-8943-36242c3bdc5a",
+            "radius": 0.51,
+            "color": "#fffdc7",
+            "points": [
+              [
+                -0.2749,
+                -2.2672,
+                4.1368
+              ]
+            ]
+          },
+          {
+            "id": "stroke-f5ba88fa-0567-4604-8b22-7fd0d79c21f5",
+            "radius": 0.51,
+            "color": "#fffdc7",
+            "points": [
+              [
+                -0.4157,
+                -2.2951,
+                4.8362
+              ]
+            ]
+          },
+          {
+            "id": "stroke-aa067485-e8d0-4ff5-8eb1-9033351cf6ee",
+            "radius": 0.51,
+            "color": "#fffdc7",
+            "points": [
+              [
+                0.6618,
+                -2.2822,
+                5.2971
+              ]
+            ]
+          },
+          {
+            "id": "stroke-f2bfdf96-76f2-4ff9-b469-76857ba70776",
+            "radius": 0.51,
+            "color": "#fffdc7",
+            "points": [
+              [
+                1.6822,
+                -2.2991,
+                5.1124
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 10
+    },
+    {
+      "id": "pmo-1047cb01-7f9a-4799-87bd-f4a93df27e31",
+      "name": "zone_other_green",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-99348ec6-61b5-453d-8334-c8d63ce507cc",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -1.418,
+                -0.8621,
+                4.5601
+              ]
+            ]
+          },
+          {
+            "id": "stroke-fd5f9040-98be-43d9-87b2-d62db68551ee",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -2.1479,
+                -0.7741,
+                4.0618
+              ]
+            ]
+          },
+          {
+            "id": "stroke-703ab22e-7586-4122-83af-b7b257346a08",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -2.2734,
+                0.3047,
+                3.5923
+              ]
+            ]
+          },
+          {
+            "id": "stroke-618fc3a6-ef04-4620-a228-e3534e4dbc17",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -3.0524,
+                0.2224,
+                3.8234
+              ]
+            ]
+          },
+          {
+            "id": "stroke-3c595b95-35e1-495f-b6d1-27e1274d46ef",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -4.0329,
+                0.0537,
+                2.959
+              ]
+            ]
+          },
+          {
+            "id": "stroke-d02ba2a7-e629-4dc1-b38f-a577338a882e",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -3.3485,
+                -0.0875,
+                1.0215
+              ]
+            ]
+          },
+          {
+            "id": "stroke-c312df4c-4f56-4dce-9369-fe367f0cb07f",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -2.0014,
+                0.0733,
+                2.2252
+              ]
+            ]
+          },
+          {
+            "id": "stroke-3ede9d6f-8c14-4d20-9c12-76556bcb7d17",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -0.0315,
+                -0.8115,
+                2.2927
+              ]
+            ]
+          },
+          {
+            "id": "stroke-18ea8a97-640e-4ac6-89e1-2141960b1d4e",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -0.6709,
+                -0.7279,
+                1.4265
+              ]
+            ]
+          },
+          {
+            "id": "stroke-c146d8cd-165b-4793-a625-688a95eb45b3",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -1.5676,
+                -1.2435,
+                1.4623
+              ]
+            ]
+          },
+          {
+            "id": "stroke-ceb7f108-3eb6-46ed-9041-dbbdf2497c87",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                1.4327,
+                -1.3126,
+                3.9992
+              ]
+            ]
+          },
+          {
+            "id": "stroke-e715acfc-5379-4511-9751-61f2e9508da8",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                0.8372,
+                -1.3854,
+                3.2335
+              ]
+            ]
+          },
+          {
+            "id": "stroke-0823d121-952a-4375-9b4a-601f5b457e6a",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                1.4919,
+                -1.1867,
+                3.591
+              ]
+            ]
+          },
+          {
+            "id": "stroke-32b134ab-0be7-4923-9568-e4d826010880",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                3.5613,
+                -1.2305,
+                4.2266
+              ]
+            ]
+          },
+          {
+            "id": "stroke-82633f63-c2b2-457f-b858-ffe3235acdf8",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                5.0012,
+                -0.8323,
+                4.4931
+              ]
+            ]
+          },
+          {
+            "id": "stroke-a949873a-3927-481c-a6da-38546a4bc4cc",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                5.4678,
+                -0.7282,
+                3.9045
+              ]
+            ]
+          },
+          {
+            "id": "stroke-284f0cef-f0e6-4332-89bc-8f706e5da789",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                5.3623,
+                -0.6403,
+                3.1525
+              ]
+            ]
+          },
+          {
+            "id": "stroke-0384a1c3-145c-4e11-9ad8-6f31824ae80d",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                4.6609,
+                -0.5102,
+                2.6469
+              ]
+            ]
+          },
+          {
+            "id": "stroke-87b1b271-2565-4461-bfbc-e420f3085c3a",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                3.8895,
+                -0.7036,
+                2.4475
+              ]
+            ]
+          },
+          {
+            "id": "stroke-b89be28b-fe62-461b-8548-8be5c9d3d667",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                5.061,
+                -0.8697,
+                2.0608
+              ]
+            ]
+          },
+          {
+            "id": "stroke-a4b64d72-3cdd-4821-86c8-2f8f608a6fb5",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                1.6954,
+                -0.5636,
+                1.9597
+              ]
+            ]
+          },
+          {
+            "id": "stroke-5074c089-a200-4176-9a2b-c3cddb982323",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                1.4259,
+                -1.4455,
+                0.2925
+              ]
+            ]
+          },
+          {
+            "id": "stroke-fb3f1543-090c-4836-bd30-0836dd7496dc",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                1.513,
+                -1.2564,
+                -0.608
+              ]
+            ]
+          },
+          {
+            "id": "stroke-a0e5981f-0cb5-4b74-b3b1-018d1940fdf3",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                1.4652,
+                -1.0155,
+                -1.1977
+              ]
+            ]
+          },
+          {
+            "id": "stroke-ba7eb611-0e4f-4a39-bf6e-60f8e2a9ad23",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                0.334,
+                -1.3117,
+                -1.9918
+              ]
+            ]
+          },
+          {
+            "id": "stroke-2b14a7d7-72a0-4e5e-8708-f23153c2f829",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -0.5429,
+                -1.4529,
+                -2.0187
+              ]
+            ]
+          },
+          {
+            "id": "stroke-800645f9-9501-45bf-ad56-48aaee67ac56",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                0.2784,
+                0.0073,
+                -2.6796
+              ]
+            ]
+          },
+          {
+            "id": "stroke-82cdc3a6-d04b-4ac3-a28d-6de24dc4d78f",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -0.8883,
+                -0.3681,
+                -2.771
+              ]
+            ]
+          },
+          {
+            "id": "stroke-7fbf1de1-1109-4092-ac7d-9f26652cab1b",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -2.9257,
+                -0.0138,
+                -3.9377
+              ]
+            ]
+          },
+          {
+            "id": "stroke-bf4e70ab-bd08-4579-b1f2-acd95407cc5e",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -2.9883,
+                0.258,
+                -4.8106
+              ]
+            ]
+          },
+          {
+            "id": "stroke-374d0211-0021-42ac-baa8-15d368d3ac8d",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -1.731,
+                -0.3093,
+                -5.2631
+              ]
+            ]
+          },
+          {
+            "id": "stroke-1e41adf3-126f-43f5-a185-3446eb22f85f",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -0.2663,
+                1.0995,
+                -4.6566
+              ]
+            ]
+          },
+          {
+            "id": "stroke-67ebb088-c140-47f5-81ff-be37b678120a",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                2.1683,
+                1.3163,
+                -3.3313
+              ]
+            ]
+          },
+          {
+            "id": "stroke-8c6ee735-55e4-498f-8ebe-db556e5f345c",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                2.7525,
+                0.7917,
+                -1.0393
+              ]
+            ]
+          },
+          {
+            "id": "stroke-395a3489-7d60-4ae4-9574-9cbac34c9f4c",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                5.3522,
+                -1.5898,
+                0.5862
+              ]
+            ]
+          },
+          {
+            "id": "stroke-738d4509-af3a-436d-a4e8-0cbfcaefc043",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -4.2254,
+                0.9892,
+                1.6549
+              ]
+            ]
+          },
+          {
+            "id": "stroke-4784df19-8aa6-4cbb-aa87-92fbe7a29303",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -4.1557,
+                1.3031,
+                1.2163
+              ]
+            ]
+          },
+          {
+            "id": "stroke-bc9e1acb-4c5b-4e62-9d2e-b5e069c5206e",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -5.815,
+                -0.0085,
+                0.7557
+              ]
+            ]
+          },
+          {
+            "id": "stroke-16554714-8444-4c3c-87ce-ec1b75e9de24",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -5.7438,
+                1.1244,
+                -0.1212
+              ]
+            ]
+          },
+          {
+            "id": "stroke-03226686-6998-4f68-88c4-a964bd0f0e6a",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -4.8867,
+                1.2478,
+                -0.5159
+              ]
+            ]
+          },
+          {
+            "id": "stroke-1dcfe0e6-cf99-478a-b5ff-47513dd0509b",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -5.1808,
+                2.127,
+                -1.0262
+              ]
+            ]
+          },
+          {
+            "id": "stroke-57ecb269-d350-49a6-a343-a5bb4e097fcd",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -5.7509,
+                2.5103,
+                -1.8913
+              ]
+            ]
+          },
+          {
+            "id": "stroke-ec829790-54de-4f45-ac35-9c8ab7fabfa6",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -4.9907,
+                3.1197,
+                -2.5867
+              ]
+            ]
+          },
+          {
+            "id": "stroke-d2f632fc-5775-4d66-a2bc-9123a5416d11",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -4.8077,
+                3.618,
+                -2.9678
+              ]
+            ]
+          },
+          {
+            "id": "stroke-54d09a10-e504-4224-a7d5-adf34f05376b",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                4.0661,
+                0.1528,
+                -2.1239
+              ]
+            ]
+          },
+          {
+            "id": "stroke-040dc0cf-0410-4e5b-9a73-5d4a215a485a",
+            "radius": 0.51,
+            "color": "#59ff00",
+            "points": [
+              [
+                -4.3771,
+                0.0017,
+                -0.345
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 47
+    },
+    {
+      "id": "pmo-4e018410-02e5-4ca4-969e-8f1c1f23ad33",
+      "name": "zone_waterfall_1",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-6a1faadf-c5e2-4838-b040-5bce5cb37271",
+            "radius": 0.31,
+            "color": "#00ffee",
+            "points": [
+              [
+                -5.1866,
+                1.6179,
+                -2.3103
+              ]
+            ]
+          },
+          {
+            "id": "stroke-2f89306e-eff5-44c9-bf3c-8d1bea6346e2",
+            "radius": 0.31,
+            "color": "#00ffee",
+            "points": [
+              [
+                -4.8258,
+                1.4183,
+                -2.0665
+              ]
+            ]
+          },
+          {
+            "id": "stroke-2966b041-e748-4f7e-b13b-f86edbe71a78",
+            "radius": 0.31,
+            "color": "#00ffee",
+            "points": [
+              [
+                -4.6649,
+                1.0316,
+                -1.9917
+              ]
+            ]
+          },
+          {
+            "id": "stroke-c36db1f7-53bc-4e0f-a1c4-ac76ef6f5fbc",
+            "radius": 0.31,
+            "color": "#00ffee",
+            "points": [
+              [
+                -4.3623,
+                0.8122,
+                -1.9109
+              ]
+            ]
+          },
+          {
+            "id": "stroke-438ab5f9-17a2-4b52-8705-c86021e1d5eb",
+            "radius": 0.51,
+            "color": "#00ffee",
+            "points": [
+              [
+                -3.9603,
+                0.6444,
+                -1.7021
+              ]
+            ]
+          },
+          {
+            "id": "stroke-614ba26d-2415-42da-95a7-0f0e7b96c575",
+            "radius": 0.51,
+            "color": "#00ffee",
+            "points": [
+              [
+                -3.8983,
+                -0.1522,
+                -1.6224
+              ]
+            ]
+          },
+          {
+            "id": "stroke-e1087885-6fbc-43db-b907-d1adcaec910a",
+            "radius": 0.51,
+            "color": "#00ffee",
+            "points": [
+              [
+                -3.7851,
+                -0.9467,
+                -1.5209
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 8
+    },
+    {
+      "id": "pmo-2fcf457c-57fc-41ed-86ff-2e9b6a54e1b4",
+      "name": "zone_waterfall_2",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-7e771c08-87f8-4d48-b4af-9b9c516fa9b0",
+            "radius": 0.41,
+            "color": "#00ffee",
+            "points": [
+              [
+                -3.2265,
+                -0.8692,
+                0.2098
+              ]
+            ]
+          },
+          {
+            "id": "stroke-725cec4e-2868-4bab-a95e-c2e9016fd0af",
+            "radius": 0.41,
+            "color": "#00ffee",
+            "points": [
+              [
+                -2.7436,
+                -1.092,
+                0.4346
+              ]
+            ]
+          },
+          {
+            "id": "stroke-beabe88d-be14-4d22-9a4b-bad029613083",
+            "radius": 0.41,
+            "color": "#00ffee",
+            "points": [
+              [
+                -2.6314,
+                -1.6452,
+                0.4908
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 4
+    },
+    {
+      "id": "pmo-d9b135eb-16db-4067-bb4d-1997d91118e0",
+      "name": "zone_waterfall_3",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-1e6a7c80-1174-4a69-947a-6ebf91e4af4f",
+            "radius": 0.41,
+            "color": "#00ffee",
+            "points": [
+              [
+                -2.721,
+                -0.9994,
+                -0.9892
+              ]
+            ]
+          },
+          {
+            "id": "stroke-91160130-349b-4a70-a6ae-cd0e09f75b9f",
+            "radius": 0.41,
+            "color": "#00ffee",
+            "points": [
+              [
+                -2.1131,
+                -1.1669,
+                -0.8239
+              ]
+            ]
+          },
+          {
+            "id": "stroke-b5ddf844-dacc-47af-8f27-a6de26c7adfd",
+            "radius": 0.41,
+            "color": "#00ffee",
+            "points": [
+              [
+                -1.962,
+                -1.7581,
+                -0.8057
+              ]
+            ]
+          },
+          {
+            "id": "stroke-3b998dbf-ad14-4ca4-8144-568b437534a3",
+            "radius": 0.41,
+            "color": "#00ffee",
+            "points": [
+              [
+                -1.6766,
+                -2.2068,
+                -0.7029
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 5
+    },
+    {
+      "id": "pmo-f0111ea5-35c1-4d4c-b061-6a6909984cdb",
+      "name": "zone_waterfall_4",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-3f38fc7a-ea22-49bf-a6b1-9f2767316112",
+            "radius": 0.31,
+            "color": "#00ffee",
+            "points": [
+              [
+                -0.4579,
+                -1.2304,
+                2.5368
+              ]
+            ]
+          },
+          {
+            "id": "stroke-7b3446b3-ff5e-4a7f-a8b0-20a8f17bf702",
+            "radius": 0.31,
+            "color": "#00ffee",
+            "points": [
+              [
+                -0.3099,
+                -1.674,
+                2.639
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 3
+    },
+    {
+      "id": "pmo-ef1fcf52-fbf1-404e-b7c8-511578a338a0",
+      "name": "zone_central_lake",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-2ab8646d-1163-40c9-9e68-a9dc867ad0ae",
+            "radius": 1.31,
+            "color": "#00ffee",
+            "points": [
+              [
+                -0.3847,
+                -2.1856,
+                -0.6266
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": false,
+      "revision": 3
+    },
+    {
+      "id": "pmo-d3f9223a-8a1f-4d7e-a0a7-cc85cff12859",
+      "name": "zone_central_oak_beach_side",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-faaa7d6c-9c14-41d1-811c-232987d32ced",
+            "radius": 0.41,
+            "color": "#fbff00",
+            "points": [
+              [
+                -0.8538,
+                -2.0446,
+                -1.758
+              ]
+            ]
+          },
+          {
+            "id": "stroke-9e43ad76-ea06-477b-8d66-e29a220f4cec",
+            "radius": 0.41,
+            "color": "#fbff00",
+            "points": [
+              [
+                -0.3241,
+                -2.0801,
+                -1.8254
+              ]
+            ]
+          },
+          {
+            "id": "stroke-9211520a-3ebf-4541-8e5a-f69a4421ca4c",
+            "radius": 0.41,
+            "color": "#fbff00",
+            "points": [
+              [
+                0.1736,
+                -2.0936,
+                -1.7138
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 4
+    },
+    {
+      "id": "pmo-3e5233bf-47e5-477b-adac-6ba4dd0f67f7",
+      "name": "zone_mountain_lil_lake",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-3ec84b92-8f96-4224-88c1-aea625046be8",
+            "radius": 0.41,
+            "color": "#01a5a7",
+            "points": [
+              [
+                -4.1554,
+                -1.1127,
+                -0.9404
+              ]
+            ]
+          },
+          {
+            "id": "stroke-cf89e3ce-8366-4eb1-9582-4e5234154a23",
+            "radius": 0.41,
+            "color": "#01a5a7",
+            "points": [
+              [
+                -3.3267,
+                -1.1779,
+                -1.988
+              ]
+            ]
+          },
+          {
+            "id": "stroke-1f957737-f644-4178-bc5a-3c6752a99f1f",
+            "radius": 0.41,
+            "color": "#01a5a7",
+            "points": [
+              [
+                -2.8834,
+                -1.2285,
+                -1.5501
+              ]
+            ]
+          },
+          {
+            "id": "stroke-997840b8-1d15-495b-aac4-049d43b7bea0",
+            "radius": 0.41,
+            "color": "#01a5a7",
+            "points": [
+              [
+                -3.9286,
+                -1.0666,
+                -0.3406
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 6
+    },
+    {
+      "id": "pmo-fef3383f-36aa-46e1-85e3-13290c65e790",
+      "name": "zone_mountain",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-a6622783-595f-40e5-9e4f-45b0d09b8a64",
+            "radius": 3.5,
+            "color": "#408000",
+            "points": [
+              [
+                -4.9003,
+                1.4058,
+                -2.0303
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 2
+    },
+    {
+      "id": "pmo-3ae6a767-a0f4-40af-b982-ec36346bebe6",
+      "name": "stairs_from_main_beach_to_places_1-4",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "pt-6c932cc6-1d8e-43a9-b4aa-b46cec152bed": [
+            1.6739,
+            -2.2456,
+            4.5734
+          ],
+          "pt-b137323e-498f-4398-a8ca-08ff442e69ee": [
+            2.1003,
+            -1.2289,
+            3.6249
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-75a62dfb-676b-4b60-bde3-95e51300ac3d",
+            "from": "pt-6c932cc6-1d8e-43a9-b4aa-b46cec152bed",
+            "to": "pt-b137323e-498f-4398-a8ca-08ff442e69ee",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 4
+    },
+    {
+      "id": "pmo-20230b96-16a7-4e52-a3e1-08bb9738e044",
+      "name": "zone_mountain_peak",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-b3d28a67-413a-42d4-9c23-2ea0cd580846",
+            "radius": 1.5,
+            "color": "#04b450",
+            "points": [
+              [
+                -4.8994,
+                2.3072,
+                -2.5574
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 2
+    },
+    {
+      "id": "pmo-b4706225-62bb-46ae-9398-e1b689553e4c",
+      "name": "zone_building_1",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-20d79f7e-958d-42dc-9f36-15e88421a619",
+            "radius": 0.51,
+            "color": "#5c04b4",
+            "points": [
+              [
+                2.5764,
+                -0.9623,
+                3.1364
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 2
+    },
+    {
+      "id": "pmo-a370eb6c-3f93-4ae3-99ba-772a9d1faf8e",
+      "name": "zone_building_2",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-f3ad7473-ee89-4434-ab8e-8dbb45361b58",
+            "radius": 0.51,
+            "color": "#5c04b4",
+            "points": [
+              [
+                4.1868,
+                -0.9568,
+                3.4021
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 2
+    },
+    {
+      "id": "pmo-a9b3f3e9-abdb-4752-9666-cbd95a29e5cb",
+      "name": "zone_building_3",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-f3b8caef-3bc6-49d7-81d3-927721bb91d2",
+            "radius": 0.51,
+            "color": "#5c04b4",
+            "points": [
+              [
+                1.0643,
+                -0.9709,
+                2.557
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 2
+    },
+    {
+      "id": "pmo-7bb19ca5-1e38-4a15-9b9a-3d8411401609",
+      "name": "zone_building_4",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-773bab5e-58d4-4bdf-b888-1926d284fbaa",
+            "radius": 0.51,
+            "color": "#5c04b4",
+            "points": [
+              [
+                2.7875,
+                -0.9627,
+                2.0431
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 2
+    },
+    {
+      "id": "pmo-3b07e78d-3e2c-4a10-9629-56d763fb8b28",
+      "name": "zone_building_5",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-68a55ecd-01ca-44d0-9e4e-bf4392d50595",
+            "radius": 0.51,
+            "color": "#5c04b4",
+            "points": [
+              [
+                3.9076,
+                -0.5228,
+                -0.0384
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 2
+    },
+    {
+      "id": "pmo-ceac8b37-33cd-4fa7-9095-7eb274ca9244",
+      "name": "zone_building_6",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-7fd619fc-b0da-4b03-a4af-471089866bea",
+            "radius": 0.51,
+            "color": "#5c04b4",
+            "points": [
+              [
+                2.7131,
+                0.2414,
+                -2.5428
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 2
+    },
+    {
+      "id": "pmo-1a863159-f177-4804-a75b-fe00f6b76eb5",
+      "name": "zone_building_7",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-021f72dc-e073-4e87-9378-1d79950e4c51",
+            "radius": 0.51,
+            "color": "#5c04b4",
+            "points": [
+              [
+                -1.3644,
+                -0.3611,
+                -3.9553
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 3
+    },
+    {
+      "id": "pmo-35138ef0-f452-466d-9616-8676d2250ce9",
+      "name": "zone_building_8",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-fa652d84-b986-4e0d-9192-3c3e02fec657",
+            "radius": 0.51,
+            "color": "#5c04b4",
+            "points": [
+              [
+                -1.383,
+                -0.9463,
+                3.2845
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 2
+    },
+    {
+      "id": "pmo-32dba149-5605-48aa-a1ca-20b88788d237",
+      "name": "zone_building_9",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-15b78212-2f0b-4271-9b6a-027cbd77a8cb",
+            "radius": 0.51,
+            "color": "#5c04b4",
+            "points": [
+              [
+                -3.3758,
+                -0.1707,
+                2.175
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 2
+    },
+    {
+      "id": "pmo-9d373183-7189-4814-88cf-8464ee05c2e7",
+      "name": "zone_pawns_can_move",
+      "geometry": {
+        "type": "paint",
+        "strokes": [
+          {
+            "id": "stroke-923ac2ff-75bc-4f5f-94b7-85811113a3e8",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                3.9515,
+                -2.2954,
+                5.0365
+              ]
+            ]
+          },
+          {
+            "id": "stroke-425708bc-5bb6-4a56-84d2-8b5f5f1b7b38",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                4.0211,
+                -2.2658,
+                4.6857
+              ]
+            ]
+          },
+          {
+            "id": "stroke-b0267dad-6536-4e87-97d6-cc86914b47f5",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                3.8016,
+                -1.7617,
+                4.9758
+              ]
+            ]
+          },
+          {
+            "id": "stroke-ec87724b-c927-472d-bb45-47e1e09ba26b",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                3.0626,
+                -2.2928,
+                4.8621
+              ]
+            ]
+          },
+          {
+            "id": "stroke-e758024a-c6c1-43ce-b9a6-e130e43b0212",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                2.6195,
+                -2.2512,
+                4.2924
+              ]
+            ]
+          },
+          {
+            "id": "stroke-6a737ca3-568f-48f7-9d43-c4d9585bf511",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                2.0813,
+                -2.2419,
+                4.4369
+              ]
+            ]
+          },
+          {
+            "id": "stroke-a928545d-ffa0-4b36-ae15-ec35a0a225fa",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                2.3278,
+                -2.274,
+                4.8858
+              ]
+            ]
+          },
+          {
+            "id": "stroke-b5a78081-187d-4561-8238-7924f4b27983",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                2.0865,
+                -2.3558,
+                5.2799
+              ]
+            ]
+          },
+          {
+            "id": "stroke-d469c875-f485-4264-b760-0098a2e5f759",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                1.7336,
+                -2.3014,
+                5.7067
+              ]
+            ]
+          },
+          {
+            "id": "stroke-f2172750-ea79-405c-b96e-32f2953cd28e",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                1.1753,
+                -2.2827,
+                5.8252
+              ]
+            ]
+          },
+          {
+            "id": "stroke-72e10b24-322b-4611-9958-751f971cf138",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                1.4498,
+                -2.2503,
+                4.6814
+              ]
+            ]
+          },
+          {
+            "id": "stroke-39c29d94-3ee7-4a2d-9a82-0ff5fb530217",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                1.3955,
+                -2.3034,
+                5.0959
+              ]
+            ]
+          },
+          {
+            "id": "stroke-f2fbc09e-3d50-4675-9e82-9c125369d57a",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                0.4131,
+                -2.2897,
+                5.5937
+              ]
+            ]
+          },
+          {
+            "id": "stroke-b241c922-c0b0-45a7-b833-3ef0d1b65986",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -0.3267,
+                -2.3126,
+                5.2589
+              ]
+            ]
+          },
+          {
+            "id": "stroke-0244955d-f815-40cc-9971-092e914cddd1",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -1.0622,
+                -2.3121,
+                5.1936
+              ]
+            ]
+          },
+          {
+            "id": "stroke-5ed78822-f621-4d07-b2b3-20ba6413ad61",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                0.7543,
+                -2.2448,
+                4.5356
+              ]
+            ]
+          },
+          {
+            "id": "stroke-cd04fa5a-e41c-4ab5-8897-a8d7dd42589f",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                0.7706,
+                -2.3223,
+                5.0849
+              ]
+            ]
+          },
+          {
+            "id": "stroke-e6eca640-7a2b-4dc2-b9e7-47b651f095a8",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                0.144,
+                -2.2695,
+                4.8515
+              ]
+            ]
+          },
+          {
+            "id": "stroke-db9c3504-9681-45d5-84d9-bad45599c298",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -0.6223,
+                -2.2894,
+                4.6586
+              ]
+            ]
+          },
+          {
+            "id": "stroke-146335c0-02f3-40f4-b644-b17055521e80",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -0.3245,
+                -2.2835,
+                4.2052
+              ]
+            ]
+          },
+          {
+            "id": "stroke-4e8e2d57-1c60-414f-a43c-4cbd86d0c5ba",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -0.0107,
+                -2.2482,
+                4.0803
+              ]
+            ]
+          },
+          {
+            "id": "stroke-0c492969-b83c-4f68-b7a8-70785365ecfa",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -0.3806,
+                -2.2372,
+                3.5166
+              ]
+            ]
+          },
+          {
+            "id": "stroke-4ac3713e-7a9f-49bf-b052-e6027e4ab3ea",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                2.1838,
+                -1.0302,
+                3.5561
+              ]
+            ]
+          },
+          {
+            "id": "stroke-a5a70645-bf8d-4749-9186-f51930035e37",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                1.8563,
+                -0.978,
+                2.915
+              ]
+            ]
+          },
+          {
+            "id": "stroke-112a42a9-2e6f-4f7b-aa2e-3e3fec65fccf",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                2.185,
+                -0.9943,
+                2.4571
+              ]
+            ]
+          },
+          {
+            "id": "stroke-7cf8a007-9879-484e-b5c8-e00d03341b3d",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                2.8158,
+                -0.959,
+                2.6078
+              ]
+            ]
+          },
+          {
+            "id": "stroke-635aab60-5e1a-41c4-9f2e-3e16a42e9332",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                3.1874,
+                -0.961,
+                2.9535
+              ]
+            ]
+          },
+          {
+            "id": "stroke-fe8af0e9-6ccc-442d-84f0-855ef9b0d2c4",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                3.2359,
+                -0.9507,
+                3.4561
+              ]
+            ]
+          },
+          {
+            "id": "stroke-69828913-65d1-468e-bd08-c1ba18808b89",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -2.5495,
+                -0.0967,
+                2.3569
+              ]
+            ]
+          },
+          {
+            "id": "stroke-b26ac707-10cc-4bce-8209-95cde8d2ab2a",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -2.9084,
+                -0.1153,
+                1.6754
+              ]
+            ]
+          },
+          {
+            "id": "stroke-c159d4ff-d460-49d0-b677-cf023229fc1c",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -2.0834,
+                -0.92,
+                3.3524
+              ]
+            ]
+          },
+          {
+            "id": "stroke-3e1ec470-fc4d-48b8-9448-fe9b75500c24",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -1.7673,
+                -0.9455,
+                3.7588
+              ]
+            ]
+          },
+          {
+            "id": "stroke-c58a0f2f-24f5-44e0-bd61-81e86915184a",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -1.1914,
+                -0.9421,
+                3.839
+              ]
+            ]
+          },
+          {
+            "id": "stroke-628fdaec-73be-4c13-b168-5dfa210350e6",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -0.723,
+                -0.8694,
+                3.2525
+              ]
+            ]
+          },
+          {
+            "id": "stroke-33bdb7e9-33aa-4a8a-92cc-473380c755fe",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -0.9776,
+                -0.9474,
+                2.7931
+              ]
+            ]
+          },
+          {
+            "id": "stroke-9f645cb1-9c75-4ca6-8f64-961d0858559a",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -1.9101,
+                -0.9123,
+                2.6508
+              ]
+            ]
+          },
+          {
+            "id": "stroke-ff49c4d5-0b17-49de-b161-a3269cfffa9f",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                2.0218,
+                -0.8896,
+                1.8951
+              ]
+            ]
+          },
+          {
+            "id": "stroke-f5600799-257a-4c07-a284-df53a729c1d8",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                2.4243,
+                -0.9611,
+                1.4
+              ]
+            ]
+          },
+          {
+            "id": "stroke-9630fc16-a53a-4463-a890-50fea3893a7c",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                3.3713,
+                -0.4341,
+                0.4165
+              ]
+            ]
+          },
+          {
+            "id": "stroke-58d234c1-2854-4750-8c33-cfcd3e940000",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                3.2135,
+                -0.4914,
+                -0.3146
+              ]
+            ]
+          },
+          {
+            "id": "stroke-52dc9fed-33ce-476c-b680-7bead2aa23f2",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                3.0309,
+                0.2365,
+                -1.8701
+              ]
+            ]
+          },
+          {
+            "id": "stroke-c5ba592f-a870-4dcb-867b-f721d53c43b3",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                3.3887,
+                0.2388,
+                -2.2024
+              ]
+            ]
+          },
+          {
+            "id": "stroke-d6e24344-cb8b-4817-9057-2bd084443a9f",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                3.3803,
+                0.2414,
+                -2.8296
+              ]
+            ]
+          },
+          {
+            "id": "stroke-21207b8e-8051-43c8-b3ff-922516a749b4",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                2.8462,
+                0.244,
+                -3.1641
+              ]
+            ]
+          },
+          {
+            "id": "stroke-0a7c00f4-77fa-4075-9fea-b78d172ea554",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                1.9885,
+                0.2723,
+                -2.5059
+              ]
+            ]
+          },
+          {
+            "id": "stroke-434f1cfe-b38a-4c94-a283-168b252869d8",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                0.0756,
+                -0.0287,
+                -3.5127
+              ]
+            ]
+          },
+          {
+            "id": "stroke-ec52b6f8-57fa-4c42-8600-a51c0e47d39c",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                0.1716,
+                -0.0275,
+                -4.0495
+              ]
+            ]
+          },
+          {
+            "id": "stroke-d91fd901-38fa-420a-98aa-03c09e253a51",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -0.5105,
+                -0.0418,
+                -3.2536
+              ]
+            ]
+          },
+          {
+            "id": "stroke-ab7136ff-8335-4906-a36a-6e16049a899c",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -1.3244,
+                -0.3608,
+                -4.7403
+              ]
+            ]
+          },
+          {
+            "id": "stroke-f9326617-c777-41d6-87f7-82f1e35dd51c",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -1.9813,
+                -0.3925,
+                -3.4719
+              ]
+            ]
+          },
+          {
+            "id": "stroke-f1cf61e3-40a6-4af7-8c2a-d1c70f06bc2d",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -2.3605,
+                -0.3106,
+                -3.035
+              ]
+            ]
+          },
+          {
+            "id": "stroke-898a1051-a4ce-4c19-849f-d1bebd28f5cf",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -2.3123,
+                -0.3916,
+                -2.4006
+              ]
+            ]
+          },
+          {
+            "id": "stroke-b2f92124-e75a-416a-8245-0b57e3fbafda",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -0.8873,
+                -2.0175,
+                -1.8011
+              ]
+            ]
+          },
+          {
+            "id": "stroke-4fa7e2c7-83b1-4cf7-93b5-9f6427622f76",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                -0.4559,
+                -2.0777,
+                -1.9509
+              ]
+            ]
+          },
+          {
+            "id": "stroke-dfdd1292-988e-400c-ae10-7541d4459353",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                0.1327,
+                -2.1008,
+                -1.8104
+              ]
+            ]
+          },
+          {
+            "id": "stroke-745a3598-930c-4c9f-bdec-1cfe5c54bfad",
+            "radius": 0.41,
+            "color": "#00ff7b",
+            "points": [
+              [
+                0.4568,
+                -2.142,
+                -1.4377
+              ]
+            ]
+          }
+        ]
+      },
+      "metadata": {},
+      "relations": [],
+      "visible": true,
+      "revision": 57
+    }
+  ]
+}

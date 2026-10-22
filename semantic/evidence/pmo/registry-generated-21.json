@@ -1,0 +1,1053 @@
+{
+  "schemaVersion": 1,
+  "coordinateSpace": "world",
+  "objects": [
+    {
+      "id": "pmo-auto-625ef207b00ae706097d76f2a5216c77",
+      "name": "pmo_auto_restore_1_stairs",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            2.4243,
+            -0.9611,
+            1.4
+          ],
+          "to": [
+            3.3713,
+            -0.4341,
+            0.4165
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-625ef207b00ae706097d76f2a5216c77",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "stairs",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "authored-transition-repair",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "sourceTransitionId": "pmo-43da1713-bffe-4888-aea1-44957b3b7bec",
+          "sourceEdgeId": "edge-f2055f2f-b53e-432d-81f2-d5164bd4f82c",
+          "via": [
+            [
+              2.7129,
+              -0.9812,
+              1.1988
+            ],
+            [
+              3.3713,
+              -0.4341,
+              0.4165
+            ]
+          ]
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-ce5b906e63359d89b9c00bedca4ae973",
+      "name": "pmo_auto_restore_2_lift",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            3.2135,
+            -0.4914,
+            -0.3146
+          ],
+          "to": [
+            3.0309,
+            0.2365,
+            -1.8701
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-ce5b906e63359d89b9c00bedca4ae973",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "lift",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "authored-transition-repair",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "sourceTransitionId": "pmo-2d1f3e6f-85ee-4abd-96fe-fd42943edcd4",
+          "sourceEdgeId": "edge-29b0f8d7-cb3e-4ef5-9c1d-fea6f7c0cffb",
+          "via": [
+            [
+              3.8532,
+              -0.4064,
+              -0.5487
+            ],
+            [
+              3.2765,
+              0.5647,
+              -1.202
+            ]
+          ]
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-0d8e7503722646fc2e2c78dc32833a65",
+      "name": "pmo_auto_restore_3_bridge",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            1.9885,
+            0.2723,
+            -2.5059
+          ],
+          "to": [
+            0.0756,
+            -0.0287,
+            -3.5127
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-0d8e7503722646fc2e2c78dc32833a65",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "bridge",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "authored-transition-repair",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "sourceTransitionId": "pmo-4857a734-792e-4798-b102-c0ecb92daf1d",
+          "sourceEdgeId": "edge-c3f782c1-e6a3-4898-97f4-4d8562ee537a",
+          "via": [
+            [
+              1.8613,
+              0.2132,
+              -2.6254
+            ],
+            [
+              -0.0104,
+              -0.0295,
+              -3.4471
+            ]
+          ]
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-dce9df8399fdfcede9179fc6aef4675f",
+      "name": "pmo_auto_restore_4_bridge",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            1.8563,
+            -0.978,
+            2.915
+          ],
+          "to": [
+            -0.723,
+            -0.8694,
+            3.2525
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-dce9df8399fdfcede9179fc6aef4675f",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "bridge",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "authored-transition-repair",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "sourceTransitionId": "pmo-02971a36-0dbc-47ed-a6c4-d532f148c2c0",
+          "sourceEdgeId": "edge-5a42cd2c-9284-4bbe-8b97-3a7229859c5e",
+          "via": [
+            [
+              0.5513,
+              -1.0402,
+              2.7778
+            ],
+            [
+              -0.7173,
+              -0.8695,
+              3.48
+            ]
+          ]
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-4d49c28633d37a8474b2e212b9387d62",
+      "name": "pmo_auto_restore_5_lift",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            -1.9101,
+            -0.9123,
+            2.6508
+          ],
+          "to": [
+            -2.5495,
+            -0.0967,
+            2.3569
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-4d49c28633d37a8474b2e212b9387d62",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "lift",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "authored-transition-repair",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "sourceTransitionId": "pmo-bcd1f9a0-b520-473a-bef8-bccfc8ac2e41",
+          "sourceEdgeId": "edge-5c288e01-9ef8-4019-8f46-e2651517e672",
+          "via": [
+            [
+              -2.0794,
+              -0.9096,
+              2.9613
+            ],
+            [
+              -2.4687,
+              -0.176,
+              2.5048
+            ]
+          ]
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-aff36e1511be5b49ab3610db7010f208",
+      "name": "pmo_auto_restore_6_stairs",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            1.4498,
+            -2.2503,
+            4.6814
+          ],
+          "to": [
+            2.1838,
+            -1.0302,
+            3.5561
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-aff36e1511be5b49ab3610db7010f208",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "stairs",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "authored-transition-repair",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "sourceTransitionId": "pmo-3ae6a767-a0f4-40af-b982-ec36346bebe6",
+          "sourceEdgeId": "edge-75a62dfb-676b-4b60-bde3-95e51300ac3d",
+          "via": [
+            [
+              1.6739,
+              -2.2456,
+              4.5734
+            ],
+            [
+              2.1003,
+              -1.2289,
+              3.6249
+            ]
+          ]
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-e9af457fa6aa5d3d2f50bbb9b23dd3ad",
+      "name": "pmo_auto_gap_1",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            3.8016,
+            -1.7617,
+            4.9758
+          ],
+          "to": [
+            3.9515,
+            -2.2954,
+            5.0365
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-e9af457fa6aa5d3d2f50bbb9b23dd3ad",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "stairs",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "component-gap-repair",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "reason": "nearest-component-connector",
+          "xzGap": 0.1617,
+          "heightDelta": -0.5337
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-0c3db5341fd6deb81f83161db716e786",
+      "name": "pmo_auto_gap_2",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            3.0626,
+            -2.2928,
+            4.8621
+          ],
+          "to": [
+            3.9515,
+            -2.2954,
+            5.0365
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-0c3db5341fd6deb81f83161db716e786",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "bridge",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "component-gap-repair",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "reason": "nearest-component-connector",
+          "xzGap": 0.9058,
+          "heightDelta": -0.0026
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-60cd0395ba075f4aba9f1f2f8705f4b7",
+      "name": "pmo_auto_gap_3",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            1.9885,
+            0.2723,
+            -2.5059
+          ],
+          "to": [
+            2.8462,
+            0.244,
+            -3.1641
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-60cd0395ba075f4aba9f1f2f8705f4b7",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "bridge",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "component-gap-repair",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "reason": "nearest-component-connector",
+          "xzGap": 1.0811,
+          "heightDelta": -0.0283
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-a1587e701eb5758f911dfbaaeb18a59a",
+      "name": "pmo_auto_gap_4",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            -1.9813,
+            -0.3925,
+            -3.4719
+          ],
+          "to": [
+            -1.3244,
+            -0.3608,
+            -4.7403
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-a1587e701eb5758f911dfbaaeb18a59a",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "bridge",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "component-gap-repair",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "reason": "nearest-component-connector",
+          "xzGap": 1.4284,
+          "heightDelta": 0.0317
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-e9af8aa0d60371c1797beb7721d8b9d2",
+      "name": "pmo_auto_gap_5",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            -1.9813,
+            -0.3925,
+            -3.4719
+          ],
+          "to": [
+            -0.5105,
+            -0.0418,
+            -3.2536
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-e9af8aa0d60371c1797beb7721d8b9d2",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "stairs",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "component-gap-repair",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "reason": "nearest-component-connector",
+          "xzGap": 1.4869,
+          "heightDelta": 0.3507
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-8ecbb4c99fc03f0a7f8e258b2526e8bd",
+      "name": "pmo_auto_gap_6",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            -0.8873,
+            -2.0175,
+            -1.8011
+          ],
+          "to": [
+            -2.3123,
+            -0.3916,
+            -2.4006
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-8ecbb4c99fc03f0a7f8e258b2526e8bd",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "lift",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "component-gap-repair",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "reason": "nearest-component-connector",
+          "xzGap": 1.546,
+          "heightDelta": 1.6259
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-07673dbcfbdf691c2030646125b186f5",
+      "name": "pmo_auto_access_building_1",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            2.8158,
+            -0.959,
+            2.6078
+          ],
+          "to": [
+            2.5979,
+            -0.9621,
+            3.12
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-07673dbcfbdf691c2030646125b186f5",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "bridge",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "building-access",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "buildingPmoId": "pmo-519d1658-cfbc-46da-829a-9fa14366c789",
+          "walkStampIndex": 25,
+          "buildingPosition": [
+            2.5979,
+            -0.9621,
+            3.12
+          ]
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-6773332f4eb53ff44330ed84831d0933",
+      "name": "pmo_auto_access_building_2",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            3.2359,
+            -0.9507,
+            3.4561
+          ],
+          "to": [
+            4.1868,
+            -0.9568,
+            3.4021
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-6773332f4eb53ff44330ed84831d0933",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "bridge",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "building-access",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "buildingPmoId": "pmo-5570d5ee-3a4d-41aa-abcc-f44be507d694",
+          "walkStampIndex": 27,
+          "buildingPosition": [
+            4.1868,
+            -0.9568,
+            3.4021
+          ]
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-564372687a21149248c7e1ae9fc064b3",
+      "name": "pmo_auto_access_building_3",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            1.8563,
+            -0.978,
+            2.915
+          ],
+          "to": [
+            1.0643,
+            -0.9709,
+            2.557
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-564372687a21149248c7e1ae9fc064b3",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "bridge",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "building-access",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "buildingPmoId": "pmo-0e856759-fe15-4241-bb2a-46cfbc64a5c4",
+          "walkStampIndex": 23,
+          "buildingPosition": [
+            1.0643,
+            -0.9709,
+            2.557
+          ]
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-fca72185b1e8c3be9c1c13329c994316",
+      "name": "pmo_auto_access_building_4",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            2.8158,
+            -0.959,
+            2.6078
+          ],
+          "to": [
+            2.7875,
+            -0.9627,
+            2.0431
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-fca72185b1e8c3be9c1c13329c994316",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "bridge",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "building-access",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "buildingPmoId": "pmo-1212f1c6-6012-415b-abd4-7f8dc8751f0a",
+          "walkStampIndex": 25,
+          "buildingPosition": [
+            2.7875,
+            -0.9627,
+            2.0431
+          ]
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-3e1ee0e67742de83671a875642d06299",
+      "name": "pmo_auto_access_building_5",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            3.2135,
+            -0.4914,
+            -0.3146
+          ],
+          "to": [
+            3.8798,
+            -0.5225,
+            -0.0742
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-3e1ee0e67742de83671a875642d06299",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "bridge",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "building-access",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "buildingPmoId": "pmo-932be736-c380-4aff-9765-bac420349b5e",
+          "walkStampIndex": 39,
+          "buildingPosition": [
+            3.8798,
+            -0.5225,
+            -0.0742
+          ]
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-bf83bd422c27fc81762a6642929c8fa4",
+      "name": "pmo_auto_access_building_6",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            2.8462,
+            0.244,
+            -3.1641
+          ],
+          "to": [
+            2.7131,
+            0.2414,
+            -2.5428
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-bf83bd422c27fc81762a6642929c8fa4",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "bridge",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "building-access",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "buildingPmoId": "pmo-0a36f1a4-c8de-440d-acae-0fe8240b6325",
+          "walkStampIndex": 43,
+          "buildingPosition": [
+            2.7131,
+            0.2414,
+            -2.5428
+          ]
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-1e8b051193a61b317cbaf10dd008b548",
+      "name": "pmo_auto_access_building_7",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            -1.9813,
+            -0.3925,
+            -3.4719
+          ],
+          "to": [
+            -1.3573,
+            -0.3608,
+            -3.9022
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-1e8b051193a61b317cbaf10dd008b548",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "bridge",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "building-access",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "buildingPmoId": "pmo-debba52a-56be-4113-9bc5-9c910ccd9d20",
+          "walkStampIndex": 49,
+          "buildingPosition": [
+            -1.3573,
+            -0.3608,
+            -3.9022
+          ]
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-8cffe33a7fe27d1990c3680f1fb5664d",
+      "name": "pmo_auto_access_building_8",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            -1.1914,
+            -0.9421,
+            3.839
+          ],
+          "to": [
+            -1.4041,
+            -0.9461,
+            3.3013
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-8cffe33a7fe27d1990c3680f1fb5664d",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "bridge",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "building-access",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "buildingPmoId": "pmo-8d93f0b5-c6e9-49d1-8bcb-934b5425d12d",
+          "walkStampIndex": 32,
+          "buildingPosition": [
+            -1.4041,
+            -0.9461,
+            3.3013
+          ]
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    },
+    {
+      "id": "pmo-auto-aba17cf0fcf0cadbc25a610891caba08",
+      "name": "pmo_auto_access_building_9",
+      "geometry": {
+        "type": "skeleton",
+        "points": {
+          "from": [
+            -2.9084,
+            -0.1153,
+            1.6754
+          ],
+          "to": [
+            -3.3693,
+            -0.171,
+            2.2274
+          ]
+        },
+        "edges": [
+          {
+            "id": "edge-pmo-auto-aba17cf0fcf0cadbc25a610891caba08",
+            "from": "from",
+            "to": "to",
+            "directed": false
+          }
+        ]
+      },
+      "metadata": {
+        "navigation": {
+          "transition": "bridge",
+          "virtual": true,
+          "generated": true,
+          "allowOffSurface": true,
+          "allowBuildingInterior": true,
+          "role": "building-access",
+          "basis": "original-author-anchors",
+          "sourceRegistrySha256": "6d786a92c7837f50255ee154e5689ab2fc8ebe71cb0dc4294d5fdaf39fb10d1d",
+          "buildingPmoId": "pmo-5512bdf0-99db-4c87-a0bc-8575704e6a1f",
+          "walkStampIndex": 29,
+          "buildingPosition": [
+            -3.3693,
+            -0.171,
+            2.2274
+          ]
+        }
+      },
+      "relations": [],
+      "visible": false,
+      "revision": 0
+    }
+  ]
+}

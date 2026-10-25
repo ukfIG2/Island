@@ -239,6 +239,83 @@ namespace ResortEmpire.Sim.Tests
         }
 
         [Test]
+        public void WR7_PassiveBestStaticPlacementNeverHitsFiveStars()
+        {
+            var t = TuningConfig.Default;
+            var resort = ResortState.NewGame(t);
+            float fiveStar = t.RatingThresholds[4];
+            float perfect = t.RatingThresholds[5];
+
+            foreach (var wave in WaveTable.Default8())
+            {
+                if (wave.Index == t.PoolEligibleAfterWave + 1)
+                {
+                    resort.DebugGrant(t.PoolUnlockCostCoins, 0);
+                    Assert.IsTrue(resort.Unlock(BuildingId.Pool));
+                }
+                if (wave.Index == t.BungalowsEligibleAfterWave + 1)
+                {
+                    resort.DebugGrant(t.BungalowsUnlockCostCoins, 0);
+                    Assert.IsTrue(resort.Unlock(BuildingId.Bungalows));
+                }
+
+                float best = BestStaticSatisfaction(resort, wave, t);
+                if (wave.Index == 1)
+                    Assert.GreaterOrEqual(best, perfect - 1e-4f, "wave 1 is the learning wave: placement alone must reach Perfect");
+                else if (!wave.IsDebut) // waves 4 and 7 debut a need and are intentionally soft
+                    Assert.Less(best, fiveStar, "wave " + wave.Index + ": a static placement must not reach 5 stars (WR7)");
+            }
+        }
+
+        [Test]
+        public void WR8_FullyUpgradedResortFiveStarsEverywhereWithoutEnergy()
+        {
+            var t = TuningConfig.Default;
+            var resort = ResortState.NewGame(t);
+
+            // completing the wave-6 def passes both eligibility gates; the result itself is irrelevant
+            RunFullWave(resort, WaveTable.Default8()[5], t);
+            resort.DebugGrant(t.PoolUnlockCostCoins + t.BungalowsUnlockCostCoins, 0);
+            Assert.IsTrue(resort.Unlock(BuildingId.Pool));
+            Assert.IsTrue(resort.Unlock(BuildingId.Bungalows));
+
+            int buildingCount = Enum.GetValues(typeof(BuildingId)).Length;
+            Assert.AreEqual(buildingCount - 1, resort.Workers); // pool stays buildings-1, never equal
+
+            resort.DebugGrant(buildingCount * (t.UpgradeCostCoins[0] + t.UpgradeCostCoins[1]), 0);
+            foreach (BuildingId b in Enum.GetValues(typeof(BuildingId)))
+            {
+                Assert.IsTrue(resort.Upgrade(b), b + " Lv1->2");
+                Assert.IsTrue(resort.Upgrade(b), b + " Lv2->3");
+            }
+
+            float fiveStar = t.RatingThresholds[4];
+            foreach (var wave in WaveTable.Default8())
+            {
+                float best = BestStaticSatisfaction(resort, wave, t);
+                Assert.GreaterOrEqual(best, fiveStar, "wave " + wave.Index + ": 5 stars must be reachable without boosts (WR8)");
+            }
+        }
+
+        [Test]
+        public void WR1_FloorOrdering()
+        {
+            var t = TuningConfig.Default;
+            Assert.Less(t.UnitFloor, t.WaveFloor);                 // WR1: UnitFloor < WaveFloor
+            Assert.Less(t.WaveFloor, t.RatingThresholds[2]);       // WaveFloor < 3-star bound
+
+            var resort = ResortState.NewGame(t);
+            var wave = new WaveDef { Index = 1 };
+            wave.Demand[NeedId.Rooms] = 60; // 3 Lv1 seats vs 60 units: nearly every unit bottoms out
+            var sim = RunFullWave(resort, wave, t);
+
+            Assert.AreEqual(t.WaveFloor, sim.Result.Satisfaction, 1e-4f);
+            Assert.AreEqual(1, sim.Result.Stars);
+            Assert.IsFalse(sim.Result.Perfect);
+            Assert.Greater(sim.Result.CoinsEarned, 0); // the worst wave still pays
+        }
+
+        [Test]
         public void AC2_MovingWorkerVisiblyHelps()
         {
             var t = TuningConfig.Default;
@@ -441,6 +518,72 @@ namespace ResortEmpire.Sim.Tests
             while (sim2.TimeInWave < t.RushTimeSeconds + 1f && guard-- > 0) sim2.Tick(Dt);
             Assert.AreEqual(wave2.Demand[NeedId.Rooms] + t.RushUnits, sim2.DemandTotal(NeedId.Rooms));
             Assert.AreEqual(wave2.Demand[NeedId.Drinks], sim2.DemandTotal(NeedId.Drinks));
+        }
+
+        [Test]
+        public void Rewards_AppliedOnce()
+        {
+            var t = TuningConfig.Default;
+            var resort = ResortState.NewGame(t);
+            var wave = WaveTable.Default8()[0];
+            int coins0 = resort.Coins, energy0 = resort.Energy, value0 = resort.ResortValue;
+
+            var sim = RunFullWave(resort, wave, t);
+            var r = sim.Result;
+            Assert.NotNull(r);
+            Assert.GreaterOrEqual(r.Stars, 1);
+            Assert.LessOrEqual(r.Stars, 5);
+            Assert.AreEqual(coins0 + r.CoinsEarned, resort.Coins);
+            Assert.AreEqual(energy0 + r.EnergyEarned, resort.Energy);
+            Assert.AreEqual(value0 + r.ResortValueGain, resort.ResortValue);
+            Assert.AreEqual(wave.Index, resort.WavesCompleted);
+            Assert.IsFalse(resort.InWave);
+
+            int coins1 = resort.Coins, energy1 = resort.Energy, value1 = resort.ResortValue;
+            for (int i = 0; i < 200; i++) sim.Tick(Dt);
+            Assert.AreEqual(WavePhase.WaveComplete, sim.Phase);
+            Assert.AreSame(r, sim.Result);
+            Assert.AreEqual(coins1, resort.Coins);  // exactly once, on entering WaveComplete
+            Assert.AreEqual(energy1, resort.Energy);
+            Assert.AreEqual(value1, resort.ResortValue);
+        }
+
+        [Test]
+        public void DtIndependence_SameResultAtAnyStep()
+        {
+            var t = TuningConfig.Default;
+            var table = WaveTable.Default8();
+            float[] steps = { 0.01f, 0.05f, 0.1f };
+
+            foreach (int index in new[] { 2, 3, 8 })
+            {
+                var wave = table[index - 1];
+                WaveResult reference = null;
+                foreach (float dt in steps)
+                {
+                    // fixed setups whose results sit well inside a rating band, with real waits
+                    var resort = index == 8
+                        ? MakeResort(t, 1, BuildingId.BeachBar, AllBuildings)
+                        : NewGameWithEmpty(t, BuildingId.Restaurant);
+                    var sim = new WaveSimulation(resort, wave, t);
+                    sim.StartWave();
+                    string ctx = "wave " + index + " dt=" + dt;
+                    RunToCompleteAt(sim, dt, ctx);
+                    var r = sim.Result;
+
+                    if (reference == null)
+                    {
+                        reference = r;
+                        Assert.Greater(r.Satisfaction, t.WaveFloor + 0.05f, ctx + ": setup must not sit on the floor");
+                        Assert.Less(r.Satisfaction, t.RatingThresholds[5] - 0.05f, ctx + ": setup must involve real waits");
+                        continue;
+                    }
+                    Assert.AreEqual(reference.Stars, r.Stars, ctx);
+                    Assert.AreEqual(reference.Perfect, r.Perfect, ctx);
+                    Assert.AreEqual(reference.Satisfaction, r.Satisfaction, 0.02f, ctx);
+                    Assert.AreEqual(reference.CoinsEarned, r.CoinsEarned, ctx);
+                }
+            }
         }
 
         [Test]
@@ -676,6 +819,58 @@ namespace ResortEmpire.Sim.Tests
         }
 
         [Test]
+        public void Rewards_MathPinnedToThresholds()
+        {
+            var t = TuningConfig.Default;
+
+            // wave 1, Restaurant empty: 6 Food units 15 s apart never outrun 3 slow seats (~36 s each) -> Perfect
+            var resort = NewGameWithEmpty(t, BuildingId.Restaurant);
+            var wave = WaveTable.Default8()[0];
+            var r = RunFullWave(resort, wave, t).Result;
+            int units = 0;
+            foreach (var pair in wave.Demand) units += pair.Value;
+
+            Assert.IsTrue(r.Perfect);
+            Assert.AreEqual(5, r.Stars);
+            Assert.AreEqual(units, r.TotalUnits);
+            Assert.AreEqual(ExpectedCoins(t, units, t.CoinsRatingMult.Length - 1), r.CoinsEarned);
+            Assert.AreEqual(458, r.CoinsEarned); // 22 * 16 * 1.3 = 457.6 rounds, never truncates
+            Assert.AreEqual(t.EnergyDropByStars[4], r.EnergyEarned);
+            Assert.AreEqual(5 * t.ResortValuePerStar, r.ResortValueGain);
+
+            AssertMidTier(t, CraftedWave(drinks: 12), 2, 115);           // 12 * 16 * 0.6 = 115.2
+            AssertMidTier(t, CraftedWave(rooms: 8, drinks: 12), 3, 256); // 20 * 16 * 0.8
+            AssertMidTier(t, CraftedWave(drinks: 10), 4, 160);           // 10 * 16 * 1.0
+        }
+
+        [Test]
+        public void OceanView_WaitsWeighHeavier()
+        {
+            var t = TuningConfig.Default;
+            const int rooms = 8, starved = 16;
+            // twins: the same starved lane (Lv1, no worker), once as Ocean View, once as the volume need Drinks
+            var oceanResort = MakeResort(t, 1, BuildingId.Bungalows, BuildingId.Reception, BuildingId.BeachBar, BuildingId.Bungalows);
+            var volumeResort = MakeResort(t, 1, BuildingId.BeachBar, BuildingId.Reception, BuildingId.BeachBar, BuildingId.Bungalows);
+            var ocean = RunFullWave(oceanResort, CraftedWave(rooms: rooms, oceanView: starved), t).Result;
+            var volume = RunFullWave(volumeResort, CraftedWave(rooms: rooms, drinks: starved), t).Result;
+
+            Assert.AreEqual(volume.AverageWaitByNeed[NeedId.Drinks], ocean.AverageWaitByNeed[NeedId.OceanView], 1e-4f,
+                "twins must see identical waits");
+            Assert.Greater(volume.AverageWaitByNeed[NeedId.Drinks], t.PatienceGraceSeconds, "the starved need must lose satisfaction");
+            Assert.Less(ocean.AverageWaitByNeed[NeedId.Rooms] * rooms, t.PatienceGraceSeconds, "every Rooms unit counts 100 %");
+            Assert.Greater(ocean.Satisfaction, t.WaveFloor, "the wave floor would hide the weight");
+            Assert.Greater(volume.Satisfaction, t.WaveFloor, "the wave floor would hide the weight");
+
+            Assert.Less(ocean.Satisfaction, volume.Satisfaction, "Ocean View waits must hurt more");
+
+            // exact: take the starved lane's contribution sum from the volume twin and reweigh it
+            float contribution = volume.Satisfaction * (rooms + starved) - rooms;
+            float w = t.OceanViewSatisfactionWeight;
+            float expected = (w * contribution + rooms) / (w * starved + rooms);
+            Assert.AreEqual(expected, ocean.Satisfaction, 1e-3f);
+        }
+
+        [Test]
         public void Arrivals_FollowFixedSchedule()
         {
             var t = TuningConfig.Default;
@@ -762,6 +957,46 @@ namespace ResortEmpire.Sim.Tests
 
             RunToComplete(sim);
             Assert.IsFalse(sim.MoveWorker(BuildingId.Restaurant, BuildingId.BeachBar), "a finished wave takes no moves");
+        }
+
+        [Test]
+        public void Needs_SatisfiedAtEndAndWorstNeedIsTheStarvedOne()
+        {
+            var t = TuningConfig.Default;
+            var wave = CraftedWave(rooms: 10, drinks: 30, food: 10); // BeachBar empty: only Drinks starves
+            var sim = new WaveSimulation(ResortState.NewGame(t), wave, t);
+            sim.StartWave();
+
+            var needs = (NeedId[])Enum.GetValues(typeof(NeedId));
+            var bottleneckSeconds = new float[needs.Length];
+            for (int i = 0; i < TickGuard && sim.Phase != WavePhase.WaveComplete; i++)
+            {
+                sim.Tick(Dt);
+                foreach (var n in needs)
+                    if (sim.StatusOf(n) == NeedStatus.Bottleneck) bottleneckSeconds[(int)n] += Dt;
+            }
+            Assert.AreEqual(WavePhase.WaveComplete, sim.Phase);
+            var r = sim.Result;
+
+            foreach (var n in needs)
+                Assert.AreEqual(wave.Demand.ContainsKey(n) ? NeedStatus.Satisfied : NeedStatus.Locked, sim.StatusOf(n), n.ToString());
+
+            Assert.IsTrue(r.WorstNeed.HasValue, "a wave with a bottleneck names the upgrade hint (AC6)");
+            var worst = r.WorstNeed.Value;
+            Assert.Greater(bottleneckSeconds[(int)worst], 0f, "WorstNeed must have actually bottlenecked");
+            foreach (var n in needs)
+                Assert.LessOrEqual(bottleneckSeconds[(int)n], bottleneckSeconds[(int)worst] + Dt, n + " bottlenecked longer than WorstNeed");
+            Assert.AreEqual(NeedId.Drinks, worst);
+
+            Assert.AreEqual(wave.Demand.Count, r.AverageWaitByNeed.Count);
+            foreach (var pair in r.AverageWaitByNeed)
+                Assert.GreaterOrEqual(pair.Value, 0f, pair.Key.ToString());
+            Assert.Greater(r.AverageWaitByNeed[NeedId.Drinks], r.AverageWaitByNeed[NeedId.Rooms]);
+            Assert.Greater(r.AverageWaitByNeed[NeedId.Drinks], r.AverageWaitByNeed[NeedId.Food]);
+
+            // no bottleneck at all -> no hint
+            var calm = RunFullWave(ResortState.NewGame(t), WaveTable.Default8()[0], t).Result;
+            Assert.IsFalse(calm.WorstNeed.HasValue);
         }
 
         [Test]

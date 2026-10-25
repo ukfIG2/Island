@@ -1029,5 +1029,42 @@ namespace ResortEmpire.Sim.Tests
             foreach (var pair in wave.Demand) units += pair.Value;
             Assert.AreEqual(units, sim.Result.TotalUnits);
         }
+
+        // WR2: an empty building runs slower but never stops, otherwise its line could never clear
+        // and the wave would never end.
+        [Test]
+        public void WR2_UnstaffedBuildingStillFinishesTheWave()
+        {
+            var t = TuningConfig.Default;
+            Assert.Greater(t.UtilizationEmpty, 0f, "an empty building must never run at zero (WR2)");
+
+            var resort = NewGameWithEmpty(t, BuildingId.BeachBar);
+            Assert.IsFalse(resort.Get(BuildingId.BeachBar).HasWorker);
+            var sim = new WaveSimulation(resort, CraftedWave(rooms: 4, drinks: 12, food: 4), t);
+            sim.StartWave();
+            RunToComplete(sim, "wave with an unstaffed Beach Bar");
+
+            Assert.AreEqual(12, sim.ServedUnits(NeedId.Drinks), "the unstaffed Beach Bar still served every guest");
+            Assert.AreEqual(0, sim.QueueLength(NeedId.Drinks));
+        }
+
+        // WR4: during a wave a unit never leaves and never counts for less than unit_floor, however
+        // long it waits. The wave floor is switched off here so the raw result is visible.
+        [Test]
+        public void WR4_NoUnitLeavesAndNoneCountsBelowTheFloor()
+        {
+            var t = TuningConfig.Default;
+            t.WaveFloor = 0f;
+            var resort = NewGameWithEmpty(t, BuildingId.BeachBar);
+            var sim = new WaveSimulation(resort, CraftedWave(drinks: 40), t);
+            sim.StartWave();
+            RunToComplete(sim, "long Drinks line at an unstaffed Beach Bar");
+
+            Assert.AreEqual(40, sim.ArrivedUnits(NeedId.Drinks));
+            Assert.AreEqual(40, sim.ServedUnits(NeedId.Drinks), "nobody left the line");
+            Assert.Greater(sim.Result.AverageWaitByNeed[NeedId.Drinks], t.PatienceFloorAfterSeconds,
+                "the line must be long enough that guests wait past the floor point");
+            Assert.GreaterOrEqual(sim.Result.Satisfaction, t.UnitFloor - 1e-5f, "no unit counts below unit_floor");
+        }
     }
 }

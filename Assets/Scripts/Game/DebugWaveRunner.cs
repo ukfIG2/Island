@@ -5,7 +5,8 @@ using UnityEngine;
 
 namespace ResortEmpire.Game
 {
-    // Throwaway OnGUI harness to play the 8-wave prototype loop end to end. No scene content needed.
+    // OnGUI harness to play the 8-wave prototype loop end to end. The blockout island (IslandBlockout)
+    // shows the same resort and wave in 3D; the panel stays on the left so the island remains visible.
     public sealed class DebugWaveRunner : MonoBehaviour
     {
         static readonly BuildingId[] AllBuildings = (BuildingId[])Enum.GetValues(typeof(BuildingId));
@@ -18,6 +19,9 @@ namespace ResortEmpire.Game
         WaveSimulation _sim;      // null between waves
         float _speed = 1f;
         float _accum;
+
+        public ResortState Resort => _resort;
+        public WaveSimulation ActiveWave => _sim;   // null between waves
 
         void Awake()
         {
@@ -41,7 +45,9 @@ namespace ResortEmpire.Game
 
         void OnGUI()
         {
-            GUILayout.BeginArea(new Rect(12f, 8f, Screen.width - 24f, Screen.height - 16f));
+            var panel = new Rect(8f, 8f, Mathf.Min(Screen.width * 0.42f, 780f), Screen.height - 16f);
+            GUI.Box(panel, GUIContent.none);
+            GUILayout.BeginArea(new Rect(panel.x + 8f, panel.y + 6f, panel.width - 16f, panel.height - 12f));
             DrawHeader();
             if (_sim != null && _sim.Phase == WavePhase.WaveComplete) DrawResult();
             else if (_sim != null && _sim.Phase != WavePhase.AwaitingWave) DrawWave();

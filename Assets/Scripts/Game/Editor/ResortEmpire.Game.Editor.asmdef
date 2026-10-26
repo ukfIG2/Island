@@ -1,0 +1,19 @@
+{
+    "name": "ResortEmpire.Game.Editor",
+    "rootNamespace": "ResortEmpire.Game.EditorTools",
+    "references": [
+        "ResortEmpire.Game",
+        "ResortEmpire.Sim"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

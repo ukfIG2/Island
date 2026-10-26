@@ -54,6 +54,15 @@ All gameplay tuning numbers (anything the economist would balance) live in `Tuni
 
 ## Git
 
-- Work on branch **`dev-beta`**; commit at the end of each sprint or chapter, with a message that says what the sprint delivered.
+The project uses **Git Flow** (decided by Ivan, 2026-10-26):
+
+- `main` holds released versions only, one tagged release per sprint (`v0.1.0` = Sprint 1). Nobody commits to it directly.
+- `develop` is the integration branch, created from `main`.
+- `feature/CAM-<key>-<short-name>` is one branch per Jira issue, from `develop`, merged back into `develop` by a reviewed pull request (`--no-ff`).
+- `release/<version>` is cut from `develop` at sprint end; it only gets the version number, STATUS.md and release fixes, then merges into `main` (tagged `v<version>`) and back into `develop`.
+- `hotfix/<version>` comes from `main` for urgent fixes only and merges into both `main` and `develop`.
+- Commit messages start with the Jira key: `CAM-23 Add wave state machine with arrivals, seats and queues`.
+- Every commit carries its real author and real time; teammates commit their own work from their own accounts.
+- `dev-beta` is local only and never pushed: it holds the full prototype + MVP build, and later sprints take their code from it feature by feature.
 - Push to GitHub (`origin` = `ukfIG2/Island`, private) **only when the user asks**.
 - Don't commit generated folders (`Library/`, `Temp/`, `Logs/`, `UserSettings/` — already in `.gitignore`).

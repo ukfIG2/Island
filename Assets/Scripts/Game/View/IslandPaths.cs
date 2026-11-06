@@ -20,7 +20,18 @@ namespace ResortEmpire.Game.View
             public Part[] boxes, cylinders;
             public LiftData[] lifts;
             public SiteData[] services;
+            public Shore shore;
             public RouteData[] routes;
+        }
+
+        // The island outline the web's ocean uses: a square map (island-shore.bytes) of the signed distance to
+        // the coast, in the web's coordinates.
+        [Serializable]
+        public sealed class Shore
+        {
+            public float[] origin;
+            public float size, range;
+            public int resolution;
         }
 
         // Where a service stands in the web layout: its plot, the entrance guests walk to, and whether it is
@@ -73,6 +84,7 @@ namespace ResortEmpire.Game.View
         public sealed class Network
         {
             public readonly List<Lift> Lifts = new List<Lift>();
+            public Shore Shore;
             readonly Dictionary<string, Route> _routes = new Dictionary<string, Route>();
             readonly Dictionary<string, Site> _sites = new Dictionary<string, Site>();
 
@@ -163,7 +175,7 @@ namespace ResortEmpire.Game.View
             // A few hundred small parts that never move: batch them so the phone draws them in a few calls.
             StaticBatchingUtility.Combine(root.gameObject);
 
-            var network = new Network();
+            var network = new Network { Shore = data.shore };
             foreach (var l in data.lifts)
             {
                 var cabin = new GameObject("LiftCabin").transform;

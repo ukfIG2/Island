@@ -201,9 +201,9 @@ namespace ResortEmpire.Game.View
         void BuildTerrain()
         {
             var t = transform;
-            _ocean = Ocean.Build(t, SeaLevel);
             BuildIslandModel(t);
             _paths = IslandPaths.Build(t);
+            _ocean = Ocean.Build(t, SeaLevel, _paths.Shore);
 
             // Spots on his main beach where served guests stroll to.
             float y = BeachY + 0.32f * GuestFigureScale;

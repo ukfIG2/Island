@@ -4,15 +4,56 @@ using UnityEngine;
 
 namespace ResortEmpire.Game.View
 {
-    // The stairs, bridges, landings and lifts of Vadzim's web island, built from the data his own code
-    // computes (Tools/WebExport/export-island-paths.mjs). Purely visual.
+    // The stairs, bridges, landings and lifts of Vadzim's web island and the routes his guests walk, built
+    // from the data his own code computes (Tools/WebExport/export-island-paths.mjs). Purely visual.
     static class IslandPaths
     {
         const string DataPath = "Island/island-paths";
 
         [Serializable] sealed class Part { public float[] p, q, s; public string c; }
         [Serializable] sealed class LiftData { public string id; public float[] from, to; }
-        [Serializable] sealed class Data { public Part[] boxes, cylinders; public LiftData[] lifts; }
+        [Serializable] sealed class RouteData { public string name; public float[] p; }
+        [Serializable] sealed class Data { public Part[] boxes, cylinders; public LiftData[] lifts; public RouteData[] routes; }
+
+        // A walk along his walk areas, steps and bridges; the points lie on the walking surface.
+        public sealed class Route
+        {
+            public readonly Vector3[] Points;
+            readonly float[] _walked;   // distance from the start at each point
+
+            public Route(Vector3[] points)
+            {
+                Points = points;
+                _walked = new float[points.Length];
+                for (int i = 1; i < points.Length; i++)
+                    _walked[i] = _walked[i - 1] + Vector3.Distance(points[i - 1], points[i]);
+            }
+
+            public float Length => _walked[_walked.Length - 1];
+
+            public Vector3 PointAt(float distance)
+            {
+                if (distance <= 0f) return Points[0];
+                for (int i = 1; i < Points.Length; i++)
+                    if (_walked[i] >= distance)
+                    {
+                        float span = _walked[i] - _walked[i - 1];
+                        return span > 0f ? Vector3.Lerp(Points[i - 1], Points[i], (distance - _walked[i - 1]) / span) : Points[i];
+                    }
+                return Points[Points.Length - 1];
+            }
+        }
+
+        public sealed class Network
+        {
+            public readonly List<Lift> Lifts = new List<Lift>();
+            readonly Dictionary<string, Route> _routes = new Dictionary<string, Route>();
+
+            // Places as his routes name them: "beach", "reception", "food", "drinks", "relax", "oceanView".
+            public Route Route(string from, string to) => _routes.TryGetValue(from + ">" + to, out var r) ? r : null;
+
+            public void Add(string name, Route route) => _routes[name] = route;
+        }
 
         public sealed class Lift
         {
@@ -24,7 +65,7 @@ namespace ResortEmpire.Game.View
         }
 
         // Each lift's cabin waits at its lower stop until a guest needs it.
-        public static List<Lift> Build(Transform parent)
+        public static Network Build(Transform parent)
         {
             var data = JsonUtility.FromJson<Data>(Resources.Load<TextAsset>(DataPath).text);
             var root = new GameObject("Paths").transform;
@@ -36,7 +77,14 @@ namespace ResortEmpire.Game.View
             // A few hundred small parts that never move: batch them so the phone draws them in a few calls.
             StaticBatchingUtility.Combine(root.gameObject);
 
-            var lifts = new List<Lift>();
+            var network = new Network();
+            foreach (var r in data.routes)
+            {
+                var points = new Vector3[r.p.Length / 3];
+                for (int i = 0; i < points.Length; i++) points[i] = new Vector3(r.p[i * 3], r.p[i * 3 + 1], r.p[i * 3 + 2]);
+                network.Add(r.name, new Route(points));
+            }
+
             foreach (var l in data.lifts)
             {
                 var cabin = new GameObject("LiftCabin").transform;
@@ -47,9 +95,9 @@ namespace ResortEmpire.Game.View
                     ViewKit.Hex(0x6B837A), collider: false);
                 var lift = new Lift { Cabin = cabin, From = ToVector(l.from), To = ToVector(l.to) };
                 lift.MoveTo(0f);
-                lifts.Add(lift);
+                network.Lifts.Add(lift);
             }
-            return lifts;
+            return network;
         }
 
         static void Place(PrimitiveType type, Part part, Vector3 scale, Transform root)

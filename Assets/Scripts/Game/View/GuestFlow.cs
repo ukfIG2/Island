@@ -26,11 +26,16 @@ namespace ResortEmpire.Game.View
         }
 
         readonly Transform _parent;
+        readonly float _scale;         // figure size, walking speed and sway shrink together with the world
         readonly List<Walker> _active = new List<Walker>();
         readonly Stack<Walker> _pool = new Stack<Walker>();
         readonly int[] _inTransit = new int[System.Enum.GetValues(typeof(NeedId)).Length];
 
-        public GuestFlow(Transform parent) => _parent = parent;
+        public GuestFlow(Transform parent, float scale)
+        {
+            _parent = parent;
+            _scale = scale;
+        }
 
         // Arrivals still walking are not drawn in the line yet, so the line only grows when they get there.
         public int InTransit(NeedId need) => _inTransit[(int)need];
@@ -38,8 +43,8 @@ namespace ResortEmpire.Game.View
         public void SpawnArrival(NeedId need, Vector3 from, Vector3 to, int sequence)
         {
             var w = Take(need, from, to);
-            w.Duration = Mathf.Max(0.6f, Vector3.Distance(from, to) / WalkSpeed);
-            w.Sway = ((sequence % 5) - 2) * 0.3f;
+            w.Duration = Mathf.Max(0.6f, Vector3.Distance(from, to) / (WalkSpeed * _scale));
+            w.Sway = ((sequence % 5) - 2) * 0.3f * _scale;
             _inTransit[(int)need]++;
         }
 
@@ -48,7 +53,7 @@ namespace ResortEmpire.Game.View
             var w = Take(need, from, to);
             w.Leisure = true;
             w.Duration = LeisureWalkSeconds;
-            w.Sway = 0.4f;
+            w.Sway = 0.4f * _scale;
         }
 
         public void Tick(float dt)
@@ -62,7 +67,7 @@ namespace ResortEmpire.Game.View
                 var travel = w.To - w.From;
                 var side = new Vector3(-travel.z, 0f, travel.x).normalized;
                 var pos = Vector3.Lerp(w.From, w.To, t) + side * (Mathf.Sin(t * Mathf.PI) * w.Sway);
-                if (t < 1f) pos.y += Mathf.Abs(Mathf.Sin(w.Elapsed * 9f)) * 0.06f;
+                if (t < 1f) pos.y += Mathf.Abs(Mathf.Sin(w.Elapsed * 9f)) * 0.06f * _scale;
                 w.Body.position = pos;
 
                 if (!w.Leisure)
@@ -72,7 +77,7 @@ namespace ResortEmpire.Game.View
                 }
 
                 float remaining = LeisureWalkSeconds + LeisureStaySeconds - w.Elapsed;
-                w.Body.localScale = GuestScale * Mathf.Clamp01(remaining);
+                w.Body.localScale = GuestScale * (_scale * Mathf.Clamp01(remaining));
                 if (remaining <= 0f) Recycle(i);
             }
         }
@@ -98,7 +103,7 @@ namespace ResortEmpire.Game.View
                 w = new Walker { Body = go.transform, Renderer = go.GetComponent<Renderer>() };
             }
             w.Renderer.sharedMaterial = ViewKit.Mat(UiFactory.NeedColor(need));
-            w.Body.localScale = GuestScale;
+            w.Body.localScale = GuestScale * _scale;
             w.Body.position = from;
             w.From = from;
             w.To = to;

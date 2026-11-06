@@ -3,22 +3,36 @@ using ResortEmpire.Sim;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering;
 
 namespace ResortEmpire.Game.View
 {
-    // The 3D blockout island. Reads GameController/sim state every frame and reconciles visuals to it;
-    // it never changes game state except by reporting building taps to the controller.
+    // The island from the web version with our buildings on it. Reads GameController/sim state every frame
+    // and reconciles visuals to it; it never changes game state except by reporting building taps to the controller.
     public sealed class IslandView : MonoBehaviour
     {
-        // The island sits in the screen band left free by the forecast card (left) and the wave panel (right).
-        static readonly Vector3 IslandCenter = new Vector3(-1.2f, 0f, 3.5f);
-        const float GroundY = 0.53f;
+        // Vadzim's island model, placed exactly as in the web version: raised 0.55 and scaled 8, with the
+        // 70° turn stored in the model itself. His sea lies at -2.35, below the beaches.
+        const string IslandModel = "Island/cascade-isle-v2";
+        const float IslandScale = 8f;
+        const float IslandLift = 0.55f;
+        const float SeaLevel = -2.35f;
+
+        // His plots are about 1.5 apart, so our buildings, guests and boat are drawn at this fraction of
+        // their blockout size.
+        const float FigureScale = 0.3f;
+
+        // The web camera: orthographic, looking at the island centre from above the main beach.
+        static readonly Vector3 CameraPosition = new Vector3(-10.5f, 12.5f, 13.5f);
+        const float CameraSize = 7.5f;
+
+        const float BeachY = -2.27f;   // sand level of his main beach, just above the sea
         const float BoatSpeed = 7.5f;
         const int MaxSpawnsPerFrame = 4;
 
-        static readonly Vector3 WalkStart = new Vector3(-1.2f, 0.77f, -3.8f);   // end of the dock
-        static readonly Vector3 BoatDocked = new Vector3(0.5f, 0f, -3.8f);
-        static readonly Vector3 BoatAway = new Vector3(16f, 0f, -7f);
+        static readonly Vector3 WalkStart = new Vector3(-1.5f, BeachY + 0.32f * FigureScale, 4.9f);
+        static readonly Vector3 BoatDocked = new Vector3(-1.5f, SeaLevel, 6.6f);
+        static readonly Vector3 BoatAway = new Vector3(-12f, SeaLevel, 13f);
 
         GameController _game;
         readonly List<BuildingView> _views = new List<BuildingView>();
@@ -36,15 +50,26 @@ namespace ResortEmpire.Game.View
         public void Init(GameController game)
         {
             _game = game;
+            FrameCamera();
             BuildTerrain();
             BuildBoat();
-            _guests = new GuestFlow(new GameObject("Guests").transform);
+            _guests = new GuestFlow(new GameObject("Guests").transform, FigureScale);
 
-            AddBuilding(BuildingId.Reception, new Vector3(-1.2f, GroundY, 8.0f), +1f);
-            AddBuilding(BuildingId.Restaurant, new Vector3(-4.8f, GroundY, 5.6f), +1f);
-            AddBuilding(BuildingId.BeachBar, new Vector3(-5.6f, GroundY, 1.6f), +1f);
-            AddBuilding(BuildingId.Pool, new Vector3(2.4f, GroundY, 5.6f), -1f);
-            AddBuilding(BuildingId.Bungalows, new Vector3(3.2f, GroundY, 1.2f), -1f);
+            // His plots in the web layout (building_1–4 and building_6), with x mirrored into Unity.
+            AddBuilding(BuildingId.Reception, new Vector3(-2.598f, -0.962f, 3.120f), -1f);
+            AddBuilding(BuildingId.Restaurant, new Vector3(-4.187f, -0.957f, 3.402f), +1f);
+            AddBuilding(BuildingId.BeachBar, new Vector3(-1.064f, -0.971f, 2.557f), -1f);
+            AddBuilding(BuildingId.Pool, new Vector3(-2.788f, -0.963f, 2.043f), +1f);
+            AddBuilding(BuildingId.Bungalows, new Vector3(-2.713f, 0.241f, -2.543f), -1f);
+        }
+
+        static void FrameCamera()
+        {
+            var cam = Camera.main;
+            if (cam == null) return;
+            cam.orthographic = true;
+            cam.orthographicSize = CameraSize;
+            cam.transform.SetPositionAndRotation(CameraPosition, Quaternion.LookRotation(-CameraPosition));
         }
 
         void Update()
@@ -141,7 +166,9 @@ namespace ResortEmpire.Game.View
 
         void AddBuilding(BuildingId id, Vector3 position, float queueSide)
         {
-            var view = new BuildingView(transform, id, position, queueSide);
+            // Every building turns its front (-z) to the camera.
+            var facing = Quaternion.LookRotation(new Vector3(-CameraPosition.x, 0f, -CameraPosition.z));
+            var view = new BuildingView(transform, id, position, facing, FigureScale, queueSide);
             _views.Add(view);
             _byNeed[view.Need] = view;
         }
@@ -149,56 +176,48 @@ namespace ResortEmpire.Game.View
         void BuildTerrain()
         {
             var t = transform;
-            var c = IslandCenter;
-            ViewKit.Prim(PrimitiveType.Plane, "Ocean", t, Vector3.zero, new Vector3(30f, 1f, 30f), ViewKit.Hex(0x1F7FA6));
-            ViewKit.Prim(PrimitiveType.Cylinder, "Lagoon", t, c + new Vector3(0f, 0.01f, 0f),
-                new Vector3(17.5f, 0.01f, 15f), ViewKit.Hex(0x5CC6CF), collider: false);
-            // A flattened cylinder's capsule collider inflates into a huge sphere that would swallow every
-            // building tap, so the ground discs carry no colliders.
-            ViewKit.Prim(PrimitiveType.Cylinder, "Sand", t, c + new Vector3(0f, 0.2f, 0f),
-                new Vector3(14f, 0.25f, 12f), ViewKit.Hex(0xEED9A4), collider: false);
-            ViewKit.Prim(PrimitiveType.Cylinder, "Grass", t, c + new Vector3(0f, 0.25f, 0f),
-                new Vector3(11.2f, 0.28f, 9.6f), ViewKit.Hex(0x7FBF5A), collider: false);
-            ViewKit.Prim(PrimitiveType.Cylinder, "Plaza", t, new Vector3(-1.2f, 0.54f, 3f),
-                new Vector3(3f, 0.01f, 2.4f), ViewKit.Hex(0xE6D2A0), collider: false);
+            // His ocean plane is 42 units wide; a Unity plane is 10.
+            ViewKit.Prim(PrimitiveType.Plane, "Ocean", t, new Vector3(0f, SeaLevel, 0f), new Vector3(4.2f, 1f, 4.2f),
+                ViewKit.Hex(0x1F7FA6));
+            BuildIslandModel(t);
 
-            ViewKit.Prim(PrimitiveType.Cube, "Dock", t, new Vector3(-1.2f, 0.38f, -3.1f),
-                new Vector3(1.2f, 0.14f, 2f), ViewKit.Hex(0x8B5A33));
-            foreach (var z in new[] { -3.9f, -2.6f })
-                foreach (var x in new[] { -1.75f, -0.65f })
-                    ViewKit.Prim(PrimitiveType.Cylinder, "DockPost", t, new Vector3(x, 0.25f, z),
-                        new Vector3(0.14f, 0.3f, 0.14f), ViewKit.Hex(0x6B4A2E), collider: false);
-
-            foreach (var p in new[] { new Vector3(4.9f, 0f, 3.4f), new Vector3(-7.3f, 0f, 3.6f),
-                         new Vector3(1.4f, 0f, 8.6f), new Vector3(-4.4f, 0f, 8.3f) })
-                BuildPalm(t, p + new Vector3(0f, GroundY, 0f));
-
-            // Spots on the sand ring where served guests stroll to; the dock side is left free.
-            var spots = new List<Vector3>();
-            for (int deg = 0; deg < 360; deg += 30)
+            // Spots on his main beach where served guests stroll to.
+            float y = BeachY + 0.32f * FigureScale;
+            _beachSpots = new[]
             {
-                if (deg > 240 && deg < 300) continue;
-                float a = deg * Mathf.Deg2Rad;
-                spots.Add(c + new Vector3(Mathf.Cos(a) * 6.3f, 0.77f, Mathf.Sin(a) * 5.3f));
-            }
-            _beachSpots = spots.ToArray();
+                new Vector3(-4f, y, 4.8f), new Vector3(-3f, y, 4.8f), new Vector3(-2f, y, 4.8f), new Vector3(-1f, y, 4.8f),
+                new Vector3(-3.5f, y, 5.1f), new Vector3(-2.5f, y, 5.1f), new Vector3(-1.5f, y, 5.1f), new Vector3(0f, y, 5.1f)
+            };
         }
 
-        static void BuildPalm(Transform parent, Vector3 basePosition)
+        static void BuildIslandModel(Transform parent)
         {
-            var palm = new GameObject("Palm").transform;
-            palm.SetParent(parent, false);
-            palm.localPosition = basePosition;
-            ViewKit.Prim(PrimitiveType.Cylinder, "Trunk", palm, new Vector3(0f, 1f, 0f),
-                new Vector3(0.18f, 1f, 0.18f), ViewKit.Hex(0x8B6B45), collider: false);
-            ViewKit.Prim(PrimitiveType.Sphere, "Crown", palm, new Vector3(0f, 2.1f, 0f),
-                new Vector3(1.5f, 0.45f, 1.5f), ViewKit.Hex(0x3E8E5A), collider: false);
+            var island = new GameObject("Island").transform;
+            island.SetParent(parent, false);
+            island.localPosition = new Vector3(0f, IslandLift, 0f);
+            island.localScale = Vector3.one * IslandScale;
+            Object.Instantiate(Resources.Load<GameObject>(IslandModel), island, false);
+
+            // Same tuning as the web: nothing on the island is metal, the surface stays matte, the 2K normal
+            // map is pushed a little for small-scale detail, and textures stay sharp at a slant.
+            foreach (var r in island.GetComponentsInChildren<MeshRenderer>())
+            {
+                r.shadowCastingMode = ShadowCastingMode.On;
+                r.receiveShadows = true;
+                var m = r.material;
+                m.SetFloat("metallicFactor", 0f);
+                m.SetFloat("roughnessFactor", 0.92f);
+                m.SetFloat("normalTexture_scale", 1.28f);
+                foreach (var name in m.GetTexturePropertyNames())
+                    if (m.GetTexture(name) is Texture2D texture) texture.anisoLevel = 8;
+            }
         }
 
         void BuildBoat()
         {
             _boat = new GameObject("Boat").transform;
             _boat.SetParent(transform, false);
+            _boat.localScale = Vector3.one * FigureScale;
             ViewKit.Prim(PrimitiveType.Cube, "Hull", _boat, new Vector3(0f, 0.22f, 0f),
                 new Vector3(2.4f, 0.45f, 1f), ViewKit.Hex(0xF4F1EA), collider: false);
             ViewKit.Prim(PrimitiveType.Cube, "Stripe", _boat, new Vector3(0f, 0.3f, 0f),

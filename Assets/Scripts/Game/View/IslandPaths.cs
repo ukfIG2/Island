@@ -14,7 +14,22 @@ namespace ResortEmpire.Game.View
         [Serializable] sealed class LiftData { public string id; public float[] from, to; }
         [Serializable] sealed class LiftLegData { public int at; public string id; }
         [Serializable] sealed class RouteData { public string name; public float[] p; public LiftLegData[] lifts; }
-        [Serializable] sealed class Data { public Part[] boxes, cylinders; public LiftData[] lifts; public RouteData[] routes; }
+        [Serializable] sealed class SiteData { public string need; public float[] center, entrance; public bool embedded; }
+        [Serializable] sealed class Data
+        {
+            public Part[] boxes, cylinders;
+            public LiftData[] lifts;
+            public SiteData[] services;
+            public RouteData[] routes;
+        }
+
+        // Where a service stands in the web layout: its plot, the entrance guests walk to, and whether it is
+        // a few props at the entrance (embedded) or a building on the plot (compact).
+        public sealed class Site
+        {
+            public Vector3 Center, Entrance;
+            public bool Embedded;
+        }
 
         // Between point At and At + 1 of a route the guest rides this lift instead of walking.
         public struct LiftLeg
@@ -59,11 +74,14 @@ namespace ResortEmpire.Game.View
         {
             public readonly List<Lift> Lifts = new List<Lift>();
             readonly Dictionary<string, Route> _routes = new Dictionary<string, Route>();
+            readonly Dictionary<string, Site> _sites = new Dictionary<string, Site>();
 
             // Places as his routes name them: "beach", "reception", "food", "drinks", "relax", "oceanView".
             public Route Route(string from, string to) => _routes.TryGetValue(from + ">" + to, out var r) ? r : null;
+            public Site Site(string place) => _sites.TryGetValue(place, out var s) ? s : null;
 
             public void Add(string name, Route route) => _routes[name] = route;
+            public void Add(string place, Site site) => _sites[place] = site;
         }
 
         // One cabin carrying one guest at a time, as the web's lifts do. It moves only when a guest needs it:
@@ -158,6 +176,9 @@ namespace ResortEmpire.Game.View
                 lift.Park(0f);
                 network.Lifts.Add(lift);
             }
+
+            foreach (var s in data.services)
+                network.Add(s.need, new Site { Center = ToVector(s.center), Entrance = ToVector(s.entrance), Embedded = s.embedded });
 
             foreach (var r in data.routes)
             {

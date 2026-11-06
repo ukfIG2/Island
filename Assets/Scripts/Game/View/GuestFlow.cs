@@ -19,10 +19,8 @@ namespace ResortEmpire.Game.View
         {
             public Transform Body;
             public Renderer Renderer;
-            public IslandPaths.Route Path;
-            public float Walked, Offset;
-            public int NextLeg;         // the next lift leg on the path
-            public bool Riding;
+            public readonly RouteWalk Walk = new RouteWalk();
+            public float Offset;
             public NeedId Need;
             public bool Leisure;
         }
@@ -52,19 +50,20 @@ namespace ResortEmpire.Game.View
             }
         }
 
+        // The figure's centre is half its height above the walking surface.
         float HalfHeight => GuestScale.y * _scale;
 
         // from and to are the figure's centre at the start and the end; the route between lies on the ground.
         public void SpawnArrival(NeedId need, IslandPaths.Route route, Vector3 from, Vector3 to, int sequence)
         {
-            var w = Take(need, Join(from, route, to));
+            var w = Take(need, route, from, to);
             w.Offset = ((sequence % 5) - 2) * 0.012f;
             _inTransit[(int)need]++;
         }
 
         public void SpawnLeisure(NeedId need, IslandPaths.Route route, Vector3 from, Vector3 to)
         {
-            var w = Take(need, Join(from, route, to));
+            var w = Take(need, route, from, to);
             w.Leisure = true;
             w.Offset = 0.015f;
         }
@@ -74,58 +73,26 @@ namespace ResortEmpire.Game.View
             for (int i = _active.Count - 1; i >= 0; i--)
             {
                 var w = _active[i];
-                if (w.Riding && !Ride(w)) continue;
-
-                // Walk on, but stop at the next lift until the cabin takes this guest.
-                float step = WalkSpeed * dt;
-                bool waiting = false;
-                if (w.NextLeg < w.Path.LiftLegs.Length)
-                {
-                    var leg = w.Path.LiftLegs[w.NextLeg];
-                    float board = w.Path.DistanceAt(leg.At);
-                    if (w.Walked + step >= board)
-                    {
-                        step = board - w.Walked;
-                        waiting = true;
-                        w.Riding = leg.Lift.TryBoard(w, leg.Lift.StopNear(w.Path.Points[leg.At]));
-                    }
-                }
-                w.Walked += step;
-
-                float length = w.Path.Length;
-                var pos = w.Path.PointAt(w.Walked);
-                if (w.Walked < length)
+                var pos = w.Walk.Advance(WalkSpeed * dt);
+                if (!w.Walk.Waiting && w.Walk.Walked < w.Walk.Length)
                 {
                     // A small sideways offset keeps a crowd from walking in single file; a bounce for each step.
-                    var ahead = w.Path.PointAt(w.Walked + 0.05f) - pos;
+                    var ahead = w.Walk.Ahead(0.05f) - pos;
                     pos += new Vector3(-ahead.z, 0f, ahead.x).normalized * w.Offset;
-                    if (!waiting) pos.y += Mathf.Abs(Mathf.Sin(w.Walked * 12f)) * 0.06f * _scale;
+                    pos.y += Mathf.Abs(Mathf.Sin(w.Walk.Walked * 12f)) * 0.06f * _scale;
                 }
-                w.Body.position = pos;
+                w.Body.position = pos + Vector3.up * HalfHeight;
 
                 if (!w.Leisure)
                 {
-                    if (w.Walked >= length) Recycle(i);
+                    if (w.Walk.Arrived) Recycle(i);
                     continue;
                 }
 
-                float remaining = LeisureStaySeconds - (w.Walked - length) / WalkSpeed;
+                float remaining = LeisureStaySeconds - (w.Walk.Walked - w.Walk.Length) / WalkSpeed;
                 w.Body.localScale = GuestScale * (_scale * Mathf.Clamp01(remaining));
-                if (remaining <= 0f) Recycle(i);
+                if (w.Walk.Arrived && remaining <= 0f) Recycle(i);
             }
-        }
-
-        // The guest stands on the cabin; once it reaches the other stop they step off and walk on.
-        bool Ride(Walker w)
-        {
-            var leg = w.Path.LiftLegs[w.NextLeg];
-            w.Body.position = leg.Lift.Floor + Vector3.up * HalfHeight;
-            if (!leg.Lift.Arrived(w)) return false;
-            leg.Lift.StepOff(w);
-            w.Riding = false;
-            w.Walked = w.Path.DistanceAt(leg.At + 1);
-            w.NextLeg++;
-            return true;
         }
 
         public void ClearArrivals()
@@ -134,22 +101,7 @@ namespace ResortEmpire.Game.View
                 if (!_active[i].Leisure) Recycle(i);
         }
 
-        // The figure's centre rides half its height above the walking surface; the start point shifts the
-        // route's lift legs by one.
-        IslandPaths.Route Join(Vector3 from, IslandPaths.Route route, Vector3 to)
-        {
-            var up = Vector3.up * HalfHeight;
-            var points = new Vector3[route.Points.Length + 2];
-            points[0] = from;
-            for (int i = 0; i < route.Points.Length; i++) points[i + 1] = route.Points[i] + up;
-            points[points.Length - 1] = to;
-            var legs = new IslandPaths.LiftLeg[route.LiftLegs.Length];
-            for (int i = 0; i < legs.Length; i++)
-                legs[i] = new IslandPaths.LiftLeg { At = route.LiftLegs[i].At + 1, Lift = route.LiftLegs[i].Lift };
-            return new IslandPaths.Route(points, legs);
-        }
-
-        Walker Take(NeedId need, IslandPaths.Route path)
+        Walker Take(NeedId need, IslandPaths.Route route, Vector3 from, Vector3 to)
         {
             Walker w;
             if (_pool.Count > 0)
@@ -163,14 +115,12 @@ namespace ResortEmpire.Game.View
                     Color.white, collider: false);
                 w = new Walker { Body = go.transform, Renderer = go.GetComponent<Renderer>() };
             }
+            var up = Vector3.up * HalfHeight;
+            w.Walk.Start(IslandPaths.Route.Between(from - up, route, to - up));
             w.Renderer.sharedMaterial = ViewKit.Mat(UiFactory.NeedColor(need));
             w.Body.localScale = GuestScale * _scale;
-            w.Body.position = path.Points[0];
-            w.Path = path;
+            w.Body.position = from;
             w.Need = need;
-            w.Walked = 0f;
-            w.NextLeg = 0;
-            w.Riding = false;
             w.Leisure = false;
             _active.Add(w);
             return w;
@@ -179,7 +129,7 @@ namespace ResortEmpire.Game.View
         void Recycle(int index)
         {
             var w = _active[index];
-            foreach (var leg in w.Path.LiftLegs) leg.Lift.StepOff(w);
+            w.Walk.Abandon();
             if (!w.Leisure) _inTransit[(int)w.Need]--;
             w.Body.gameObject.SetActive(false);
             _active.RemoveAt(index);

@@ -68,6 +68,19 @@ namespace ResortEmpire.Game.View
             public float Length => _walked[_walked.Length - 1];
             public float DistanceAt(int index) => _walked[index];
 
+            // This route with its own first and last point added, e.g. from a door to a spot in a line.
+            public static Route Between(Vector3 from, Route route, Vector3 to)
+            {
+                var points = new Vector3[route.Points.Length + 2];
+                points[0] = from;
+                route.Points.CopyTo(points, 1);
+                points[points.Length - 1] = to;
+                var legs = new LiftLeg[route.LiftLegs.Length];
+                for (int i = 0; i < legs.Length; i++)
+                    legs[i] = new LiftLeg { At = route.LiftLegs[i].At + 1, Lift = route.LiftLegs[i].Lift };
+                return new Route(points, legs);
+            }
+
             public Vector3 PointAt(float distance)
             {
                 if (distance <= 0f) return Points[0];

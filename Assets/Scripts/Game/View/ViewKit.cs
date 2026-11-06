@@ -48,6 +48,33 @@ namespace ResortEmpire.Game.View
         public static Color Hex(int rgb)
             => new Color(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f);
 
+        // A pointed cone along +x with the given number of sides (the web's 4-sided bows), base cap included.
+        public static GameObject Cone(string name, Transform parent, Vector3 position, float radius, float length,
+            int sides, Color color)
+        {
+            var go = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer));
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = position;
+            var vertices = new List<Vector3>();
+            var tip = new Vector3(length * 0.5f, 0f, 0f);
+            var centre = new Vector3(-length * 0.5f, 0f, 0f);
+            for (int i = 0; i < sides; i++)
+            {
+                float a0 = i * Mathf.PI * 2f / sides, a1 = (i + 1) * Mathf.PI * 2f / sides;
+                var b0 = centre + new Vector3(0f, Mathf.Cos(a0), Mathf.Sin(a0)) * radius;
+                var b1 = centre + new Vector3(0f, Mathf.Cos(a1), Mathf.Sin(a1)) * radius;
+                vertices.Add(tip); vertices.Add(b0); vertices.Add(b1);         // side, facing out
+                vertices.Add(centre); vertices.Add(b1); vertices.Add(b0);      // base cap, facing back
+            }
+            var triangles = new int[vertices.Count];
+            for (int i = 0; i < triangles.Length; i++) triangles[i] = i;
+            var mesh = new Mesh { name = "Cone", vertices = vertices.ToArray(), triangles = triangles };
+            mesh.RecalculateNormals();
+            go.GetComponent<MeshFilter>().sharedMesh = mesh;
+            go.GetComponent<MeshRenderer>().sharedMaterial = Mat(color);
+            return go;
+        }
+
         // A flat ring lying on the ground, seen from either side.
         public static GameObject Ring(string name, Transform parent, float inner, float outer, Color color)
         {

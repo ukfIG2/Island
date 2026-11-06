@@ -9,8 +9,8 @@ namespace ResortEmpire.Game.View
     // units. Every building stands in the middle of its plot with its guest side toward the plot's entrance; the
     // web puts Reception, Pool and Bungalows as small props at the entrance instead, so here they are scaled up
     // to fill the plot. The player must read three things at a glance (build doc AC2d): seat count (pips toward
-    // the arriving guests), staffing (worker marker above the roof) and the waiting line; a ring on the ground
-    // carries the building's state. While locked the plot shows a construction site, marked when it can be bought.
+    // the arriving guests), staffing (the Worker standing at the entrance, drawn by WorkerFlow) and the waiting
+    // line; a ring on the ground carries the building's state. While locked the plot shows a construction site, marked when it can be bought.
     sealed class BuildingView
     {
         const int MaxVisibleQueue = 12;
@@ -26,7 +26,6 @@ namespace ResortEmpire.Game.View
         static readonly Color RingBottleneck = ViewKit.Hex(0xC0392B);
         static readonly Color RingRecovering = ViewKit.Hex(0xE3B23C);
         static readonly Color PipEmpty = ViewKit.Hex(0xF2EEE6);
-        static readonly Color WorkerColor = ViewKit.Hex(0xE8743B);
         static readonly Color SiteMarkerLocked = ViewKit.Hex(0x9A9A93);
         static readonly Color SiteMarkerAvailable = ViewKit.Hex(0xE8743B);
         static readonly Vector3 GuestScale = new Vector3(0.28f, 0.32f, 0.28f);
@@ -40,7 +39,6 @@ namespace ResortEmpire.Game.View
         readonly GameObject _site;
         readonly Transform _siteMarker;
         readonly Renderer _siteMarkerRenderer;
-        readonly Transform _worker;
         readonly Transform _ring;
         readonly Renderer _ringRenderer;
         readonly Transform _pipRow;
@@ -48,13 +46,11 @@ namespace ResortEmpire.Game.View
         readonly Transform _line;
         readonly List<GameObject> _queue = new List<GameObject>();
         readonly Material _guestMat;
-        readonly float _roofY;
         readonly float _bodyScale;
         readonly Vector3 _entrance;        // where served guests leave from
         readonly Vector3 _lineDirection;   // from the building toward the path its guests arrive by
         readonly Vector3 _guestScale;      // waiting figures stand at full guest size
         readonly float _guestSpacing;
-        readonly float _bobPhase;
         int _shownLevel = -1;
         float _levelScale = 1f;
 
@@ -62,7 +58,6 @@ namespace ResortEmpire.Game.View
         {
             Id = id;
             Need = BuildingNeeds.Serves(id);
-            _bobPhase = (int)id * 1.3f;
             _guestMat = ViewKit.Mat(UiFactory.NeedColor(Need));
             _guestScale = GuestScale * guestSize;
             _guestSpacing = _guestScale.x * 1.25f;
@@ -84,7 +79,7 @@ namespace ResortEmpire.Game.View
             _built.transform.SetParent(_root, false);
             _body = new GameObject("Body").transform;
             _body.SetParent(_built.transform, false);
-            _roofY = BuildBody(id, _body);
+            BuildBody(id, _body);
             _bodyScale = site.Embedded ? PropScale : 1f;
             _body.localScale = Vector3.one * _bodyScale;
 
@@ -103,9 +98,6 @@ namespace ResortEmpire.Game.View
             _pipRow.SetParent(_built.transform, false);
             _pipRow.localPosition = lineLocal * (Footprint + 0.06f) + Vector3.up * 0.02f;
             _pipRow.localRotation = Quaternion.LookRotation(lineLocal);
-
-            _worker = ViewKit.Prim(PrimitiveType.Capsule, "Worker", _built.transform,
-                Vector3.zero, Vector3.one * 0.12f, WorkerColor, collider: false).transform;
 
             _site = new GameObject("ConstructionSite");
             _site.transform.SetParent(_root, false);
@@ -151,11 +143,6 @@ namespace ResortEmpire.Game.View
             }
 
             if (state.Level != _shownLevel) ApplyLevel(state.Level, tuning);
-
-            _worker.gameObject.SetActive(state.HasWorker);
-            if (state.HasWorker)
-                _worker.localPosition = new Vector3(0f,
-                    _roofY * _bodyScale * _levelScale + 0.2f + Mathf.Sin(time * 2.4f + _bobPhase) * 0.03f, 0f);
 
             for (int i = 0; i < _pips.Count; i++)
                 _pips[i].sharedMaterial = i < seated ? _guestMat : ViewKit.Mat(PipEmpty);
@@ -228,8 +215,8 @@ namespace ResortEmpire.Game.View
             return v.sqrMagnitude > 0.0025f ? v.normalized : fallback;
         }
 
-        // The web's shapes and colours (ResortWorld3D.tsx), x mirrored like the island. Returns the roof height.
-        static float BuildBody(BuildingId id, Transform body)
+        // The web's shapes and colours (ResortWorld3D.tsx), x mirrored like the island.
+        static void BuildBody(BuildingId id, Transform body)
         {
             switch (id)
             {
@@ -239,7 +226,7 @@ namespace ResortEmpire.Game.View
                     foreach (float x in new[] { -0.18f, 0.18f }) Box(body, 0.035f, 0.43f, 0.035f, x, 0.26f, 0f, 0x76543B);
                     Box(body, 0.52f, 0.045f, 0.36f, 0f, 0.49f, 0f, 0xD2AD62);
                     Box(body, 0.20f, 0.10f, 0.025f, 0f, 0.39f, -0.14f, 0x4F887B);   // sign
-                    return 0.5125f;
+                    return;
 
                 case BuildingId.Restaurant: // terrace under a canopy
                     Box(body, 0.92f, 0.11f, 0.66f, 0f, 0.055f, 0f, 0xBD8B5C);
@@ -250,7 +237,7 @@ namespace ResortEmpire.Game.View
                         Box(body, 0.045f, 0.46f, 0.045f, p.x, 0.285f, p.y, 0x815D3F);
                     Table(body, 0.22f, 0.2f, 0.105f, 0xDDC488);
                     Table(body, -0.22f, 0.2f, 0.105f, 0xE2CD97);
-                    return 0.5375f;
+                    return;
 
                 case BuildingId.BeachBar: // small open bar deck
                     Box(body, 0.70f, 0.10f, 0.58f, 0f, 0.05f, 0f, 0xA9764C);
@@ -260,7 +247,7 @@ namespace ResortEmpire.Game.View
                                  new Vector2(-0.25f, 0.16f), new Vector2(0.25f, 0.16f) })
                         Box(body, 0.035f, 0.44f, 0.035f, p.x, 0.27f, p.y, 0x795A3D);
                     foreach (float x in new[] { -0.14f, 0.14f }) Stool(body, x, 0.13f);
-                    return 0.5125f;
+                    return;
 
                 case BuildingId.Pool: // pool deck with a sunshade and two loungers
                     Box(body, 0.52f, 0.07f, 0.34f, 0f, 0.035f, 0f, 0xC59762);
@@ -273,7 +260,7 @@ namespace ResortEmpire.Game.View
                             new Vector3(0.24f, 0.045f, 0.085f), ViewKit.Hex(0xEFE1B3), collider: false);
                         lounger.transform.localRotation = Quaternion.Euler(0f, 0f, 0.10f * Mathf.Rad2Deg);
                     }
-                    return 0.485f;
+                    return;
 
                 default: // Bungalows: hotel terrace with a canopy, a rail and a table
                     Box(body, 0.58f, 0.09f, 0.33f, 0f, 0.045f, 0f, 0xB37C52);
@@ -283,7 +270,7 @@ namespace ResortEmpire.Game.View
                     foreach (float x in new[] { -0.23f, -0.08f, 0.08f, 0.23f })
                         Box(body, 0.018f, 0.15f, 0.018f, x, 0.12f, 0.145f, 0xE4CF9D);
                     Cylinder(body, 0.095f, 0.035f, 0f, 0.15f, 0.015f, 0xDEC58C);    // table
-                    return 0.4125f;
+                    return;
             }
         }
 

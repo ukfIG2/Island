@@ -5,17 +5,19 @@ using UnityEngine;
 
 namespace ResortEmpire.Game.View
 {
-    // One building spot, placed and shaped like the web version's (ResortWorld3D.tsx), in island units:
-    // Reception, Pool and Bungalows are a few props at their entrance facing the plot; Restaurant and Beach Bar
-    // are open huts on the plot facing their entrance. The player must read three things at a glance (build doc
-    // AC2d): seat count (pips toward the arriving guests), staffing (worker marker above the roof) and the
-    // waiting line; a ring on the ground carries the building's state. While locked the plot shows a
-    // construction site, marked when it can be bought.
+    // One building on its plot of the web island, shaped like the web version's (ResortWorld3D.tsx), in island
+    // units. Every building stands in the middle of its plot with its guest side toward the plot's entrance; the
+    // web puts Reception, Pool and Bungalows as small props at the entrance instead, so here they are scaled up
+    // to fill the plot. The player must read three things at a glance (build doc AC2d): seat count (pips toward
+    // the arriving guests), staffing (worker marker above the roof) and the waiting line; a ring on the ground
+    // carries the building's state. While locked the plot shows a construction site, marked when it can be bought.
     sealed class BuildingView
     {
         const int MaxVisibleQueue = 12;
         const int LineWidth = 3;           // waiting guests stand in rows of three
         const float PipSpacing = 0.1f;
+        const float PropScale = 1.5f;      // the web's entrance props, grown to fill a plot
+        const float Footprint = 0.48f;     // the ring's outer radius, the web's compact-building ring
 
         // The web's ring colours, with our warnings taking over during a wave.
         static readonly Color RingEmpty = ViewKit.Hex(0xD9BF7B);
@@ -47,7 +49,7 @@ namespace ResortEmpire.Game.View
         readonly List<GameObject> _queue = new List<GameObject>();
         readonly Material _guestMat;
         readonly float _roofY;
-        readonly float _footprint;         // the ring's outer radius
+        readonly float _bodyScale;
         readonly Vector3 _entrance;        // where served guests leave from
         readonly Vector3 _lineDirection;   // from the building toward the path its guests arrive by
         readonly Vector3 _guestScale;      // waiting figures stand at full guest size
@@ -66,8 +68,8 @@ namespace ResortEmpire.Game.View
             _guestSpacing = _guestScale.x * 1.25f;
             _entrance = site.Entrance + Vector3.up * _guestScale.y;
 
-            // Props stand at the entrance facing the plot; a building stands on the plot facing its entrance.
-            var at = site.Embedded ? site.Entrance : site.Center;
+            // The web's props show their guest side on -z and its huts on +z; either way that side faces the entrance.
+            var at = site.Center;
             var facing = site.Embedded ? site.Center - site.Entrance : site.Entrance - site.Center;
             _root = new GameObject(GameController.DisplayName(id)).transform;
             _root.SetParent(parent, false);
@@ -83,15 +85,15 @@ namespace ResortEmpire.Game.View
             _body = new GameObject("Body").transform;
             _body.SetParent(_built.transform, false);
             _roofY = BuildBody(id, _body);
-            _footprint = site.Embedded ? 0.30f : 0.48f;
+            _bodyScale = site.Embedded ? PropScale : 1f;
+            _body.localScale = Vector3.one * _bodyScale;
 
-            // At island scale the parts are small to hit with a finger, so one box around the spot takes the taps.
+            // At island scale the parts are small to hit with a finger, so one box around the plot takes the taps.
             var tapArea = _root.gameObject.AddComponent<BoxCollider>();
             tapArea.center = new Vector3(0f, 0.3f, 0f);
-            tapArea.size = new Vector3(_footprint * 2.2f, 0.6f, _footprint * 2.2f);
+            tapArea.size = new Vector3(Footprint * 2.2f, 0.6f, Footprint * 2.2f);
 
-            _ring = ViewKit.Ring("StateRing", _built.transform, _footprint - (site.Embedded ? 0.05f : 0.06f),
-                _footprint, RingEmpty).transform;
+            _ring = ViewKit.Ring("StateRing", _built.transform, Footprint - 0.06f, Footprint, RingEmpty).transform;
             _ring.localPosition = new Vector3(0f, 0.025f, 0f);
             _ringRenderer = _ring.GetComponent<Renderer>();
 
@@ -99,16 +101,14 @@ namespace ResortEmpire.Game.View
             var lineLocal = _root.InverseTransformDirection(_lineDirection);
             _pipRow = new GameObject("Seats").transform;
             _pipRow.SetParent(_built.transform, false);
-            _pipRow.localPosition = lineLocal * (_footprint + 0.06f) + Vector3.up * 0.02f;
+            _pipRow.localPosition = lineLocal * (Footprint + 0.06f) + Vector3.up * 0.02f;
             _pipRow.localRotation = Quaternion.LookRotation(lineLocal);
 
             _worker = ViewKit.Prim(PrimitiveType.Capsule, "Worker", _built.transform,
                 Vector3.zero, Vector3.one * 0.12f, WorkerColor, collider: false).transform;
 
-            // The construction site waits on the plot itself.
             _site = new GameObject("ConstructionSite");
             _site.transform.SetParent(_root, false);
-            _site.transform.position = site.Center;
             ViewKit.Prim(PrimitiveType.Cube, "Slab", _site.transform, new Vector3(0f, 0.015f, 0f),
                 new Vector3(0.9f, 0.03f, 0.72f), ViewKit.Hex(0xB9B4A8));
             for (int i = 0; i < 4; i++)
@@ -129,7 +129,7 @@ namespace ResortEmpire.Game.View
         public Vector3 QueueSlotWorld(int index)
         {
             int row = index / LineWidth, column = index % LineWidth;
-            float start = _footprint + 0.2f;
+            float start = Footprint + 0.2f;
             var across = new Vector3(_lineDirection.z, 0f, -_lineDirection.x);
             return _root.position + _lineDirection * (start + row * _guestSpacing)
                 + across * ((column - (LineWidth - 1) * 0.5f) * _guestSpacing) + Vector3.up * _guestScale.y;
@@ -155,7 +155,7 @@ namespace ResortEmpire.Game.View
             _worker.gameObject.SetActive(state.HasWorker);
             if (state.HasWorker)
                 _worker.localPosition = new Vector3(0f,
-                    _roofY * _levelScale + 0.2f + Mathf.Sin(time * 2.4f + _bobPhase) * 0.03f, 0f);
+                    _roofY * _bodyScale * _levelScale + 0.2f + Mathf.Sin(time * 2.4f + _bobPhase) * 0.03f, 0f);
 
             for (int i = 0; i < _pips.Count; i++)
                 _pips[i].sharedMaterial = i < seated ? _guestMat : ViewKit.Mat(PipEmpty);
@@ -169,7 +169,7 @@ namespace ResortEmpire.Game.View
         {
             _shownLevel = level;
             _levelScale = 1f + 0.1f * (level - 1);
-            _body.localScale = Vector3.one * _levelScale;
+            _body.localScale = Vector3.one * (_bodyScale * _levelScale);
 
             int capacity = tuning.CapacityPerLevel[Mathf.Clamp(level, 1, tuning.CapacityPerLevel.Length) - 1];
             foreach (var pip in _pips) Object.Destroy(pip.gameObject);

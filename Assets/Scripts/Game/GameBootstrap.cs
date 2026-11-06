@@ -13,8 +13,8 @@ namespace ResortEmpire.Game
             var tuning = TuningConfig.Default;
             var (resort, nextWaveIndex) = SaveSystem.LoadOrNew(tuning);
             Game = new GameController(tuning, resort, nextWaveIndex, WaveTable.Default8());
-            View.IslandViewBuilder.Build(this, Game);
-            Ui.GameUiBuilder.Build(this, Game);
+            var island = View.IslandViewBuilder.Build(this, Game);
+            Ui.GameUiBuilder.Build(this, Game, island.ResetView, () => island.ViewMoved);
         }
 
         void Update() => Game.Tick(Time.deltaTime);

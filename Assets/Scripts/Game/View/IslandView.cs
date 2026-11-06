@@ -18,8 +18,8 @@ namespace ResortEmpire.Game.View
         const float IslandLift = 0.55f;
         const float SeaLevel = -2.35f;
 
-        // His plots are about 1.5 apart, so our buildings and boat are drawn at this fraction of their
-        // blockout size. Guests stay twice as big as that so they read on a phone.
+        // His plots are about 1.5 apart, so the boat is drawn at this fraction of its blockout size. Guests stay
+        // twice as big as that so they read on a phone.
         const float FigureScale = 0.3f;
         const float GuestFigureScale = 0.6f;
 
@@ -59,12 +59,7 @@ namespace ResortEmpire.Game.View
             BuildBoat();
             _guests = new GuestFlow(new GameObject("Guests").transform, GuestFigureScale);
 
-            // His plots in the web layout (building_1–4 and building_6), with x mirrored into Unity.
-            AddBuilding(BuildingId.Reception, new Vector3(-2.598f, -0.962f, 3.120f));
-            AddBuilding(BuildingId.Restaurant, new Vector3(-4.187f, -0.957f, 3.402f));
-            AddBuilding(BuildingId.BeachBar, new Vector3(-1.064f, -0.971f, 2.557f));
-            AddBuilding(BuildingId.Pool, new Vector3(-2.788f, -0.963f, 2.043f));
-            AddBuilding(BuildingId.Bungalows, new Vector3(-2.713f, 0.241f, -2.543f));
+            foreach (BuildingId id in System.Enum.GetValues(typeof(BuildingId))) AddBuilding(id);
         }
 
         static void FrameCamera()
@@ -189,13 +184,13 @@ namespace ResortEmpire.Game.View
             return false;
         }
 
-        void AddBuilding(BuildingId id, Vector3 position)
+        // Each building stands where the web layout puts it (Reception on building_1, Restaurant 2, Beach Bar 3,
+        // Pool 4, Bungalows 6); its line points to where its guests' route from the beach ends.
+        void AddBuilding(BuildingId id)
         {
-            // Every building turns its front (-z) to the camera; its line points to where its guests arrive.
-            var facing = Quaternion.LookRotation(new Vector3(-CameraPosition.x, 0f, -CameraPosition.z));
-            var arrival = _paths.Route("beach", PlaceName(BuildingNeeds.Serves(id))).Points;
-            var view = new BuildingView(transform, id, position, facing, FigureScale, arrival[arrival.Length - 1],
-                GuestFigureScale);
+            string place = PlaceName(BuildingNeeds.Serves(id));
+            var arrival = _paths.Route("beach", place).Points;
+            var view = new BuildingView(transform, id, _paths.Site(place), arrival[arrival.Length - 1], GuestFigureScale);
             _views.Add(view);
             _byNeed[view.Need] = view;
         }

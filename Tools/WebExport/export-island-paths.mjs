@@ -92,7 +92,7 @@ try {
   const { assessPmoTransitionAccess } = await load(meta + 'pmoTransitionAccess.ts');
   const { adaptCompiledPmoGraph } = await load(meta + 'pmoCompiledGraphAdapter.ts');
   const { auditPmoWalkMotion } = await load(meta + 'pmoWalkMotionAudit.ts');
-  const { auditedApproaches, siteByNeed } = await load(meta + 'pmoProductionSiteEndpoints.ts');
+  const { auditedApproaches } = await load(meta + 'pmoProductionSiteEndpoints.ts');
   const { PmoWavePedestrianTraffic } = await load(meta + 'pmoWavePedestrianTraffic.ts');
   const BEACH = [1.6739, -2.2456, 4.5734];   // PmoProductionGuestTraffic.tsx
   const connector = makePmoTerrainConnector(world.navigationRegistry, makeTerrainProjector(island));
@@ -100,8 +100,21 @@ try {
     structures, assessPmoTransitionAccess(structures, world.graph), world.landingExtensions, world.liftTransit,
     world.dockExtensions);
   const graph = auditPmoWalkMotion(adapted.graph, connector).graph;
+  // Which plot each service stands on: Ivan's layout over the island's big plots (the web itself uses plots 1-4
+  // and 6). Guests walk to the plot's approach, the walkable point by its edge his own planner finds.
+  const PLOTS = { reception: 'building_1', food: 'building_8', drinks: 'building_5', relax: 'building_6',
+    oceanView: 'building_7' };
+  const PROPS = new Set(['reception', 'relax', 'oceanView']);   // drawn as the web's props rather than its huts
   const sites = inventoryPmoBuildingSites(published.registry);
-  const destinations = siteByNeed(sites, auditedApproaches(graph, BEACH, sites), world.endpoints);
+  const approaches = auditedApproaches(graph, BEACH, sites);
+  const destinations = {}, services = [];
+  for (const [need, plot] of Object.entries(PLOTS)) {
+    const site = sites.find(s => s.name === plot);
+    const approach = site && approaches.get(site.id);
+    if (!approach) throw new Error(`${need}: no walkable approach to ${plot}`);
+    destinations[need] = approach;
+    services.push({ need, center: unityPoint(site.anchor), entrance: unityPoint(approach), embedded: PROPS.has(need) });
+  }
   const routes = [];
   const plan = (name, from, to) => {
     // A fresh traffic per route: a second guest may not start on top of the first.
@@ -116,11 +129,6 @@ try {
     plan(need + '>beach', destinations[need], BEACH);
     for (const other of needs) if (other !== need) plan(need + '>' + other, destinations[need], destinations[other]);
   }
-
-  // Where his buildings stand (ResortWorld3D.tsx): props of an embedded service at its entrance facing the
-  // plot, a compact building on the plot facing its entrance.
-  const services = Object.entries(world.layout.services).map(([need, s]) => ({
-    need, center: unityPoint(s.center), entrance: unityPoint(s.entrance), embedded: s.embedded }));
 
   // The island outline the web's ocean uses (ResortWorld3D.tsx IslandBoundaryCapture, islandWaterBoundary.ts):
   // the island's footprint above y -0.78 on a 512 grid over the 42 x 42 sea, as a signed distance to the coast,

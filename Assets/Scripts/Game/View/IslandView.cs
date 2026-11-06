@@ -41,6 +41,7 @@ namespace ResortEmpire.Game.View
         readonly List<BuildingView> _views = new List<BuildingView>();
         readonly Dictionary<NeedId, BuildingView> _byNeed = new Dictionary<NeedId, BuildingView>();
         GuestFlow _guests;
+        WorkerFlow _workers;
         IslandPaths.Network _paths;
         Material _ocean;
         IslandLight _light;
@@ -64,6 +65,9 @@ namespace ResortEmpire.Game.View
             _rain = new IslandRain(transform);
             BuildBoat();
             _guests = new GuestFlow(new GameObject("Guests").transform, GuestFigureScale);
+            _workers = new WorkerFlow(new GameObject("Workers").transform,
+                id => _paths.Site(PlaceName(BuildingNeeds.Serves(id))),
+                (from, to) => _paths.Route(PlaceName(BuildingNeeds.Serves(from)), PlaceName(BuildingNeeds.Serves(to))));
 
             foreach (BuildingId id in System.Enum.GetValues(typeof(BuildingId))) AddBuilding(id);
         }
@@ -94,6 +98,7 @@ namespace ResortEmpire.Game.View
             if (sim != null) ReconcileGuests(sim);
             foreach (var lift in _paths.Lifts) lift.Tick(animDt);
             _guests.Tick(animDt);
+            _workers.Sync(_game.Resort, animDt);
 
             bool showStatus = sim != null && sim.Phase != WavePhase.WaveComplete;
             float time = Time.time;

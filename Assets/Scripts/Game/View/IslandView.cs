@@ -42,6 +42,7 @@ namespace ResortEmpire.Game.View
         readonly Dictionary<NeedId, BuildingView> _byNeed = new Dictionary<NeedId, BuildingView>();
         GuestFlow _guests;
         IslandPaths.Network _paths;
+        Material _ocean;
         Transform _boat;
         Vector3[] _beachSpots;
 
@@ -75,6 +76,8 @@ namespace ResortEmpire.Game.View
         {
             if (_game == null) return;
             HandleTap();
+            // The water reflects the sky and catches the sun as seen from the camera.
+            if (Camera.main != null) _ocean.SetVector("_ViewDirection", Ocean.WebDirection(-Camera.main.transform.forward));
 
             var sim = _game.ActiveWave;
             if (sim != _trackedSim) TrackNewWave(sim);
@@ -198,9 +201,7 @@ namespace ResortEmpire.Game.View
         void BuildTerrain()
         {
             var t = transform;
-            // His ocean plane is 42 units wide; a Unity plane is 10.
-            ViewKit.Prim(PrimitiveType.Plane, "Ocean", t, new Vector3(0f, SeaLevel, 0f), new Vector3(4.2f, 1f, 4.2f),
-                ViewKit.Hex(0x1F7FA6));
+            _ocean = Ocean.Build(t, SeaLevel);
             BuildIslandModel(t);
             _paths = IslandPaths.Build(t);
 

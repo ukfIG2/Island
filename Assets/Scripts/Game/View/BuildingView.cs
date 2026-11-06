@@ -45,7 +45,8 @@ namespace ResortEmpire.Game.View
         int _shownLevel = -1;
         float _levelScale = 1f;
 
-        public BuildingView(Transform parent, BuildingId id, Vector3 position, float queueSide)
+        public BuildingView(Transform parent, BuildingId id, Vector3 position, Quaternion rotation, float scale,
+            float queueSide)
         {
             Id = id;
             Need = BuildingNeeds.Serves(id);
@@ -56,7 +57,13 @@ namespace ResortEmpire.Game.View
             _root = new GameObject(GameController.DisplayName(id)).transform;
             _root.SetParent(parent, false);
             _root.localPosition = position;
+            _root.localRotation = rotation;
+            _root.localScale = Vector3.one * scale;
             _root.gameObject.AddComponent<BuildingTag>().Id = id;
+            // At island scale the parts are small to hit with a finger, so one box around the plot takes the taps.
+            var tapArea = _root.gameObject.AddComponent<BoxCollider>();
+            tapArea.center = new Vector3(0f, 1f, 0f);
+            tapArea.size = new Vector3(3.6f, 2f, 3f);
 
             _built = new GameObject("Built");
             _built.transform.SetParent(_root, false);

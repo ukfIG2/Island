@@ -12,24 +12,35 @@ namespace ResortEmpire.Game.View
 
         [Serializable] sealed class Part { public float[] p, q, s; public string c; }
         [Serializable] sealed class LiftData { public string id; public float[] from, to; }
-        [Serializable] sealed class RouteData { public string name; public float[] p; }
+        [Serializable] sealed class LiftLegData { public int at; public string id; }
+        [Serializable] sealed class RouteData { public string name; public float[] p; public LiftLegData[] lifts; }
         [Serializable] sealed class Data { public Part[] boxes, cylinders; public LiftData[] lifts; public RouteData[] routes; }
 
-        // A walk along his walk areas, steps and bridges; the points lie on the walking surface.
+        // Between point At and At + 1 of a route the guest rides this lift instead of walking.
+        public struct LiftLeg
+        {
+            public int At;
+            public Lift Lift;
+        }
+
+        // A walk along his walk areas, steps, bridges and lifts; the points lie on the walking surface.
         public sealed class Route
         {
             public readonly Vector3[] Points;
+            public readonly LiftLeg[] LiftLegs;
             readonly float[] _walked;   // distance from the start at each point
 
-            public Route(Vector3[] points)
+            public Route(Vector3[] points, LiftLeg[] liftLegs)
             {
                 Points = points;
+                LiftLegs = liftLegs;
                 _walked = new float[points.Length];
                 for (int i = 1; i < points.Length; i++)
                     _walked[i] = _walked[i - 1] + Vector3.Distance(points[i - 1], points[i]);
             }
 
             public float Length => _walked[_walked.Length - 1];
+            public float DistanceAt(int index) => _walked[index];
 
             public Vector3 PointAt(float distance)
             {
@@ -55,13 +66,70 @@ namespace ResortEmpire.Game.View
             public void Add(string name, Route route) => _routes[name] = route;
         }
 
+        // One cabin carrying one guest at a time, as the web's lifts do. It moves only when a guest needs it:
+        // it fetches an empty ride to the guest's stop, then carries the guest to the other stop.
         public sealed class Lift
         {
-            public Transform Cabin;
-            public Vector3 From, To;
+            const float Speed = 0.6f;   // island units per second, the web's cabin speed
 
-            // 0 = lower stop, 1 = upper stop. The platform rides a little above the rail ends, as in the web.
-            public void MoveTo(float fraction) => Cabin.position = Vector3.Lerp(From, To, fraction) + Vector3.up * 0.05f;
+            public string Id;
+            public Transform Cabin;
+            public Vector3 From, To;    // lower and upper stop
+            float _at, _goal;           // 0 = lower stop, 1 = upper stop
+            object _rider, _caller;
+
+            public Vector3 Floor => Cabin.position + Vector3.up * 0.03f;
+
+            public void Park(float stop)
+            {
+                _goal = stop;
+                Place(stop);
+            }
+
+            public float StopNear(Vector3 point) =>
+                (point - From).sqrMagnitude <= (point - To).sqrMagnitude ? 0f : 1f;
+
+            // True when the rider is aboard. Otherwise the empty cabin is called to the rider's stop; the first
+            // call stands until the cabin gets there, so guests at both stops cannot send it back and forth.
+            public bool TryBoard(object rider, float stop)
+            {
+                if (_rider == rider) return true;
+                if (_rider != null) return false;
+                if (_at != stop)
+                {
+                    if (_caller == null)
+                    {
+                        _caller = rider;
+                        _goal = stop;
+                    }
+                    return false;
+                }
+                _rider = rider;
+                _caller = null;
+                _goal = 1f - stop;
+                return true;
+            }
+
+            public bool Arrived(object rider) => _rider == rider && _at == _goal;
+
+            // Also releases a call, so a guest who is gone never keeps the cabin waiting.
+            public void StepOff(object rider)
+            {
+                if (_rider == rider) _rider = null;
+                if (_caller == rider) _caller = null;
+            }
+
+            public void Tick(float dt)
+            {
+                if (_at != _goal) Place(Mathf.MoveTowards(_at, _goal, Speed * dt / Vector3.Distance(From, To)));
+            }
+
+            // The platform rides a little above the rail ends, as in the web.
+            void Place(float fraction)
+            {
+                _at = fraction;
+                Cabin.position = Vector3.Lerp(From, To, fraction) + Vector3.up * 0.05f;
+            }
         }
 
         // Each lift's cabin waits at its lower stop until a guest needs it.
@@ -78,13 +146,6 @@ namespace ResortEmpire.Game.View
             StaticBatchingUtility.Combine(root.gameObject);
 
             var network = new Network();
-            foreach (var r in data.routes)
-            {
-                var points = new Vector3[r.p.Length / 3];
-                for (int i = 0; i < points.Length; i++) points[i] = new Vector3(r.p[i * 3], r.p[i * 3 + 1], r.p[i * 3 + 2]);
-                network.Add(r.name, new Route(points));
-            }
-
             foreach (var l in data.lifts)
             {
                 var cabin = new GameObject("LiftCabin").transform;
@@ -93,9 +154,19 @@ namespace ResortEmpire.Game.View
                     ViewKit.Hex(0xDFBF72), collider: false);
                 ViewKit.Prim(PrimitiveType.Cube, "Pole", cabin, new Vector3(0f, 0.18f, 0f), new Vector3(0.025f, 0.36f, 0.025f),
                     ViewKit.Hex(0x6B837A), collider: false);
-                var lift = new Lift { Cabin = cabin, From = ToVector(l.from), To = ToVector(l.to) };
-                lift.MoveTo(0f);
+                var lift = new Lift { Id = l.id, Cabin = cabin, From = ToVector(l.from), To = ToVector(l.to) };
+                lift.Park(0f);
                 network.Lifts.Add(lift);
+            }
+
+            foreach (var r in data.routes)
+            {
+                var points = new Vector3[r.p.Length / 3];
+                for (int i = 0; i < points.Length; i++) points[i] = new Vector3(r.p[i * 3], r.p[i * 3 + 1], r.p[i * 3 + 2]);
+                var legs = new LiftLeg[r.lifts.Length];
+                for (int i = 0; i < legs.Length; i++)
+                    legs[i] = new LiftLeg { At = r.lifts[i].at, Lift = network.Lifts.Find(x => x.Id == r.lifts[i].id) };
+                network.Add(r.name, new Route(points, legs));
             }
             return network;
         }

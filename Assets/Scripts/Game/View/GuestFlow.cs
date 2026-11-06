@@ -5,12 +5,12 @@ using UnityEngine;
 
 namespace ResortEmpire.Game.View
 {
-    // Guest figures in motion: arrivals walking from the boat to their building's line, and a few
-    // served guests strolling to the beach. Purely visual — the sim decides who exists and where.
+    // Guest figures in motion: arrivals walking from the boat along the island's paths to their building's
+    // line, and a few served guests strolling back to the beach. Purely visual — the sim decides who exists
+    // and where.
     sealed class GuestFlow
     {
-        const float WalkSpeed = 4.2f;
-        const float LeisureWalkSeconds = 3.5f;
+        const float WalkSpeed = 0.9f;   // island units per second; the web's guests walk 0.23–0.65
         const float LeisureStaySeconds = 4.5f;
 
         static readonly Vector3 GuestScale = new Vector3(0.28f, 0.32f, 0.28f);
@@ -19,14 +19,14 @@ namespace ResortEmpire.Game.View
         {
             public Transform Body;
             public Renderer Renderer;
-            public Vector3 From, To;
-            public float Elapsed, Duration, Sway;
+            public IslandPaths.Route Path;
+            public float Walked, Offset;
             public NeedId Need;
             public bool Leisure;
         }
 
         readonly Transform _parent;
-        readonly float _scale;         // figure size, walking speed and sway shrink together with the world
+        readonly float _scale;         // figure size shrinks together with the world
         readonly List<Walker> _active = new List<Walker>();
         readonly Stack<Walker> _pool = new Stack<Walker>();
         readonly int[] _inTransit = new int[System.Enum.GetValues(typeof(NeedId)).Length];
@@ -40,20 +40,19 @@ namespace ResortEmpire.Game.View
         // Arrivals still walking are not drawn in the line yet, so the line only grows when they get there.
         public int InTransit(NeedId need) => _inTransit[(int)need];
 
-        public void SpawnArrival(NeedId need, Vector3 from, Vector3 to, int sequence)
+        // from and to are the figure's centre at the start and the end; the route between lies on the ground.
+        public void SpawnArrival(NeedId need, IslandPaths.Route route, Vector3 from, Vector3 to, int sequence)
         {
-            var w = Take(need, from, to);
-            w.Duration = Mathf.Max(0.6f, Vector3.Distance(from, to) / (WalkSpeed * _scale));
-            w.Sway = ((sequence % 5) - 2) * 0.3f * _scale;
+            var w = Take(need, Join(from, route, to));
+            w.Offset = ((sequence % 5) - 2) * 0.012f;
             _inTransit[(int)need]++;
         }
 
-        public void SpawnLeisure(NeedId need, Vector3 from, Vector3 to)
+        public void SpawnLeisure(NeedId need, IslandPaths.Route route, Vector3 from, Vector3 to)
         {
-            var w = Take(need, from, to);
+            var w = Take(need, Join(from, route, to));
             w.Leisure = true;
-            w.Duration = LeisureWalkSeconds;
-            w.Sway = 0.4f * _scale;
+            w.Offset = 0.015f;
         }
 
         public void Tick(float dt)
@@ -61,22 +60,25 @@ namespace ResortEmpire.Game.View
             for (int i = _active.Count - 1; i >= 0; i--)
             {
                 var w = _active[i];
-                w.Elapsed += dt;
-                float t = Mathf.Clamp01(w.Elapsed / w.Duration);
-
-                var travel = w.To - w.From;
-                var side = new Vector3(-travel.z, 0f, travel.x).normalized;
-                var pos = Vector3.Lerp(w.From, w.To, t) + side * (Mathf.Sin(t * Mathf.PI) * w.Sway);
-                if (t < 1f) pos.y += Mathf.Abs(Mathf.Sin(w.Elapsed * 9f)) * 0.06f * _scale;
+                w.Walked += WalkSpeed * dt;
+                float length = w.Path.Length;
+                var pos = w.Path.PointAt(w.Walked);
+                if (w.Walked < length)
+                {
+                    // A small sideways offset keeps a crowd from walking in single file; a bounce for each step.
+                    var ahead = w.Path.PointAt(w.Walked + 0.05f) - pos;
+                    pos += new Vector3(-ahead.z, 0f, ahead.x).normalized * w.Offset;
+                    pos.y += Mathf.Abs(Mathf.Sin(w.Walked * 12f)) * 0.06f * _scale;
+                }
                 w.Body.position = pos;
 
                 if (!w.Leisure)
                 {
-                    if (t >= 1f) Recycle(i);
+                    if (w.Walked >= length) Recycle(i);
                     continue;
                 }
 
-                float remaining = LeisureWalkSeconds + LeisureStaySeconds - w.Elapsed;
+                float remaining = LeisureStaySeconds - (w.Walked - length) / WalkSpeed;
                 w.Body.localScale = GuestScale * (_scale * Mathf.Clamp01(remaining));
                 if (remaining <= 0f) Recycle(i);
             }
@@ -88,7 +90,18 @@ namespace ResortEmpire.Game.View
                 if (!_active[i].Leisure) Recycle(i);
         }
 
-        Walker Take(NeedId need, Vector3 from, Vector3 to)
+        // The figure's centre rides half its height above the walking surface.
+        IslandPaths.Route Join(Vector3 from, IslandPaths.Route route, Vector3 to)
+        {
+            var lift = Vector3.up * (GuestScale.y * _scale);
+            var points = new Vector3[route.Points.Length + 2];
+            points[0] = from;
+            for (int i = 0; i < route.Points.Length; i++) points[i + 1] = route.Points[i] + lift;
+            points[points.Length - 1] = to;
+            return new IslandPaths.Route(points);
+        }
+
+        Walker Take(NeedId need, IslandPaths.Route path)
         {
             Walker w;
             if (_pool.Count > 0)
@@ -104,11 +117,10 @@ namespace ResortEmpire.Game.View
             }
             w.Renderer.sharedMaterial = ViewKit.Mat(UiFactory.NeedColor(need));
             w.Body.localScale = GuestScale * _scale;
-            w.Body.position = from;
-            w.From = from;
-            w.To = to;
+            w.Body.position = path.Points[0];
+            w.Path = path;
             w.Need = need;
-            w.Elapsed = 0f;
+            w.Walked = 0f;
             w.Leisure = false;
             _active.Add(w);
             return w;

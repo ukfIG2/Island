@@ -1,8 +1,9 @@
 // Exports the paths of Vadzim's web island (RRH) for the Unity version.
 //
 // Runs his own navigation code in Node against the real island mesh, exactly as his game builds it in
-// the browser (PmoNavigationScope / PmoTransitionStructures), and writes what Unity needs as plain data:
-// every visible stair, bridge, landing and lift part as a box in Unity coordinates.
+// the browser (PmoNavigationScope / PmoTransitionStructures / PmoProductionGuestTraffic), and writes what
+// Unity needs as plain data: every visible stair, bridge, landing and lift part as a box, and the routes
+// his guests walk between the beach and the buildings, all in Unity coordinates.
 // Unity coordinates mirror x, as glTFast does when it imports the island model:
 // position (x, y, z) -> (-x, y, z), rotation (x, y, z, w) -> (x, -y, -z, w).
 //
@@ -31,8 +32,9 @@ try {
   const { designPmoBeachGateway, BEACH_GATEWAY_ID } = await load(meta + 'pmoBeachGatewayDesign.ts');
   const { BRIDGE8_ID } = await load('/src/render/PmoBridge8Architecture.tsx');
 
+  const island = islandMesh(THREE);
   const published = getPublishedPmoRegistry();
-  const world = buildPmoNavigationWorld(published.registry, makeTerrainProjector(islandMesh(THREE)), published.authority);
+  const world = buildPmoNavigationWorld(published.registry, makeTerrainProjector(island), published.authority);
   const structures = projectPmoTransitionStructures(published.registry);
 
   // Rebuild the scene graph of his components, then read every box's world transform.
@@ -83,8 +85,68 @@ try {
 
   const lifts = structures.filter(s => s.kind === 'lift')
     .map(s => ({ id: s.sourceId, from: unityPoint(s.from), to: unityPoint(s.to) }));
-  writeFileSync(outPath, JSON.stringify({ source: 'RRH ' + published.authority, boxes, cylinders, lifts }));
-  console.log(`wrote ${outPath}: ${boxes.length} boxes, ${cylinders.length} cylinders, ${lifts.length} lifts`);
+
+  // Guest routes, planned exactly like PmoProductionGuestTraffic.tsx: his walk areas, steps, bridges and lifts.
+  const { makePmoTerrainConnector } = await load(meta + 'pmoNavigationWorld.ts');
+  const { readPmoWalkAuthorization, inventoryPmoBuildingSites } = await load(meta + 'pmoWorldBindings.ts');
+  const { assessPmoTransitionAccess } = await load(meta + 'pmoTransitionAccess.ts');
+  const { adaptCompiledPmoGraph } = await load(meta + 'pmoCompiledGraphAdapter.ts');
+  const { auditPmoWalkMotion } = await load(meta + 'pmoWalkMotionAudit.ts');
+  const { auditedApproaches, siteByNeed } = await load(meta + 'pmoProductionSiteEndpoints.ts');
+  const { PmoWavePedestrianTraffic } = await load(meta + 'pmoWavePedestrianTraffic.ts');
+  const BEACH = [1.6739, -2.2456, 4.5734];   // PmoProductionGuestTraffic.tsx
+  const connector = makePmoTerrainConnector(world.navigationRegistry, makeTerrainProjector(island));
+  const adapted = adaptCompiledPmoGraph(world.graph, connector, readPmoWalkAuthorization(world.navigationRegistry),
+    structures, assessPmoTransitionAccess(structures, world.graph), world.landingExtensions, world.liftTransit,
+    world.dockExtensions);
+  const graph = auditPmoWalkMotion(adapted.graph, connector).graph;
+  const sites = inventoryPmoBuildingSites(published.registry);
+  const destinations = siteByNeed(sites, auditedApproaches(graph, BEACH, sites), world.endpoints);
+  const routes = [];
+  const plan = (name, from, to) => {
+    // A fresh traffic per route: a second guest may not start on top of the first.
+    const result = new PmoWavePedestrianTraffic(graph, connector, BEACH, destinations, adapted.physical, world.liftTransit)
+      .pedestrians.add({ id: name, from, to });
+    if (result.status !== 'READY') throw new Error(`${name}: ${result.status} ${result.reason}`);
+    routes.push(polyline(name, result.steps));
+  };
+  const needs = Object.keys(destinations);
+  for (const need of needs) {
+    plan('beach>' + need, BEACH, destinations[need]);
+    plan(need + '>beach', destinations[need], BEACH);
+    for (const other of needs) if (other !== need) plan(need + '>' + other, destinations[need], destinations[other]);
+  }
+
+  writeFileSync(outPath, JSON.stringify({ source: 'RRH ' + published.authority, boxes, cylinders, lifts,
+    beach: unityPoint(BEACH), routes }));
+  console.log(`wrote ${outPath}: ${boxes.length} boxes, ${cylinders.length} cylinders, ${lifts.length} lifts, ` +
+    `${routes.length} routes`);
+
+  // One route as a flat point list; stairs and bridges follow their sampled surface, a lift leg is marked
+  // by the index of the point where the guest boards.
+  function polyline(name, steps) {
+    const points = [], liftLegs = [];
+    const add = v => {
+      const last = points[points.length - 1];
+      if (!last || Math.hypot(v[0] - last[0], v[1] - last[1], v[2] - last[2]) > 1e-4) points.push(v);
+    };
+    for (const step of steps) {
+      add(step.from);
+      if (step.kind === 'lift') {
+        liftLegs.push({ at: points.length - 1, id: step.helperId });
+        add(step.to);
+        continue;
+      }
+      let samples = step.helperId ? adapted.physical.get(step.helperId) : null;
+      if (samples && samples.length > 1) {
+        const start = samples[0], end = samples[samples.length - 1];
+        if (distance(end, step.from) < distance(start, step.from)) samples = [...samples].reverse();
+        for (const s of samples) add(s);
+      }
+      add(step.to);
+    }
+    return { name, p: points.flatMap(unityPoint), lifts: liftLegs };
+  }
 
   // PmoBeachGateway.tsx: the main arrival stair as stone steps with side cheeks and an edge highlight.
   function beachGateway(stair) {
@@ -141,6 +203,7 @@ try {
 }
 
 function round(v) { return Math.round(v * 1e5) / 1e5; }
+function distance(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]); }
 function unityPoint(v) { return [round(-v[0]), round(v[1]), round(v[2])]; }
 
 // The island mesh placed like ResortIslandModel.tsx: group scale 8, raised 0.55, the model's own 70° turn.

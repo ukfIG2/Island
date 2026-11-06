@@ -38,6 +38,7 @@ namespace ResortEmpire.Game.View
         readonly List<BuildingView> _views = new List<BuildingView>();
         readonly Dictionary<NeedId, BuildingView> _byNeed = new Dictionary<NeedId, BuildingView>();
         GuestFlow _guests;
+        IslandPaths.Network _paths;
         Transform _boat;
         Vector3[] _beachSpots;
 
@@ -133,15 +134,19 @@ namespace ResortEmpire.Game.View
                 int newcomers = arrived - _lastArrived[index];
                 _lastArrived[index] = arrived;
                 int line = Mathf.Max(0, sim.QueueLength(need) - _guests.InTransit(need));
+                var arrival = _paths.Route("beach", PlaceName(need));
                 for (int k = 0; k < Mathf.Min(newcomers, MaxSpawnsPerFrame); k++)
-                    _guests.SpawnArrival(need, WalkStart, view.QueueSlotWorld(Mathf.Min(line + k, 11)), _spawnSequence++);
+                    _guests.SpawnArrival(need, arrival, WalkStart, view.QueueSlotWorld(Mathf.Min(line + k, 11)),
+                        _spawnSequence++);
 
                 int served = sim.ServedUnits(need);
                 int finished = served - _lastServed[index];
                 _lastServed[index] = served;
+                var stroll = _paths.Route(PlaceName(need), "beach");
                 for (int k = 0; k < Mathf.Min(finished, 2); k++)
                     if (++_servedSequence % 3 == 0)
-                        _guests.SpawnLeisure(need, view.EntranceWorld, _beachSpots[(_servedSequence / 3) % _beachSpots.Length]);
+                        _guests.SpawnLeisure(need, stroll, view.EntranceWorld,
+                            _beachSpots[(_servedSequence / 3) % _beachSpots.Length]);
             }
         }
 
@@ -153,6 +158,19 @@ namespace ResortEmpire.Game.View
             _boat.position = Vector3.MoveTowards(_boat.position, target, BoatSpeed * animDt);
             bool visible = docked || (_boat.position - BoatAway).sqrMagnitude > 0.01f;
             if (_boat.gameObject.activeSelf != visible) _boat.gameObject.SetActive(visible);
+        }
+
+        // Where each need is served, as the web routes name the places.
+        static string PlaceName(NeedId need)
+        {
+            switch (need)
+            {
+                case NeedId.Rooms: return "reception";
+                case NeedId.Food: return "food";
+                case NeedId.Drinks: return "drinks";
+                case NeedId.Relax: return "relax";
+                default: return "oceanView";
+            }
         }
 
         bool SiteAvailable(BuildingId id)
@@ -180,7 +198,7 @@ namespace ResortEmpire.Game.View
             ViewKit.Prim(PrimitiveType.Plane, "Ocean", t, new Vector3(0f, SeaLevel, 0f), new Vector3(4.2f, 1f, 4.2f),
                 ViewKit.Hex(0x1F7FA6));
             BuildIslandModel(t);
-            IslandPaths.Build(t);
+            _paths = IslandPaths.Build(t);
 
             // Spots on his main beach where served guests stroll to.
             float y = BeachY + 0.32f * FigureScale;

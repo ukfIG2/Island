@@ -18,9 +18,10 @@ namespace ResortEmpire.Game.View
         const float IslandLift = 0.55f;
         const float SeaLevel = -2.35f;
 
-        // His plots are about 1.5 apart, so our buildings, guests and boat are drawn at this fraction of
-        // their blockout size.
+        // His plots are about 1.5 apart, so our buildings and boat are drawn at this fraction of their
+        // blockout size. Guests stay twice as big as that so they read on a phone.
         const float FigureScale = 0.3f;
+        const float GuestFigureScale = 0.6f;
 
         // The web camera: orthographic, looking at the island centre from above the main beach.
         static readonly Vector3 CameraPosition = new Vector3(-10.5f, 12.5f, 13.5f);
@@ -29,8 +30,10 @@ namespace ResortEmpire.Game.View
         const float BeachY = -2.27f;   // sand level of his main beach, just above the sea
         const float BoatSpeed = 7.5f;
         const int MaxSpawnsPerFrame = 4;
+        // Walking figures are a sample of the arrivals, as in the web; the rest join their line directly.
+        const int MaxWalkingArrivals = 16;
 
-        static readonly Vector3 WalkStart = new Vector3(-1.5f, BeachY + 0.32f * FigureScale, 4.9f);
+        static readonly Vector3 WalkStart = new Vector3(-1.5f, BeachY + 0.32f * GuestFigureScale, 4.9f);
         static readonly Vector3 BoatDocked = new Vector3(-1.5f, SeaLevel, 6.6f);
         static readonly Vector3 BoatAway = new Vector3(-12f, SeaLevel, 13f);
 
@@ -54,14 +57,14 @@ namespace ResortEmpire.Game.View
             FrameCamera();
             BuildTerrain();
             BuildBoat();
-            _guests = new GuestFlow(new GameObject("Guests").transform, FigureScale);
+            _guests = new GuestFlow(new GameObject("Guests").transform, GuestFigureScale);
 
             // His plots in the web layout (building_1–4 and building_6), with x mirrored into Unity.
-            AddBuilding(BuildingId.Reception, new Vector3(-2.598f, -0.962f, 3.120f), -1f);
-            AddBuilding(BuildingId.Restaurant, new Vector3(-4.187f, -0.957f, 3.402f), +1f);
-            AddBuilding(BuildingId.BeachBar, new Vector3(-1.064f, -0.971f, 2.557f), -1f);
-            AddBuilding(BuildingId.Pool, new Vector3(-2.788f, -0.963f, 2.043f), +1f);
-            AddBuilding(BuildingId.Bungalows, new Vector3(-2.713f, 0.241f, -2.543f), -1f);
+            AddBuilding(BuildingId.Reception, new Vector3(-2.598f, -0.962f, 3.120f));
+            AddBuilding(BuildingId.Restaurant, new Vector3(-4.187f, -0.957f, 3.402f));
+            AddBuilding(BuildingId.BeachBar, new Vector3(-1.064f, -0.971f, 2.557f));
+            AddBuilding(BuildingId.Pool, new Vector3(-2.788f, -0.963f, 2.043f));
+            AddBuilding(BuildingId.Bungalows, new Vector3(-2.713f, 0.241f, -2.543f));
         }
 
         static void FrameCamera()
@@ -83,6 +86,7 @@ namespace ResortEmpire.Game.View
 
             float animDt = sim != null && sim.IsPaused ? 0f : Time.deltaTime * _game.SimSpeed;
             if (sim != null) ReconcileGuests(sim);
+            foreach (var lift in _paths.Lifts) lift.Tick(animDt);
             _guests.Tick(animDt);
 
             bool showStatus = sim != null && sim.Phase != WavePhase.WaveComplete;
@@ -136,8 +140,11 @@ namespace ResortEmpire.Game.View
                 int line = Mathf.Max(0, sim.QueueLength(need) - _guests.InTransit(need));
                 var arrival = _paths.Route("beach", PlaceName(need));
                 for (int k = 0; k < Mathf.Min(newcomers, MaxSpawnsPerFrame); k++)
+                {
+                    if (_guests.ArrivalsWalking >= MaxWalkingArrivals) break;
                     _guests.SpawnArrival(need, arrival, WalkStart, view.QueueSlotWorld(Mathf.Min(line + k, 11)),
                         _spawnSequence++);
+                }
 
                 int served = sim.ServedUnits(need);
                 int finished = served - _lastServed[index];
@@ -182,11 +189,13 @@ namespace ResortEmpire.Game.View
             return false;
         }
 
-        void AddBuilding(BuildingId id, Vector3 position, float queueSide)
+        void AddBuilding(BuildingId id, Vector3 position)
         {
-            // Every building turns its front (-z) to the camera.
+            // Every building turns its front (-z) to the camera; its line points to where its guests arrive.
             var facing = Quaternion.LookRotation(new Vector3(-CameraPosition.x, 0f, -CameraPosition.z));
-            var view = new BuildingView(transform, id, position, facing, FigureScale, queueSide);
+            var arrival = _paths.Route("beach", PlaceName(BuildingNeeds.Serves(id))).Points;
+            var view = new BuildingView(transform, id, position, facing, FigureScale, arrival[arrival.Length - 1],
+                GuestFigureScale);
             _views.Add(view);
             _byNeed[view.Need] = view;
         }
@@ -201,7 +210,7 @@ namespace ResortEmpire.Game.View
             _paths = IslandPaths.Build(t);
 
             // Spots on his main beach where served guests stroll to.
-            float y = BeachY + 0.32f * FigureScale;
+            float y = BeachY + 0.32f * GuestFigureScale;
             _beachSpots = new[]
             {
                 new Vector3(-4f, y, 4.8f), new Vector3(-3f, y, 4.8f), new Vector3(-2f, y, 4.8f), new Vector3(-1f, y, 4.8f),

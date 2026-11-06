@@ -4,9 +4,11 @@ namespace ResortEmpire.Game.View
 {
     public static class IslandViewBuilder
     {
-        public static void Build(GameBootstrap host, GameController game)
+        public static IslandView Build(GameBootstrap host, GameController game)
         {
-            new GameObject("IslandView").AddComponent<IslandView>().Init(game);
+            var view = new GameObject("IslandView").AddComponent<IslandView>();
+            view.Init(game);
+            return view;
         }
     }
 }

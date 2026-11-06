@@ -91,6 +91,8 @@ namespace ResortEmpire.Game.View
             _siteMarkerRenderer = _siteMarker.GetComponent<Renderer>();
         }
 
+        public Vector3 EntranceWorld => _root.TransformPoint(new Vector3(0f, 0.32f, _pipRow.localPosition.z));
+
         public Vector3 QueueSlotWorld(int index)
         {
             float half = (_pips.Count - 1) * 0.5f * PipSpacing;

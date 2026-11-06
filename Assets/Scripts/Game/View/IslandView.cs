@@ -1,8 +1,6 @@
 using System.Collections.Generic;
 using ResortEmpire.Sim;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 
 namespace ResortEmpire.Game.View
@@ -21,10 +19,6 @@ namespace ResortEmpire.Game.View
         // Guests are drawn at this fraction of the blockout figure: big enough to read on a phone.
         const float GuestFigureScale = 0.6f;
 
-        // The web camera: orthographic, looking at the island centre from above the main beach.
-        static readonly Vector3 CameraPosition = new Vector3(-10.5f, 12.5f, 13.5f);
-        const float CameraSize = 7.5f;
-
         const float BeachY = -2.27f;   // sand level of his main beach, just above the sea
         const int MaxSpawnsPerFrame = 4;
         // Walking figures are a sample of the arrivals, as in the web; the rest join their line directly.
@@ -42,6 +36,7 @@ namespace ResortEmpire.Game.View
         IslandLight _light;
         IslandRain _rain;
         IslandBoats _boats;
+        IslandCamera _camera;
         Vector3[] _beachSpots;
 
         WaveSimulation _trackedSim;
@@ -53,7 +48,7 @@ namespace ResortEmpire.Game.View
         public void Init(GameController game)
         {
             _game = game;
-            FrameCamera();
+            if (Camera.main != null) _camera = new IslandCamera(Camera.main);
             BuildTerrain();
             _light = new IslandLight(Camera.main, RenderSettings.sun != null ? RenderSettings.sun : FindFirstObjectByType<Light>(),
                 _ocean);
@@ -67,19 +62,14 @@ namespace ResortEmpire.Game.View
             foreach (BuildingId id in System.Enum.GetValues(typeof(BuildingId))) AddBuilding(id);
         }
 
-        static void FrameCamera()
-        {
-            var cam = Camera.main;
-            if (cam == null) return;
-            cam.orthographic = true;
-            cam.orthographicSize = CameraSize;
-            cam.transform.SetPositionAndRotation(CameraPosition, Quaternion.LookRotation(-CameraPosition));
-        }
+        // The camera can be turned and zoomed; the UI offers to bring it back.
+        public bool ViewMoved => _camera != null && _camera.Moved;
+        public void ResetView() => _camera?.ResetView();
 
         void Update()
         {
             if (_game == null) return;
-            HandleTap();
+            if (_camera != null && _camera.Tick(out var tap)) Tap(tap);
             // The water reflects the sky and catches the sun as seen from the camera.
             if (Camera.main != null) _ocean.SetVector("_ViewDirection", Ocean.WebDirection(-Camera.main.transform.forward));
             _light.Show(_game.NextWaveIndex, _game.CurrentPhase == WavePhase.WaveComplete);
@@ -112,15 +102,12 @@ namespace ResortEmpire.Game.View
             _boats.Tick(_game.NextWaveIndex, atBeach, animDt, Time.time);
         }
 
-        void HandleTap()
+        void Tap(Vector2 screen)
         {
-            var pointer = Pointer.current;
-            if (pointer == null || !pointer.press.wasPressedThisFrame) return;
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
             var cam = Camera.main;
             if (cam == null) return;
 
-            var ray = cam.ScreenPointToRay(pointer.position.ReadValue());
+            var ray = cam.ScreenPointToRay(screen);
             if (!Physics.Raycast(ray, out var hit, 200f)) return;
             var tag = hit.collider.GetComponentInParent<BuildingTag>();
             if (tag != null) _game.RaiseBuildingTapped(tag.Id);

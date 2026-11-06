@@ -33,6 +33,18 @@ namespace ResortEmpire.Game.View
             return go;
         }
 
+        // An unlit, optionally see-through colour (the ResortEmpire/Flat shader), one cached material per colour.
+        public static Material Flat(Color color)
+        {
+            if (FlatMaterials.TryGetValue(color, out var cached) && cached != null) return cached;
+            var mat = new Material(Resources.Load<Material>("Island/Flat"));
+            mat.SetColor("_Color", color);
+            FlatMaterials[color] = mat;
+            return mat;
+        }
+
+        static readonly Dictionary<Color, Material> FlatMaterials = new Dictionary<Color, Material>();
+
         public static Color Hex(int rgb)
             => new Color(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f);
 

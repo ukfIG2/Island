@@ -117,8 +117,13 @@ try {
     for (const other of needs) if (other !== need) plan(need + '>' + other, destinations[need], destinations[other]);
   }
 
+  // Where his buildings stand (ResortWorld3D.tsx): props of an embedded service at its entrance facing the
+  // plot, a compact building on the plot facing its entrance.
+  const services = Object.entries(world.layout.services).map(([need, s]) => ({
+    need, center: unityPoint(s.center), entrance: unityPoint(s.entrance), embedded: s.embedded }));
+
   writeFileSync(outPath, JSON.stringify({ source: 'RRH ' + published.authority, boxes, cylinders, lifts,
-    beach: unityPoint(BEACH), routes }));
+    beach: unityPoint(BEACH), services, routes }));
   console.log(`wrote ${outPath}: ${boxes.length} boxes, ${cylinders.length} cylinders, ${lifts.length} lifts, ` +
     `${routes.length} routes`);
 

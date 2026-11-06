@@ -1,0 +1,227 @@
+using System.Collections.Generic;
+using ResortEmpire.Sim;
+using UnityEngine;
+using UnityEngine.Rendering;
+
+namespace ResortEmpire.Game.View
+{
+    // The island from the web version with our buildings on it. Reads GameController/sim state every frame
+    // and reconciles visuals to it; it never changes game state except by reporting building taps to the controller.
+    public sealed class IslandView : MonoBehaviour
+    {
+        // Vadzim's island model, placed exactly as in the web version: raised 0.55 and scaled 8, with the
+        // 70° turn stored in the model itself. His sea lies at -2.35, below the beaches.
+        const string IslandModel = "Island/cascade-isle-v2";
+        const float IslandScale = 8f;
+        const float IslandLift = 0.55f;
+        const float SeaLevel = -2.35f;
+
+        // Guests are drawn at this fraction of the blockout figure: big enough to read on a phone.
+        const float GuestFigureScale = 0.6f;
+
+        const float BeachY = -2.27f;   // sand level of his main beach, just above the sea
+        const int MaxSpawnsPerFrame = 4;
+        // Walking figures are a sample of the arrivals, as in the web; the rest join their line directly.
+        const int MaxWalkingArrivals = 16;
+
+        static readonly Vector3 WalkStart = new Vector3(-1.5f, BeachY + 0.32f * GuestFigureScale, 4.9f);
+
+        GameController _game;
+        readonly List<BuildingView> _views = new List<BuildingView>();
+        readonly Dictionary<NeedId, BuildingView> _byNeed = new Dictionary<NeedId, BuildingView>();
+        GuestFlow _guests;
+        WorkerFlow _workers;
+        IslandPaths.Network _paths;
+        Material _ocean;
+        IslandLight _light;
+        IslandRain _rain;
+        IslandBoats _boats;
+        IslandCamera _camera;
+        Vector3[] _beachSpots;
+
+        WaveSimulation _trackedSim;
+        readonly int[] _lastArrived = new int[System.Enum.GetValues(typeof(NeedId)).Length];
+        readonly int[] _lastServed = new int[System.Enum.GetValues(typeof(NeedId)).Length];
+        int _spawnSequence;
+        int _servedSequence;
+
+        public void Init(GameController game)
+        {
+            _game = game;
+            if (Camera.main != null) _camera = new IslandCamera(Camera.main);
+            BuildTerrain();
+            _light = new IslandLight(Camera.main, RenderSettings.sun != null ? RenderSettings.sun : FindFirstObjectByType<Light>(),
+                _ocean);
+            _rain = new IslandRain(transform);
+            _boats = new IslandBoats(transform, WalkStart, SeaLevel);
+            _guests = new GuestFlow(new GameObject("Guests").transform, GuestFigureScale);
+            _workers = new WorkerFlow(new GameObject("Workers").transform,
+                id => _paths.Site(PlaceName(BuildingNeeds.Serves(id))),
+                (from, to) => _paths.Route(PlaceName(BuildingNeeds.Serves(from)), PlaceName(BuildingNeeds.Serves(to))));
+
+            foreach (BuildingId id in System.Enum.GetValues(typeof(BuildingId))) AddBuilding(id);
+        }
+
+        // The camera can be turned and zoomed; the UI offers to bring it back.
+        public bool ViewMoved => _camera != null && _camera.Moved;
+        public void ResetView() => _camera?.ResetView();
+
+        void Update()
+        {
+            if (_game == null) return;
+            if (_camera != null && _camera.Tick(out var tap)) Tap(tap);
+            // The water reflects the sky and catches the sun as seen from the camera.
+            if (Camera.main != null) _ocean.SetVector("_ViewDirection", Ocean.WebDirection(-Camera.main.transform.forward));
+            _light.Show(_game.NextWaveIndex, _game.CurrentPhase == WavePhase.WaveComplete);
+            _light.Tick(Time.deltaTime);
+            _rain.Tick(Time.time, _light.Raining);
+
+            var sim = _game.ActiveWave;
+            if (sim != _trackedSim) TrackNewWave(sim);
+
+            float animDt = sim != null && sim.IsPaused ? 0f : Time.deltaTime * _game.SimSpeed;
+            if (sim != null) ReconcileGuests(sim);
+            foreach (var lift in _paths.Lifts) lift.Tick(animDt);
+            _guests.Tick(animDt);
+            _workers.Sync(_game.Resort, animDt);
+
+            bool showStatus = sim != null && sim.Phase != WavePhase.WaveComplete;
+            float time = Time.time;
+            foreach (var view in _views)
+            {
+                int seated = sim != null ? sim.SeatedCount(view.Need) : 0;
+                int line = sim != null ? Mathf.Max(0, sim.QueueLength(view.Need) - _guests.InTransit(view.Need)) : 0;
+                var status = sim != null ? sim.StatusOf(view.Need) : NeedStatus.Ok;
+                view.Sync(_game.Resort.Get(view.Id), _game.Tuning, SiteAvailable(view.Id), seated, line,
+                    status, showStatus, time);
+            }
+
+            // The wave's vessels wait at the beach while its guests arrive.
+            bool atBeach = sim != null &&
+                           (sim.Phase == WavePhase.WaveIncoming || (sim.Phase == WavePhase.WaveActive && !sim.ArrivalsClosed));
+            _boats.Tick(_game.NextWaveIndex, atBeach, animDt, Time.time);
+        }
+
+        void Tap(Vector2 screen)
+        {
+            var cam = Camera.main;
+            if (cam == null) return;
+
+            var ray = cam.ScreenPointToRay(screen);
+            if (!Physics.Raycast(ray, out var hit, 200f)) return;
+            var tag = hit.collider.GetComponentInParent<BuildingTag>();
+            if (tag != null) _game.RaiseBuildingTapped(tag.Id);
+        }
+
+        void TrackNewWave(WaveSimulation sim)
+        {
+            _trackedSim = sim;
+            System.Array.Clear(_lastArrived, 0, _lastArrived.Length);
+            System.Array.Clear(_lastServed, 0, _lastServed.Length);
+            _guests.ClearArrivals();
+        }
+
+        void ReconcileGuests(WaveSimulation sim)
+        {
+            foreach (var pair in _byNeed)
+            {
+                var need = pair.Key;
+                var view = pair.Value;
+                int index = (int)need;
+
+                int arrived = sim.ArrivedUnits(need);
+                int newcomers = arrived - _lastArrived[index];
+                _lastArrived[index] = arrived;
+                int line = Mathf.Max(0, sim.QueueLength(need) - _guests.InTransit(need));
+                var arrival = _paths.Route("beach", PlaceName(need));
+                for (int k = 0; k < Mathf.Min(newcomers, MaxSpawnsPerFrame); k++)
+                {
+                    if (_guests.ArrivalsWalking >= MaxWalkingArrivals) break;
+                    _guests.SpawnArrival(need, arrival, WalkStart, view.QueueSlotWorld(Mathf.Min(line + k, 11)),
+                        _spawnSequence++);
+                }
+
+                int served = sim.ServedUnits(need);
+                int finished = served - _lastServed[index];
+                _lastServed[index] = served;
+                var stroll = _paths.Route(PlaceName(need), "beach");
+                for (int k = 0; k < Mathf.Min(finished, 2); k++)
+                    if (++_servedSequence % 3 == 0)
+                        _guests.SpawnLeisure(need, stroll, view.EntranceWorld,
+                            _beachSpots[(_servedSequence / 3) % _beachSpots.Length]);
+            }
+        }
+
+        // Where each need is served, as the web routes name the places.
+        static string PlaceName(NeedId need)
+        {
+            switch (need)
+            {
+                case NeedId.Rooms: return "reception";
+                case NeedId.Food: return "food";
+                case NeedId.Drinks: return "drinks";
+                case NeedId.Relax: return "relax";
+                default: return "oceanView";
+            }
+        }
+
+        bool SiteAvailable(BuildingId id)
+        {
+            var t = _game.Tuning;
+            int done = _game.Resort.WavesCompleted;
+            if (id == BuildingId.Pool) return done >= t.PoolEligibleAfterWave;
+            if (id == BuildingId.Bungalows) return done >= t.BungalowsEligibleAfterWave;
+            return false;
+        }
+
+        // Each building stands where the web layout puts it (Reception on building_1, Restaurant 2, Beach Bar 3,
+        // Pool 4, Bungalows 6); its line points to where its guests' route from the beach ends.
+        void AddBuilding(BuildingId id)
+        {
+            string place = PlaceName(BuildingNeeds.Serves(id));
+            var arrival = _paths.Route("beach", place).Points;
+            var view = new BuildingView(transform, id, _paths.Site(place), arrival[arrival.Length - 1], GuestFigureScale);
+            _views.Add(view);
+            _byNeed[view.Need] = view;
+        }
+
+        void BuildTerrain()
+        {
+            var t = transform;
+            BuildIslandModel(t);
+            _paths = IslandPaths.Build(t);
+            _ocean = Ocean.Build(t, SeaLevel, _paths.Shore);
+
+            // Spots on his main beach where served guests stroll to.
+            float y = BeachY + 0.32f * GuestFigureScale;
+            _beachSpots = new[]
+            {
+                new Vector3(-4f, y, 4.8f), new Vector3(-3f, y, 4.8f), new Vector3(-2f, y, 4.8f), new Vector3(-1f, y, 4.8f),
+                new Vector3(-3.5f, y, 5.1f), new Vector3(-2.5f, y, 5.1f), new Vector3(-1.5f, y, 5.1f), new Vector3(0f, y, 5.1f)
+            };
+        }
+
+        static void BuildIslandModel(Transform parent)
+        {
+            var island = new GameObject("Island").transform;
+            island.SetParent(parent, false);
+            island.localPosition = new Vector3(0f, IslandLift, 0f);
+            island.localScale = Vector3.one * IslandScale;
+            Object.Instantiate(Resources.Load<GameObject>(IslandModel), island, false);
+
+            // Same tuning as the web: nothing on the island is metal, the surface stays matte, the 2K normal
+            // map is pushed a little for small-scale detail, and textures stay sharp at a slant.
+            foreach (var r in island.GetComponentsInChildren<MeshRenderer>())
+            {
+                r.shadowCastingMode = ShadowCastingMode.On;
+                r.receiveShadows = true;
+                var m = r.material;
+                m.SetFloat("metallicFactor", 0f);
+                m.SetFloat("roughnessFactor", 0.92f);
+                m.SetFloat("normalTexture_scale", 1.28f);
+                foreach (var name in m.GetTexturePropertyNames())
+                    if (m.GetTexture(name) is Texture2D texture) texture.anisoLevel = 8;
+            }
+        }
+    }
+}

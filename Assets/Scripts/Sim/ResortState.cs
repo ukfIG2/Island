@@ -115,7 +115,7 @@ namespace ResortEmpire.Sim
         }
 
         // Rebuilds an exact between-waves resort: the tests use it to set up a given resort, and the save
-        // system will load through it. Purely constructive — no costs, no gameplay rules; the caller is
+        // system loads through it. Purely constructive — no costs, no gameplay rules; the caller is
         // responsible for handing in a consistent snapshot.
         public static ResortState Restore(TuningConfig t, int coins, int energy, int resortValue,
             int wavesCompleted, int workers, BuildingId[] ids, int[] levels, bool[] hasWorker)

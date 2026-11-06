@@ -11,6 +11,7 @@ namespace ResortEmpire.Game.View
     sealed class BuildingView
     {
         const int MaxVisibleQueue = 12;
+        const int LineWidth = 3;          // waiting guests stand in rows of three
         const float PipSpacing = 0.32f;
 
         static readonly Color PipEmpty = ViewKit.Hex(0xF2EEE6);
@@ -35,24 +36,31 @@ namespace ResortEmpire.Game.View
         readonly Renderer _ringRenderer;
         readonly Transform _pipRow;
         readonly List<Renderer> _pips = new List<Renderer>();
+        readonly Transform _line;
         readonly List<GameObject> _queue = new List<GameObject>();
         readonly Material _guestMat;
         readonly float _roofY;
         readonly float _frontZ;
         readonly float _ringDiameter;
-        readonly float _side;          // +1: queue extends right of the seats, -1: left
+        readonly Vector3 _lineDirection;   // from the building toward the path its guests arrive by
+        readonly Vector3 _guestScale;      // waiting figures stand at full guest size, not building scale
+        readonly float _guestSpacing;
         readonly float _bobPhase;
         int _shownLevel = -1;
         float _levelScale = 1f;
 
         public BuildingView(Transform parent, BuildingId id, Vector3 position, Quaternion rotation, float scale,
-            float queueSide)
+            Vector3 approach, float guestSize)
         {
             Id = id;
             Need = BuildingNeeds.Serves(id);
-            _side = queueSide;
             _bobPhase = (int)id * 1.3f;
             _guestMat = ViewKit.Mat(UiFactory.NeedColor(Need));
+            _guestScale = GuestScale * guestSize;
+            _guestSpacing = _guestScale.x * 1.25f;
+            var toward = approach - position;
+            toward.y = 0f;
+            _lineDirection = toward.sqrMagnitude > 0.0025f ? toward.normalized : rotation * Vector3.back;
 
             _root = new GameObject(GameController.DisplayName(id)).transform;
             _root.SetParent(parent, false);
@@ -60,6 +68,8 @@ namespace ResortEmpire.Game.View
             _root.localRotation = rotation;
             _root.localScale = Vector3.one * scale;
             _root.gameObject.AddComponent<BuildingTag>().Id = id;
+            _line = new GameObject(GameController.DisplayName(id) + " Line").transform;
+            _line.SetParent(parent, false);
             // At island scale the parts are small to hit with a finger, so one box around the plot takes the taps.
             var tapArea = _root.gameObject.AddComponent<BoxCollider>();
             tapArea.center = new Vector3(0f, 1f, 0f);
@@ -101,12 +111,14 @@ namespace ResortEmpire.Game.View
 
         public Vector3 EntranceWorld => _root.TransformPoint(new Vector3(0f, 0.32f, _pipRow.localPosition.z));
 
+        // Waiting guests stand in rows of three from the building's edge toward the path they came by.
         public Vector3 QueueSlotWorld(int index)
         {
-            float half = (_pips.Count - 1) * 0.5f * PipSpacing;
-            var origin = new Vector3(_side * (half + 0.55f), 0.32f, _pipRow.localPosition.z - 0.05f);
-            var slot = origin + new Vector3(_side * (index % 2) * 0.4f, 0f, -(index / 2) * 0.42f);
-            return _root.TransformPoint(slot);
+            int row = index / LineWidth, column = index % LineWidth;
+            float start = _ringDiameter * 0.45f * _levelScale * _root.localScale.x;
+            var across = new Vector3(_lineDirection.z, 0f, -_lineDirection.x);
+            return _root.position + _lineDirection * (start + row * _guestSpacing)
+                + across * ((column - (LineWidth - 1) * 0.5f) * _guestSpacing) + Vector3.up * _guestScale.y;
         }
 
         public void Sync(BuildingState state, TuningConfig tuning, bool siteAvailable, int seated,
@@ -156,7 +168,7 @@ namespace ResortEmpire.Game.View
                     new Vector3(0.22f, 0.12f, 0.22f), PipEmpty, collider: false);
                 _pips.Add(pip.GetComponent<Renderer>());
             }
-            // Queue slots hang off the seat row, so already-placed guests must follow its new width.
+            // The line starts at the building's edge, so already-placed guests step back from a bigger building.
             for (int i = 0; i < _queue.Count; i++) _queue[i].transform.position = QueueSlotWorld(i);
         }
 
@@ -165,7 +177,7 @@ namespace ResortEmpire.Game.View
             int visible = Mathf.Min(count, MaxVisibleQueue);
             while (_queue.Count < visible)
             {
-                var guest = ViewKit.Prim(PrimitiveType.Capsule, "Waiting", _root, Vector3.zero, GuestScale,
+                var guest = ViewKit.Prim(PrimitiveType.Capsule, "Waiting", _line, Vector3.zero, _guestScale,
                     UiFactory.NeedColor(Need), collider: false);
                 guest.transform.position = QueueSlotWorld(_queue.Count);
                 _queue.Add(guest);
@@ -177,7 +189,7 @@ namespace ResortEmpire.Game.View
             }
             // A longer line than we draw is shown as a bigger last guest, never as a number.
             if (visible > 0)
-                _queue[visible - 1].transform.localScale = count > MaxVisibleQueue ? GuestScale * 1.35f : GuestScale;
+                _queue[visible - 1].transform.localScale = count > MaxVisibleQueue ? _guestScale * 1.35f : _guestScale;
         }
 
         void SetRing(NeedStatus status, float time)

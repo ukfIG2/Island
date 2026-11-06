@@ -18,15 +18,21 @@ namespace ResortEmpire.Game.View
         const float IslandLift = 0.55f;
         const float SeaLevel = -2.35f;
 
-        // The island sits in the screen band left free by the forecast card (left) and the wave panel (right).
-        static readonly Vector3 IslandCenter = new Vector3(-1.2f, 0f, 3.5f);
-        const float GroundY = 0.53f;
+        // His plots are about 1.5 apart, so our buildings, guests and boat are drawn at this fraction of
+        // their blockout size.
+        const float FigureScale = 0.3f;
+
+        // The web camera: orthographic, looking at the island centre from above the main beach.
+        static readonly Vector3 CameraPosition = new Vector3(-10.5f, 12.5f, 13.5f);
+        const float CameraSize = 7.5f;
+
+        const float BeachY = -2.27f;   // sand level of his main beach, just above the sea
         const float BoatSpeed = 7.5f;
         const int MaxSpawnsPerFrame = 4;
 
-        static readonly Vector3 WalkStart = new Vector3(-1.2f, 0.77f, -3.8f);   // end of the dock
-        static readonly Vector3 BoatDocked = new Vector3(0.5f, 0f, -3.8f);
-        static readonly Vector3 BoatAway = new Vector3(16f, 0f, -7f);
+        static readonly Vector3 WalkStart = new Vector3(-1.5f, BeachY + 0.32f * FigureScale, 4.9f);
+        static readonly Vector3 BoatDocked = new Vector3(-1.5f, SeaLevel, 6.6f);
+        static readonly Vector3 BoatAway = new Vector3(-12f, SeaLevel, 13f);
 
         GameController _game;
         readonly List<BuildingView> _views = new List<BuildingView>();
@@ -44,15 +50,26 @@ namespace ResortEmpire.Game.View
         public void Init(GameController game)
         {
             _game = game;
+            FrameCamera();
             BuildTerrain();
             BuildBoat();
-            _guests = new GuestFlow(new GameObject("Guests").transform);
+            _guests = new GuestFlow(new GameObject("Guests").transform, FigureScale);
 
-            AddBuilding(BuildingId.Reception, new Vector3(-1.2f, GroundY, 8.0f), +1f);
-            AddBuilding(BuildingId.Restaurant, new Vector3(-4.8f, GroundY, 5.6f), +1f);
-            AddBuilding(BuildingId.BeachBar, new Vector3(-5.6f, GroundY, 1.6f), +1f);
-            AddBuilding(BuildingId.Pool, new Vector3(2.4f, GroundY, 5.6f), -1f);
-            AddBuilding(BuildingId.Bungalows, new Vector3(3.2f, GroundY, 1.2f), -1f);
+            // His plots in the web layout (building_1–4 and building_6), with x mirrored into Unity.
+            AddBuilding(BuildingId.Reception, new Vector3(-2.598f, -0.962f, 3.120f), -1f);
+            AddBuilding(BuildingId.Restaurant, new Vector3(-4.187f, -0.957f, 3.402f), +1f);
+            AddBuilding(BuildingId.BeachBar, new Vector3(-1.064f, -0.971f, 2.557f), -1f);
+            AddBuilding(BuildingId.Pool, new Vector3(-2.788f, -0.963f, 2.043f), +1f);
+            AddBuilding(BuildingId.Bungalows, new Vector3(-2.713f, 0.241f, -2.543f), -1f);
+        }
+
+        static void FrameCamera()
+        {
+            var cam = Camera.main;
+            if (cam == null) return;
+            cam.orthographic = true;
+            cam.orthographicSize = CameraSize;
+            cam.transform.SetPositionAndRotation(CameraPosition, Quaternion.LookRotation(-CameraPosition));
         }
 
         void Update()
@@ -149,7 +166,9 @@ namespace ResortEmpire.Game.View
 
         void AddBuilding(BuildingId id, Vector3 position, float queueSide)
         {
-            var view = new BuildingView(transform, id, position, queueSide);
+            // Every building turns its front (-z) to the camera.
+            var facing = Quaternion.LookRotation(new Vector3(-CameraPosition.x, 0f, -CameraPosition.z));
+            var view = new BuildingView(transform, id, position, facing, FigureScale, queueSide);
             _views.Add(view);
             _byNeed[view.Need] = view;
         }
@@ -157,28 +176,18 @@ namespace ResortEmpire.Game.View
         void BuildTerrain()
         {
             var t = transform;
-            var c = IslandCenter;
             // His ocean plane is 42 units wide; a Unity plane is 10.
             ViewKit.Prim(PrimitiveType.Plane, "Ocean", t, new Vector3(0f, SeaLevel, 0f), new Vector3(4.2f, 1f, 4.2f),
                 ViewKit.Hex(0x1F7FA6));
             BuildIslandModel(t);
 
-            ViewKit.Prim(PrimitiveType.Cube, "Dock", t, new Vector3(-1.2f, 0.38f, -3.1f),
-                new Vector3(1.2f, 0.14f, 2f), ViewKit.Hex(0x8B5A33));
-            foreach (var z in new[] { -3.9f, -2.6f })
-                foreach (var x in new[] { -1.75f, -0.65f })
-                    ViewKit.Prim(PrimitiveType.Cylinder, "DockPost", t, new Vector3(x, 0.25f, z),
-                        new Vector3(0.14f, 0.3f, 0.14f), ViewKit.Hex(0x6B4A2E), collider: false);
-
-            // Spots on the sand ring where served guests stroll to; the dock side is left free.
-            var spots = new List<Vector3>();
-            for (int deg = 0; deg < 360; deg += 30)
+            // Spots on his main beach where served guests stroll to.
+            float y = BeachY + 0.32f * FigureScale;
+            _beachSpots = new[]
             {
-                if (deg > 240 && deg < 300) continue;
-                float a = deg * Mathf.Deg2Rad;
-                spots.Add(c + new Vector3(Mathf.Cos(a) * 6.3f, 0.77f, Mathf.Sin(a) * 5.3f));
-            }
-            _beachSpots = spots.ToArray();
+                new Vector3(-4f, y, 4.8f), new Vector3(-3f, y, 4.8f), new Vector3(-2f, y, 4.8f), new Vector3(-1f, y, 4.8f),
+                new Vector3(-3.5f, y, 5.1f), new Vector3(-2.5f, y, 5.1f), new Vector3(-1.5f, y, 5.1f), new Vector3(0f, y, 5.1f)
+            };
         }
 
         static void BuildIslandModel(Transform parent)
@@ -208,6 +217,7 @@ namespace ResortEmpire.Game.View
         {
             _boat = new GameObject("Boat").transform;
             _boat.SetParent(transform, false);
+            _boat.localScale = Vector3.one * FigureScale;
             ViewKit.Prim(PrimitiveType.Cube, "Hull", _boat, new Vector3(0f, 0.22f, 0f),
                 new Vector3(2.4f, 0.45f, 1f), ViewKit.Hex(0xF4F1EA), collider: false);
             ViewKit.Prim(PrimitiveType.Cube, "Stripe", _boat, new Vector3(0f, 0.3f, 0f),

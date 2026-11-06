@@ -43,6 +43,7 @@ namespace ResortEmpire.Game.View
         GuestFlow _guests;
         IslandPaths.Network _paths;
         Material _ocean;
+        IslandLight _light;
         Transform _boat;
         Vector3[] _beachSpots;
 
@@ -57,6 +58,8 @@ namespace ResortEmpire.Game.View
             _game = game;
             FrameCamera();
             BuildTerrain();
+            _light = new IslandLight(Camera.main, RenderSettings.sun != null ? RenderSettings.sun : FindFirstObjectByType<Light>(),
+                _ocean);
             BuildBoat();
             _guests = new GuestFlow(new GameObject("Guests").transform, GuestFigureScale);
 
@@ -78,6 +81,8 @@ namespace ResortEmpire.Game.View
             HandleTap();
             // The water reflects the sky and catches the sun as seen from the camera.
             if (Camera.main != null) _ocean.SetVector("_ViewDirection", Ocean.WebDirection(-Camera.main.transform.forward));
+            _light.Show(_game.NextWaveIndex, _game.CurrentPhase == WavePhase.WaveComplete);
+            _light.Tick(Time.deltaTime);
 
             var sim = _game.ActiveWave;
             if (sim != _trackedSim) TrackNewWave(sim);

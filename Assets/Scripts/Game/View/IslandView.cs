@@ -18,9 +18,7 @@ namespace ResortEmpire.Game.View
         const float IslandLift = 0.55f;
         const float SeaLevel = -2.35f;
 
-        // His plots are about 1.5 apart, so the boat is drawn at this fraction of its blockout size. Guests stay
-        // twice as big as that so they read on a phone.
-        const float FigureScale = 0.3f;
+        // Guests are drawn at this fraction of the blockout figure: big enough to read on a phone.
         const float GuestFigureScale = 0.6f;
 
         // The web camera: orthographic, looking at the island centre from above the main beach.
@@ -28,14 +26,11 @@ namespace ResortEmpire.Game.View
         const float CameraSize = 7.5f;
 
         const float BeachY = -2.27f;   // sand level of his main beach, just above the sea
-        const float BoatSpeed = 7.5f;
         const int MaxSpawnsPerFrame = 4;
         // Walking figures are a sample of the arrivals, as in the web; the rest join their line directly.
         const int MaxWalkingArrivals = 16;
 
         static readonly Vector3 WalkStart = new Vector3(-1.5f, BeachY + 0.32f * GuestFigureScale, 4.9f);
-        static readonly Vector3 BoatDocked = new Vector3(-1.5f, SeaLevel, 6.6f);
-        static readonly Vector3 BoatAway = new Vector3(-12f, SeaLevel, 13f);
 
         GameController _game;
         readonly List<BuildingView> _views = new List<BuildingView>();
@@ -46,7 +41,7 @@ namespace ResortEmpire.Game.View
         Material _ocean;
         IslandLight _light;
         IslandRain _rain;
-        Transform _boat;
+        IslandBoats _boats;
         Vector3[] _beachSpots;
 
         WaveSimulation _trackedSim;
@@ -63,7 +58,7 @@ namespace ResortEmpire.Game.View
             _light = new IslandLight(Camera.main, RenderSettings.sun != null ? RenderSettings.sun : FindFirstObjectByType<Light>(),
                 _ocean);
             _rain = new IslandRain(transform);
-            BuildBoat();
+            _boats = new IslandBoats(transform, WalkStart, SeaLevel);
             _guests = new GuestFlow(new GameObject("Guests").transform, GuestFigureScale);
             _workers = new WorkerFlow(new GameObject("Workers").transform,
                 id => _paths.Site(PlaceName(BuildingNeeds.Serves(id))),
@@ -111,7 +106,10 @@ namespace ResortEmpire.Game.View
                     status, showStatus, time);
             }
 
-            UpdateBoat(sim, animDt);
+            // The wave's vessels wait at the beach while its guests arrive.
+            bool atBeach = sim != null &&
+                           (sim.Phase == WavePhase.WaveIncoming || (sim.Phase == WavePhase.WaveActive && !sim.ArrivalsClosed));
+            _boats.Tick(_game.NextWaveIndex, atBeach, animDt, Time.time);
         }
 
         void HandleTap()
@@ -134,7 +132,6 @@ namespace ResortEmpire.Game.View
             System.Array.Clear(_lastArrived, 0, _lastArrived.Length);
             System.Array.Clear(_lastServed, 0, _lastServed.Length);
             _guests.ClearArrivals();
-            if (sim != null) _boat.position = BoatAway;
         }
 
         void ReconcileGuests(WaveSimulation sim)
@@ -166,16 +163,6 @@ namespace ResortEmpire.Game.View
                         _guests.SpawnLeisure(need, stroll, view.EntranceWorld,
                             _beachSpots[(_servedSequence / 3) % _beachSpots.Length]);
             }
-        }
-
-        void UpdateBoat(WaveSimulation sim, float animDt)
-        {
-            bool docked = sim != null &&
-                          (sim.Phase == WavePhase.WaveIncoming || (sim.Phase == WavePhase.WaveActive && !sim.ArrivalsClosed));
-            var target = docked ? BoatDocked : BoatAway;
-            _boat.position = Vector3.MoveTowards(_boat.position, target, BoatSpeed * animDt);
-            bool visible = docked || (_boat.position - BoatAway).sqrMagnitude > 0.01f;
-            if (_boat.gameObject.activeSelf != visible) _boat.gameObject.SetActive(visible);
         }
 
         // Where each need is served, as the web routes name the places.
@@ -248,21 +235,6 @@ namespace ResortEmpire.Game.View
                 foreach (var name in m.GetTexturePropertyNames())
                     if (m.GetTexture(name) is Texture2D texture) texture.anisoLevel = 8;
             }
-        }
-
-        void BuildBoat()
-        {
-            _boat = new GameObject("Boat").transform;
-            _boat.SetParent(transform, false);
-            _boat.localScale = Vector3.one * FigureScale;
-            ViewKit.Prim(PrimitiveType.Cube, "Hull", _boat, new Vector3(0f, 0.22f, 0f),
-                new Vector3(2.4f, 0.45f, 1f), ViewKit.Hex(0xF4F1EA), collider: false);
-            ViewKit.Prim(PrimitiveType.Cube, "Stripe", _boat, new Vector3(0f, 0.3f, 0f),
-                new Vector3(2.42f, 0.1f, 1.02f), ViewKit.Hex(0xC0392B), collider: false);
-            ViewKit.Prim(PrimitiveType.Cube, "Cabin", _boat, new Vector3(-0.3f, 0.7f, 0f),
-                new Vector3(0.9f, 0.5f, 0.7f), ViewKit.Hex(0x2F6F86), collider: false);
-            _boat.position = BoatAway;
-            _boat.gameObject.SetActive(false);
         }
     }
 }

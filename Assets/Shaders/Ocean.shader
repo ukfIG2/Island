@@ -1,5 +1,7 @@
 // The web version's ocean (RRH ResortOcean.tsx), ported to URP. It moves four directional waves over a fine
-// grid, colours the water deep to shallow toward the island, reflects the sky at a slant and catches the sun.
+// grid, colours the water deep to shallow toward the island, reflects the sky at a slant and catches the sun,
+// lays foam in a band around the island and on steep crests, and keeps out of the island: the web's island
+// outline (a signed distance to the coast) cuts the water away inland and lets it fade and lighten at the coast.
 // All maths runs in the web's own coordinates (Unity mirrors x, as glTFast does for the island), so the
 // waves and patterns match the web exactly. Like the web's shader it does its own lighting and writes its
 // colour without conversion, so the result is read back as sRGB.
@@ -15,17 +17,22 @@ Shader "ResortEmpire/Ocean"
         _SunDirection ("Sun direction (web space)", Vector) = (-0.46, 0.84, -0.29, 0)
         _ViewDirection ("Surface to camera (web space)", Vector) = (0, 1, 0, 0)
         _WaveAmplitude ("Wave amplitude", Float) = 1
+        [NoScaleOffset] _ShoreDistance ("Island outline (signed distance, high/low bytes)", 2D) = "white" {}
+        _ShoreArea ("Outline area: origin x, z, size x, z (web space)", Vector) = (-21, -21, 42, 42)
+        _ShoreRange ("Outline distance range", Float) = 21
     }
 
     SubShader
     {
-        Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" "Queue" = "Geometry" }
+        Tags { "RenderType" = "Transparent" "RenderPipeline" = "UniversalPipeline" "Queue" = "Transparent" }
 
         Pass
         {
             Name "Ocean"
             Tags { "LightMode" = "UniversalForward" }
             Cull Off
+            Blend SrcAlpha OneMinusSrcAlpha
+            ZWrite Off
 
             HLSLPROGRAM
             #pragma vertex Vert
@@ -33,11 +40,21 @@ Shader "ResortEmpire/Ocean"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 
+            TEXTURE2D(_ShoreDistance);
+            SAMPLER(sampler_ShoreDistance);
+
             CBUFFER_START(UnityPerMaterial)
                 half4 _DeepColor, _MidColor, _ShallowColor, _SkyColor, _SunColor;
-                float4 _SunDirection, _ViewDirection;
-                float _WaveAmplitude;
+                float4 _SunDirection, _ViewDirection, _ShoreArea;
+                float _WaveAmplitude, _ShoreRange;
             CBUFFER_END
+
+            // The web's shore profile (ResortOcean.tsx, shoreWaterProfile.ts).
+            static const float ShoreOffset = 0.12;
+            static const float ShoreFeather = 0.24;
+            static const float ShoreEdgeOpacity = 0.72;
+            static const float ShoreFadeWidth = 1.4;
+            static const float ShoreTintStrength = 0.06;
 
             struct Attributes { float4 positionOS : POSITION; };
 
@@ -123,6 +140,19 @@ Shader "ResortEmpire/Ocean"
                 float t = _Time.y;
                 float2 p = float2(-input.positionWS.x, input.positionWS.z);   // web world x, z
 
+                // Inland the water is cut away; near the coast it is a little see-through and lighter.
+                float2 shoreUV = saturate((p - _ShoreArea.xy) / _ShoreArea.zw);
+                float2 encoded = SAMPLE_TEXTURE2D(_ShoreDistance, sampler_ShoreDistance, shoreUV).rg;
+                float signedShoreDistance = (dot(encoded, float2(65280.0, 255.0)) / 65535.0 * 2.0 - 1.0) * _ShoreRange;
+                float shallowProgress = saturate(max(signedShoreDistance, 0.0) / ShoreFadeWidth);
+                float fadeToOpenSea = shallowProgress * shallowProgress * (3.0 - 2.0 * shallowProgress);
+                float shoreWaterAlpha = lerp(ShoreEdgeOpacity, 1.0, fadeToOpenSea);
+                float shoreWaterTint = (1.0 - fadeToOpenSea) * ShoreTintStrength;
+                float halfFeather = ShoreFeather * 0.5;
+                float shorelineVisibility = smoothstep(ShoreOffset - halfFeather, ShoreOffset + halfFeather,
+                    signedShoreDistance);
+                clip(shorelineVisibility - 0.001);
+
                 float2 driftLarge = float2(t * 0.028, -t * 0.020);
                 float2 driftSmall = float2(-t * 0.060, t * 0.046);
                 float largeNoise = Fbm(p * 0.31 + driftLarge);
@@ -138,11 +168,13 @@ Shader "ResortEmpire/Ocean"
                 float islandDistance = length(p);
                 float shallow = 1.0 - smoothstep(5.8, 10.3, islandDistance);
                 float shelf = 1.0 - smoothstep(8.8, 14.5, islandDistance);
+                float shoreBand = smoothstep(0.22, 0.82, shelf) * (1.0 - smoothstep(0.72, 0.98, shelf));
                 float3 deepColor = lerp(_DeepColor.rgb, float3(0.02, 0.36, 0.68), 0.68);
                 float3 midColor = lerp(_MidColor.rgb, float3(0.00, 0.72, 0.88), 0.78);
                 float3 shallowColor = lerp(_ShallowColor.rgb, float3(0.22, 0.95, 1.00), 0.82);
                 float3 body = lerp(deepColor, midColor, shelf * 0.76);
                 body = lerp(body, shallowColor, shallow * 0.78);
+                body = lerp(body, shallowColor, shoreWaterTint);
                 body *= 0.96 + largeNoise * 0.18 + smallNoise * 0.05;
 
                 float crest = smoothstep(0.045, 0.165, input.height + input.slope * 0.080);
@@ -161,9 +193,18 @@ Shader "ResortEmpire/Ocean"
                 float glitter = pow(nDotH, 58.0) * smoothstep(0.64, 0.90, glitterNoise) * 0.25;
                 color += _SunColor.rgb * (broadSun + glitter);
 
+                // Drifting foam in a band around the island, and on the steepest crests.
+                float foamNoise = Fbm(p * 1.85 + float2(t * 0.10, t * -0.07));
+                float shoreFoam = shoreBand * smoothstep(0.50, 0.84, foamNoise + input.slope * 0.45);
+                float crestFoam = smoothstep(0.16, 0.36, input.slope) * smoothstep(0.02, 0.12, input.height);
+                crestFoam *= 0.55 + 0.45 * Fbm(p * 2.7 + float2(-t * 0.12, t * 0.11));
+                float foam = saturate(shoreFoam * 0.95 + crestFoam * 0.55);
+                float3 foamColor = lerp(float3(0.82, 0.97, 1.0), float3(1.0, 1.0, 1.0), 0.55);
+                color = lerp(color, foamColor, foam * 0.68);
+
                 float trough = smoothstep(0.08, -0.12, input.height);
                 color *= 1.0 - trough * 0.045;
-                return half4(SRGBToLinear(saturate(color)), 1.0);
+                return half4(SRGBToLinear(saturate(color)), shorelineVisibility * shoreWaterAlpha);
             }
             ENDHLSL
         }

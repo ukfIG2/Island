@@ -3,24 +3,38 @@ using UnityEngine.Rendering;
 
 namespace ResortEmpire.Game.View
 {
-    // The web version's ocean: a fine 42 x 42 grid at sea level, moved and coloured by the Ocean shader.
+    // The web version's ocean: a fine 42 x 42 grid at sea level, moved and coloured by the Ocean shader, kept out
+    // of the island and softened along its coast by the web's island outline.
     static class Ocean
     {
         const string MaterialPath = "Island/Ocean";
+        const string ShorePath = "Island/island-shore";
         const float Size = 42f;
         const int Segments = 160;   // the web uses 220; 160 still samples the shortest wave eight times
 
-        public static Material Build(Transform parent, float seaLevel)
+        public static Material Build(Transform parent, float seaLevel, IslandPaths.Shore shore)
         {
             var go = new GameObject("Ocean", typeof(MeshFilter), typeof(MeshRenderer));
             go.transform.SetParent(parent, false);
             go.transform.localPosition = new Vector3(0f, seaLevel, 0f);
             go.GetComponent<MeshFilter>().sharedMesh = Grid();
             var renderer = go.GetComponent<MeshRenderer>();
-            renderer.sharedMaterial = new Material(Resources.Load<Material>(MaterialPath));
+            var material = new Material(Resources.Load<Material>(MaterialPath));
+            renderer.sharedMaterial = material;
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             renderer.receiveShadows = false;
-            return renderer.sharedMaterial;
+
+            // Two bytes per texel, high then low, exactly as the web packs its distance texture.
+            var map = new Texture2D(shore.resolution, shore.resolution, TextureFormat.RG16, false, true)
+            {
+                name = "IslandShore", filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp
+            };
+            map.LoadRawTextureData(Resources.Load<TextAsset>(ShorePath).bytes);
+            map.Apply(false, true);
+            material.SetTexture("_ShoreDistance", map);
+            material.SetVector("_ShoreArea", new Vector4(shore.origin[0], shore.origin[1], shore.size, shore.size));
+            material.SetFloat("_ShoreRange", shore.range);
+            return material;
         }
 
         // The shader works in the web's coordinates, where x is mirrored.

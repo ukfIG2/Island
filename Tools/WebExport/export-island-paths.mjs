@@ -122,10 +122,29 @@ try {
   const services = Object.entries(world.layout.services).map(([need, s]) => ({
     need, center: unityPoint(s.center), entrance: unityPoint(s.entrance), embedded: s.embedded }));
 
+  // The island outline the web's ocean uses (ResortWorld3D.tsx IslandBoundaryCapture, islandWaterBoundary.ts):
+  // the island's footprint above y -0.78 on a 512 grid over the 42 x 42 sea, as a signed distance to the coast,
+  // packed into two bytes per texel like his texture. Kept in the web's coordinates, as the Ocean shader works.
+  const shore = { seaLevel: -0.78, origin: [-21, -21], size: 42, resolution: 512 };
+  const { keepLargestLandMass, buildSignedShoreDistances } = await load('/src/render/islandWaterBoundary.ts');
+  const coverage = islandFootprint(island, shore);
+  const land = keepLargestLandMass(coverage, shore.resolution, shore.resolution);
+  const distances = buildSignedShoreDistances(land, shore.resolution, shore.resolution,
+    shore.size / (shore.resolution - 1));
+  shore.range = shore.size * 0.5;
+  const packed = new Uint8Array(land.length * 2);
+  for (let i = 0; i < land.length; i++) {
+    const value = Math.max(0, Math.min(65535, Math.round((distances[i] / shore.range * 0.5 + 0.5) * 65535)));
+    packed[i * 2] = value >>> 8;
+    packed[i * 2 + 1] = value & 255;
+  }
+  const shorePath = outPath.replace(/[^/]*$/, 'island-shore.bytes');
+  writeFileSync(shorePath, packed);
+
   writeFileSync(outPath, JSON.stringify({ source: 'RRH ' + published.authority, boxes, cylinders, lifts,
-    beach: unityPoint(BEACH), services, routes }));
+    beach: unityPoint(BEACH), services, shore, routes }));
   console.log(`wrote ${outPath}: ${boxes.length} boxes, ${cylinders.length} cylinders, ${lifts.length} lifts, ` +
-    `${routes.length} routes`);
+    `${routes.length} routes; ${shorePath}: ${land.reduce((a, v) => a + v, 0)} land texels`);
 
   // One route as a flat point list; stairs and bridges follow their sampled surface, a lift leg is marked
   // by the index of the point where the guest boards.
@@ -205,6 +224,58 @@ try {
   }
 } finally {
   await server.close();
+}
+
+// Which texel centres lie under island terrain above the given height; the same coverage his canvas fill gives.
+function islandFootprint(mesh, { seaLevel, origin, size, resolution }) {
+  const position = mesh.geometry.getAttribute('position'), index = mesh.geometry.index;
+  const m = mesh.matrixWorld.elements;
+  const world = v => {
+    const x = position.getX(v), y = position.getY(v), z = position.getZ(v);
+    return [m[0] * x + m[4] * y + m[8] * z + m[12], m[1] * x + m[5] * y + m[9] * z + m[13],
+      m[2] * x + m[6] * y + m[10] * z + m[14]];
+  };
+  const toPixel = (value, o) => (value - o) / size * (resolution - 1);
+  const coverage = new Uint8Array(resolution * resolution);
+  for (let i = 0; i + 2 < index.count; i += 3) {
+    const polygon = clipAboveSea([world(index.getX(i)), world(index.getX(i + 1)), world(index.getX(i + 2))], seaLevel)
+      .map(p => [toPixel(p[0], origin[0]), toPixel(p[2], origin[1])]);
+    if (polygon.length < 3) continue;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const [x, y] of polygon) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
+    for (let py = Math.max(0, Math.floor(minY - 0.5)); py <= Math.min(resolution - 1, Math.ceil(maxY - 0.5)); py++)
+      for (let px = Math.max(0, Math.floor(minX - 0.5)); px <= Math.min(resolution - 1, Math.ceil(maxX - 0.5)); px++)
+        if (inside(polygon, px + 0.5, py + 0.5)) coverage[py * resolution + px] = 1;
+  }
+  return coverage;
+}
+
+// The polygon is convex (a triangle clipped by a plane): inside when every edge turns the same way.
+function inside(polygon, x, y) {
+  let sign = 0;
+  for (let i = 0; i < polygon.length; i++) {
+    const [ax, ay] = polygon[i], [bx, by] = polygon[(i + 1) % polygon.length];
+    const cross = (bx - ax) * (y - ay) - (by - ay) * (x - ax);
+    if (cross === 0) continue;
+    if (sign === 0) sign = Math.sign(cross);
+    else if (Math.sign(cross) !== sign) return false;
+  }
+  return true;
+}
+
+// Keep only the part of a triangle at or above the sea plane (as his clipAboveSea).
+function clipAboveSea(points, seaLevel) {
+  const out = [];
+  for (let i = 0; i < points.length; i++) {
+    const current = points[i], next = points[(i + 1) % points.length];
+    const a = current[1] >= seaLevel, b = next[1] >= seaLevel;
+    if (a) out.push(current);
+    if (a !== b) {
+      const t = (seaLevel - current[1]) / (next[1] - current[1]);
+      out.push([current[0] + (next[0] - current[0]) * t, seaLevel, current[2] + (next[2] - current[2]) * t]);
+    }
+  }
+  return out;
 }
 
 function round(v) { return Math.round(v * 1e5) / 1e5; }

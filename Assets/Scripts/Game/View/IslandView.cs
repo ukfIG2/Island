@@ -180,6 +180,7 @@ namespace ResortEmpire.Game.View
             ViewKit.Prim(PrimitiveType.Plane, "Ocean", t, new Vector3(0f, SeaLevel, 0f), new Vector3(4.2f, 1f, 4.2f),
                 ViewKit.Hex(0x1F7FA6));
             BuildIslandModel(t);
+            IslandPaths.Build(t);
 
             // Spots on his main beach where served guests stroll to.
             float y = BeachY + 0.32f * FigureScale;

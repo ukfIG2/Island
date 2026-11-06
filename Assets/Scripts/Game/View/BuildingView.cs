@@ -5,21 +5,26 @@ using UnityEngine;
 
 namespace ResortEmpire.Game.View
 {
-    // One building spot, placed and shaped like the web version's (ResortWorld3D.tsx), in island units.
-    // The player must read three things at a glance (build doc AC2d): seat count (pips toward the arriving
-    // guests), staffing (worker marker above the roof) and the waiting line. While locked the plot shows a
+    // One building spot, placed and shaped like the web version's (ResortWorld3D.tsx), in island units:
+    // Reception, Pool and Bungalows are a few props at their entrance facing the plot; Restaurant and Beach Bar
+    // are open huts on the plot facing their entrance. The player must read three things at a glance (build doc
+    // AC2d): seat count (pips toward the arriving guests), staffing (worker marker above the roof) and the
+    // waiting line; a ring on the ground carries the building's state. While locked the plot shows a
     // construction site, marked when it can be bought.
     sealed class BuildingView
     {
         const int MaxVisibleQueue = 12;
         const int LineWidth = 3;           // waiting guests stand in rows of three
         const float PipSpacing = 0.1f;
-        const float BlockoutScale = 0.3f;  // the blockout shapes that still stand in for the web's props
 
-        static readonly Color PipEmpty = ViewKit.Hex(0xF2EEE6);
-        static readonly Color WorkerColor = ViewKit.Hex(0xE8743B);
+        // The web's ring colours, with our warnings taking over during a wave.
+        static readonly Color RingEmpty = ViewKit.Hex(0xD9BF7B);
+        static readonly Color RingStaffed = ViewKit.Hex(0x72C9AA);
+        static readonly Color RingWaiting = ViewKit.Hex(0xEF8C62);
         static readonly Color RingBottleneck = ViewKit.Hex(0xC0392B);
         static readonly Color RingRecovering = ViewKit.Hex(0xE3B23C);
+        static readonly Color PipEmpty = ViewKit.Hex(0xF2EEE6);
+        static readonly Color WorkerColor = ViewKit.Hex(0xE8743B);
         static readonly Color SiteMarkerLocked = ViewKit.Hex(0x9A9A93);
         static readonly Color SiteMarkerAvailable = ViewKit.Hex(0xE8743B);
         static readonly Vector3 GuestScale = new Vector3(0.28f, 0.32f, 0.28f);
@@ -42,7 +47,7 @@ namespace ResortEmpire.Game.View
         readonly List<GameObject> _queue = new List<GameObject>();
         readonly Material _guestMat;
         readonly float _roofY;
-        readonly float _footprint;         // radius of the building on the ground
+        readonly float _footprint;         // the ring's outer radius
         readonly Vector3 _entrance;        // where served guests leave from
         readonly Vector3 _lineDirection;   // from the building toward the path its guests arrive by
         readonly Vector3 _guestScale;      // waiting figures stand at full guest size
@@ -61,26 +66,34 @@ namespace ResortEmpire.Game.View
             _guestSpacing = _guestScale.x * 1.25f;
             _entrance = site.Entrance + Vector3.up * _guestScale.y;
 
-            // A building stands on its plot and faces its entrance (+z), as the web's compact buildings do.
+            // Props stand at the entrance facing the plot; a building stands on the plot facing its entrance.
+            var at = site.Embedded ? site.Entrance : site.Center;
+            var facing = site.Embedded ? site.Center - site.Entrance : site.Entrance - site.Center;
             _root = new GameObject(GameController.DisplayName(id)).transform;
             _root.SetParent(parent, false);
-            _root.localPosition = site.Center;
-            _root.localRotation = Quaternion.LookRotation(Flat(site.Entrance - site.Center, Vector3.forward));
+            _root.localPosition = at;
+            _root.localRotation = Quaternion.LookRotation(Flat(facing, Vector3.forward));
             _root.gameObject.AddComponent<BuildingTag>().Id = id;
             _line = new GameObject(GameController.DisplayName(id) + " Line").transform;
             _line.SetParent(parent, false);
-            _lineDirection = Flat(approach - site.Center, _root.forward);
+            _lineDirection = Flat(approach - at, _root.forward);
 
             _built = new GameObject("Built");
             _built.transform.SetParent(_root, false);
             _body = new GameObject("Body").transform;
             _body.SetParent(_built.transform, false);
-            _roofY = BuildBody(id, _body, out _footprint);
+            _roofY = BuildBody(id, _body);
+            _footprint = site.Embedded ? 0.30f : 0.48f;
 
-            // At island scale the parts are small to hit with a finger, so one box around the plot takes the taps.
+            // At island scale the parts are small to hit with a finger, so one box around the spot takes the taps.
             var tapArea = _root.gameObject.AddComponent<BoxCollider>();
             tapArea.center = new Vector3(0f, 0.3f, 0f);
             tapArea.size = new Vector3(_footprint * 2.2f, 0.6f, _footprint * 2.2f);
+
+            _ring = ViewKit.Ring("StateRing", _built.transform, _footprint - (site.Embedded ? 0.05f : 0.06f),
+                _footprint, RingEmpty).transform;
+            _ring.localPosition = new Vector3(0f, 0.025f, 0f);
+            _ringRenderer = _ring.GetComponent<Renderer>();
 
             // The seats sit on the ground between the building and its line.
             var lineLocal = _root.InverseTransformDirection(_lineDirection);
@@ -92,14 +105,10 @@ namespace ResortEmpire.Game.View
             _worker = ViewKit.Prim(PrimitiveType.Capsule, "Worker", _built.transform,
                 Vector3.zero, Vector3.one * 0.12f, WorkerColor, collider: false).transform;
 
-            _ring = ViewKit.Prim(PrimitiveType.Cylinder, "StatusRing", _built.transform,
-                new Vector3(0f, 0.006f, 0f), new Vector3(_footprint * 2f, 0.003f, _footprint * 2f), RingBottleneck,
-                collider: false).transform;
-            _ringRenderer = _ring.GetComponent<Renderer>();
-            _ring.gameObject.SetActive(false);
-
+            // The construction site waits on the plot itself.
             _site = new GameObject("ConstructionSite");
             _site.transform.SetParent(_root, false);
+            _site.transform.position = site.Center;
             ViewKit.Prim(PrimitiveType.Cube, "Slab", _site.transform, new Vector3(0f, 0.015f, 0f),
                 new Vector3(0.9f, 0.03f, 0.72f), ViewKit.Hex(0xB9B4A8));
             for (int i = 0; i < 4; i++)
@@ -152,7 +161,7 @@ namespace ResortEmpire.Game.View
                 _pips[i].sharedMaterial = i < seated ? _guestMat : ViewKit.Mat(PipEmpty);
 
             SetQueue(queueShown);
-            SetRing(showStatus ? status : NeedStatus.Ok, time);
+            SetRing(showStatus ? status : NeedStatus.Ok, queueShown > 0, state.HasWorker, time);
         }
 
         // Each level makes the building a little bigger and gives it the seats that level holds.
@@ -194,17 +203,23 @@ namespace ResortEmpire.Game.View
                 _queue[visible - 1].transform.localScale = count > MaxVisibleQueue ? _guestScale * 1.35f : _guestScale;
         }
 
-        void SetRing(NeedStatus status, float time)
+        // A bottleneck pulses red and a recovering line shows amber; otherwise the web's colours: guests
+        // waiting, a Worker on duty, or nobody there.
+        void SetRing(NeedStatus status, bool waiting, bool staffed, float time)
         {
-            bool bottleneck = status == NeedStatus.Bottleneck;
-            bool recovering = status == NeedStatus.Recovering;
-            bool on = bottleneck || recovering;
-            if (_ring.gameObject.activeSelf != on) _ring.gameObject.SetActive(on);
-            if (!on) return;
-
-            _ringRenderer.sharedMaterial = ViewKit.Mat(bottleneck ? RingBottleneck : RingRecovering);
-            float d = _footprint * 2f * (bottleneck ? 1f + Mathf.Sin(time * 6f) * 0.05f : 1f);
-            _ring.localScale = new Vector3(d, 0.003f, d);
+            Color color;
+            float pulse = 1f;
+            if (status == NeedStatus.Bottleneck)
+            {
+                color = RingBottleneck;
+                pulse = 1f + Mathf.Sin(time * 6f) * 0.05f;
+            }
+            else if (status == NeedStatus.Recovering) color = RingRecovering;
+            else if (waiting) color = RingWaiting;
+            else if (staffed) color = RingStaffed;
+            else color = RingEmpty;
+            _ringRenderer.sharedMaterial = ViewKit.Mat(color);
+            _ring.localScale = Vector3.one * pulse;
         }
 
         static Vector3 Flat(Vector3 v, Vector3 fallback)
@@ -213,26 +228,31 @@ namespace ResortEmpire.Game.View
             return v.sqrMagnitude > 0.0025f ? v.normalized : fallback;
         }
 
-        // Returns the roof height; footprint is the building's radius on the ground.
-        static float BuildBody(BuildingId id, Transform body, out float footprint)
+        // The web's shapes and colours (ResortWorld3D.tsx), x mirrored like the island. Returns the roof height.
+        static float BuildBody(BuildingId id, Transform body)
         {
             switch (id)
             {
-                case BuildingId.Restaurant: // the web's restaurant terrace under a canopy
-                    footprint = 0.48f;
+                case BuildingId.Reception: // compact arrival desk under a small roof
+                    Box(body, 0.46f, 0.09f, 0.31f, 0f, 0.045f, 0f, 0xB88657);
+                    Box(body, 0.34f, 0.20f, 0.10f, 0f, 0.20f, -0.07f, 0xE7CD94);
+                    foreach (float x in new[] { -0.18f, 0.18f }) Box(body, 0.035f, 0.43f, 0.035f, x, 0.26f, 0f, 0x76543B);
+                    Box(body, 0.52f, 0.045f, 0.36f, 0f, 0.49f, 0f, 0xD2AD62);
+                    Box(body, 0.20f, 0.10f, 0.025f, 0f, 0.39f, -0.14f, 0x4F887B);   // sign
+                    return 0.5125f;
+
+                case BuildingId.Restaurant: // terrace under a canopy
                     Box(body, 0.92f, 0.11f, 0.66f, 0f, 0.055f, 0f, 0xBD8B5C);
                     Box(body, 0.68f, 0.34f, 0.10f, 0f, 0.23f, -0.24f, 0xE8D1A0);   // low rear wall, counter
                     Box(body, 0.78f, 0.055f, 0.53f, 0f, 0.51f, -0.03f, 0xB85F3E);  // thin canopy
                     foreach (var p in new[] { new Vector2(-0.32f, -0.23f), new Vector2(0.32f, -0.23f),
                                  new Vector2(-0.32f, 0.18f), new Vector2(0.32f, 0.18f) })
                         Box(body, 0.045f, 0.46f, 0.045f, p.x, 0.285f, p.y, 0x815D3F);
-                    // Two small tables; x is mirrored from the web, as the island is.
                     Table(body, 0.22f, 0.2f, 0.105f, 0xDDC488);
                     Table(body, -0.22f, 0.2f, 0.105f, 0xE2CD97);
                     return 0.5375f;
 
-                case BuildingId.BeachBar: // the web's small open bar deck
-                    footprint = 0.48f;
+                case BuildingId.BeachBar: // small open bar deck
                     Box(body, 0.70f, 0.10f, 0.58f, 0f, 0.05f, 0f, 0xA9764C);
                     Box(body, 0.48f, 0.25f, 0.12f, 0f, 0.20f, -0.16f, 0xD6B478);   // bar counter
                     Box(body, 0.59f, 0.045f, 0.47f, 0f, 0.49f, -0.02f, 0xD0A75E);  // light roof
@@ -242,14 +262,28 @@ namespace ResortEmpire.Game.View
                     foreach (float x in new[] { -0.14f, 0.14f }) Stool(body, x, 0.13f);
                     return 0.5125f;
 
-                default:
-                    var blockout = new GameObject("Blockout").transform;
-                    blockout.SetParent(body, false);
-                    blockout.localScale = Vector3.one * BlockoutScale;
-                    blockout.localRotation = Quaternion.Euler(0f, 180f, 0f); // its front (-z) toward the entrance
-                    float roof = BuildBlockout(id, blockout, out float ringDiameter);
-                    footprint = ringDiameter * 0.5f * BlockoutScale;
-                    return roof * BlockoutScale;
+                case BuildingId.Pool: // pool deck with a sunshade and two loungers
+                    Box(body, 0.52f, 0.07f, 0.34f, 0f, 0.035f, 0f, 0xC59762);
+                    Cylinder(body, 0.018f, 0.42f, 0.13f, 0.25f, -0.03f, 0x755943);
+                    // The web's shade is a very flat cone; a thin disc reads the same from the camera.
+                    Cylinder(body, 0.22f, 0.03f, 0.13f, 0.47f, -0.03f, 0xE9D28A);
+                    foreach (float z in new[] { -0.13f, 0.13f })
+                    {
+                        var lounger = ViewKit.Prim(PrimitiveType.Cube, "Lounger", body, new Vector3(-0.14f, 0.105f, z),
+                            new Vector3(0.24f, 0.045f, 0.085f), ViewKit.Hex(0xEFE1B3), collider: false);
+                        lounger.transform.localRotation = Quaternion.Euler(0f, 0f, 0.10f * Mathf.Rad2Deg);
+                    }
+                    return 0.485f;
+
+                default: // Bungalows: hotel terrace with a canopy, a rail and a table
+                    Box(body, 0.58f, 0.09f, 0.33f, 0f, 0.045f, 0f, 0xB37C52);
+                    Box(body, 0.54f, 0.045f, 0.26f, 0f, 0.39f, -0.09f, 0xB75F3F);   // back canopy
+                    foreach (float x in new[] { -0.22f, 0.22f }) Box(body, 0.03f, 0.34f, 0.03f, x, 0.23f, -0.09f, 0x75553E);
+                    Box(body, 0.54f, 0.025f, 0.025f, 0f, 0.18f, 0.145f, 0xE4CF9D);  // rail
+                    foreach (float x in new[] { -0.23f, -0.08f, 0.08f, 0.23f })
+                        Box(body, 0.018f, 0.15f, 0.018f, x, 0.12f, 0.145f, 0xE4CF9D);
+                    Cylinder(body, 0.095f, 0.035f, 0f, 0.15f, 0.015f, 0xDEC58C);    // table
+                    return 0.4125f;
             }
         }
 
@@ -272,45 +306,6 @@ namespace ResortEmpire.Game.View
         {
             Cylinder(parent, 0.07f, 0.045f, x, 0.13f, z, 0xD9C280);
             Cylinder(parent, 0.02f, 0.13f, x, 0.06f, z, 0x6C513C);
-        }
-
-        // Distinct silhouettes from primitives (build doc "what buildings communicate"). Front faces -z.
-        static float BuildBlockout(BuildingId id, Transform body, out float ringDiameter)
-        {
-            var dark = ViewKit.Hex(0x3B3A36);
-            var wood = ViewKit.Hex(0x6B4A2E);
-            var glass = ViewKit.Hex(0x9FD3E8);
-            switch (id)
-            {
-                case BuildingId.Reception:
-                    ViewKit.Prim(PrimitiveType.Cube, "Block", body, new Vector3(0f, 1.5f, 0f), new Vector3(2.2f, 3f, 1.8f), ViewKit.Hex(0xF1E6CC));
-                    ViewKit.Prim(PrimitiveType.Cube, "Roof", body, new Vector3(0f, 3.11f, 0f), new Vector3(2.5f, 0.22f, 2.1f), dark);
-                    ViewKit.Prim(PrimitiveType.Cube, "Door", body, new Vector3(0f, 0.45f, -0.92f), new Vector3(0.6f, 0.9f, 0.05f), wood, collider: false);
-                    foreach (float y in new[] { 1.45f, 2.35f })
-                        foreach (float x in new[] { -0.65f, 0f, 0.65f })
-                            ViewKit.Prim(PrimitiveType.Cube, "Window", body, new Vector3(x, y, -0.92f), new Vector3(0.38f, 0.38f, 0.05f), glass, collider: false);
-                    ringDiameter = 3.6f;
-                    return 3.22f;
-
-                case BuildingId.Pool:
-                    ViewKit.Prim(PrimitiveType.Cube, "Deck", body, new Vector3(0f, 0.1f, 0f), new Vector3(3.2f, 0.2f, 2.4f), ViewKit.Hex(0xFAF6EE));
-                    ViewKit.Prim(PrimitiveType.Cube, "Water", body, new Vector3(0f, 0.21f, 0.1f), new Vector3(2.5f, 0.06f, 1.6f), ViewKit.Hex(0x6FD3F0), collider: false);
-                    ViewKit.Prim(PrimitiveType.Cube, "Lounger", body, new Vector3(-1.42f, 0.26f, 0f), new Vector3(0.3f, 0.12f, 0.9f), ViewKit.Hex(0xE3B23C), collider: false);
-                    ViewKit.Prim(PrimitiveType.Cube, "Lounger", body, new Vector3(1.42f, 0.26f, 0f), new Vector3(0.3f, 0.12f, 0.9f), ViewKit.Hex(0xE3B23C), collider: false);
-                    ringDiameter = 4f;
-                    return 0.3f;
-
-                default: // Bungalows: several small huts, so it never reads as one hotel block like Reception
-                    var hutXs = new[] { -1.2f, 0f, 1.2f };
-                    var hutZs = new[] { 0.3f, -0.2f, 0.3f };
-                    for (int i = 0; i < 3; i++)
-                    {
-                        ViewKit.Prim(PrimitiveType.Cube, "Hut", body, new Vector3(hutXs[i], 0.4f, hutZs[i]), new Vector3(0.9f, 0.8f, 0.9f), ViewKit.Hex(0x9A6B43));
-                        ViewKit.Prim(PrimitiveType.Cube, "HutRoof", body, new Vector3(hutXs[i], 0.86f, hutZs[i]), new Vector3(1.1f, 0.12f, 1.1f), dark);
-                    }
-                    ringDiameter = 4.4f;
-                    return 0.92f;
-            }
         }
     }
 }

@@ -44,12 +44,15 @@ namespace ResortEmpire.Game.View
 
             float animDt = sim != null && sim.IsPaused ? 0f : Time.deltaTime * _game.SimSpeed;
 
+            bool showStatus = sim != null && sim.Phase != WavePhase.WaveComplete;
             float time = Time.time;
             foreach (var view in _views)
             {
                 int seated = sim != null ? sim.SeatedCount(view.Need) : 0;
                 int line = sim != null ? sim.QueueLength(view.Need) : 0;
-                view.Sync(_game.Resort.Get(view.Id), _game.Tuning, SiteAvailable(view.Id), seated, line, time);
+                var status = sim != null ? sim.StatusOf(view.Need) : NeedStatus.Ok;
+                view.Sync(_game.Resort.Get(view.Id), _game.Tuning, SiteAvailable(view.Id), seated, line,
+                    status, showStatus, time);
             }
 
             UpdateBoat(sim, animDt);

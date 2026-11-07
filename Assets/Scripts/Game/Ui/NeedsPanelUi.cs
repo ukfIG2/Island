@@ -22,6 +22,8 @@ namespace ResortEmpire.Game.Ui
         readonly GameObject _root;
         readonly Text _title;
         readonly Row[] _rows;
+        readonly Text[] _messages = new Text[3];
+        readonly Image[] _messageIcons = new Image[3];
         readonly Text _pauseLabel;
         readonly Text _speedLabel;
 
@@ -57,6 +59,16 @@ namespace ResortEmpire.Game.Ui
                 _rows[i] = new Row { Need = need, Rect = rect, Counter = counter, Bar = bar, Status = status };
             }
 
+            for (int i = 0; i < _messages.Length; i++)
+            {
+                _messageIcons[i] = UiFactory.Icon(panel.transform, "MessageIcon" + i, UiFactory.Alert, UiFactory.Warning);
+                UiFactory.PlaceFixed(_messageIcons[i].gameObject, new Vector2(0f, 1f), new Vector2(0f, 0.5f),
+                    new Vector2(22f, -534f - i * 32f), new Vector2(24f, 24f));
+                _messages[i] = UiFactory.Label(panel.transform, "Message" + i, "", 22, UiFactory.Cream);
+                UiFactory.Place(_messages[i].gameObject, new Vector2(0f, 1f), Vector2.one,
+                    new Vector2(54f, -550f - i * 32f), new Vector2(-22f, -518f - i * 32f));
+            }
+
             var pause = UiFactory.TextButton(panel.transform, "Pause", "Pause", 22, UiFactory.PanelLight, UiFactory.Cream, OnPause);
             UiFactory.PlaceFixed(pause.gameObject, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-136f, 14f), new Vector2(120f, 44f));
             _pauseLabel = UiFactory.ButtonLabel(pause);
@@ -89,6 +101,7 @@ namespace ResortEmpire.Game.Ui
             _title.text = "Wave " + _game.NextWaveIndex;
 
             int shown = 0;
+            int messageCount = 0;
             foreach (var row in _rows)
             {
                 var building = UiFactory.BuildingFor(row.Need);
@@ -103,6 +116,29 @@ namespace ResortEmpire.Game.Ui
                 row.Bar.SetFill(sim.QueueLength(row.Need) / QueueBarFullUnits, UiFactory.StatusColor(status));
                 row.Status.text = UiFactory.StatusWord(status);
                 row.Status.color = UiFactory.StatusColor(status);
+
+                // Warnings follow the queue; Recovering reads as the positive signal it is.
+                string message = null;
+                bool warning = false;
+                if (status == NeedStatus.Bottleneck)
+                {
+                    message = GameController.DisplayName(building) + " queue growing";
+                    warning = true;
+                }
+                else if (status == NeedStatus.Recovering)
+                    message = GameController.DisplayName(building) + " is catching up";
+                if (message != null && messageCount < _messages.Length)
+                {
+                    _messages[messageCount].text = message;
+                    _messages[messageCount].color = warning ? UiFactory.Warning : UiFactory.Recovering;
+                    _messageIcons[messageCount].enabled = warning;
+                    messageCount++;
+                }
+            }
+            for (int i = messageCount; i < _messages.Length; i++)
+            {
+                _messages[i].text = "";
+                _messageIcons[i].enabled = false;
             }
 
             _pauseLabel.text = _game.IsPaused ? "Resume" : "Pause";

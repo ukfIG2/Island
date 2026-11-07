@@ -94,11 +94,19 @@ namespace ResortEmpire.Game.Ui
             {
                 var source = sources[i].Id;
                 var button = UiFactory.TextButton(_root.transform, "From" + source,
-                    "Take from " + GameController.DisplayName(source), 24, UiFactory.PanelLight, UiFactory.Cream, null);
+                    "Take from " + GameController.DisplayName(source), 24, UiFactory.PanelLight, UiFactory.Cream,
+                    () => OnPick(source));
                 UiFactory.PlaceFixed(button.gameObject, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                     new Vector2(x0 + i * step, 24f), new Vector2(280f, 128f));
                 _options.Add(button.gameObject);
             }
+        }
+
+        // One tap moves the Worker; the sheet closes and the island shows the result.
+        void OnPick(BuildingId source)
+        {
+            if (_target == null) return;
+            if (_game.MoveWorker(source, _target.Value)) Close();
         }
     }
 }

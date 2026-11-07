@@ -15,6 +15,8 @@ namespace ResortEmpire.Game.View
 
         static readonly Color PipEmpty = ViewKit.Hex(0xF2EEE6);
         static readonly Color WorkerColor = ViewKit.Hex(0xE8743B);
+        static readonly Color RingBottleneck = ViewKit.Hex(0xC0392B);
+        static readonly Color RingRecovering = ViewKit.Hex(0xE3B23C);
         static readonly Color SiteMarkerLocked = ViewKit.Hex(0x9A9A93);
         static readonly Color SiteMarkerAvailable = ViewKit.Hex(0xE8743B);
         static readonly Vector3 GuestScale = new Vector3(0.28f, 0.32f, 0.28f);
@@ -29,12 +31,15 @@ namespace ResortEmpire.Game.View
         readonly Transform _siteMarker;
         readonly Renderer _siteMarkerRenderer;
         readonly Transform _worker;
+        readonly Transform _ring;
+        readonly Renderer _ringRenderer;
         readonly Transform _pipRow;
         readonly List<Renderer> _pips = new List<Renderer>();
         readonly List<GameObject> _queue = new List<GameObject>();
         readonly Material _guestMat;
         readonly float _roofY;
         readonly float _frontZ;
+        readonly float _ringDiameter;
         readonly float _side;          // +1: queue extends right of the seats, -1: left
         readonly float _bobPhase;
         int _shownLevel = -1;
@@ -56,13 +61,19 @@ namespace ResortEmpire.Game.View
             _built.transform.SetParent(_root, false);
             _body = new GameObject("Body").transform;
             _body.SetParent(_built.transform, false);
-            _roofY = BuildBody(id, _body, out _frontZ, out _);
+            _roofY = BuildBody(id, _body, out _frontZ, out _ringDiameter);
 
             _pipRow = new GameObject("Seats").transform;
             _pipRow.SetParent(_built.transform, false);
 
             _worker = ViewKit.Prim(PrimitiveType.Capsule, "Worker", _built.transform,
                 Vector3.zero, new Vector3(0.34f, 0.34f, 0.34f), WorkerColor, collider: false).transform;
+
+            _ring = ViewKit.Prim(PrimitiveType.Cylinder, "StatusRing", _built.transform,
+                new Vector3(0f, 0.02f, 0f), new Vector3(_ringDiameter, 0.01f, _ringDiameter), RingBottleneck,
+                collider: false).transform;
+            _ringRenderer = _ring.GetComponent<Renderer>();
+            _ring.gameObject.SetActive(false);
 
             _site = new GameObject("ConstructionSite");
             _site.transform.SetParent(_root, false);
@@ -89,7 +100,7 @@ namespace ResortEmpire.Game.View
         }
 
         public void Sync(BuildingState state, TuningConfig tuning, bool siteAvailable, int seated,
-            int queueShown, float time)
+            int queueShown, NeedStatus status, bool showStatus, float time)
         {
             bool built = state != null;
             if (_built.activeSelf != built) _built.SetActive(built);
@@ -114,6 +125,7 @@ namespace ResortEmpire.Game.View
                 _pips[i].sharedMaterial = i < seated ? _guestMat : ViewKit.Mat(PipEmpty);
 
             SetQueue(queueShown);
+            SetRing(showStatus ? status : NeedStatus.Ok, time);
         }
 
         // Each level makes the building a little bigger and gives it the seats that level holds.
@@ -156,6 +168,19 @@ namespace ResortEmpire.Game.View
             // A longer line than we draw is shown as a bigger last guest, never as a number.
             if (visible > 0)
                 _queue[visible - 1].transform.localScale = count > MaxVisibleQueue ? GuestScale * 1.35f : GuestScale;
+        }
+
+        void SetRing(NeedStatus status, float time)
+        {
+            bool bottleneck = status == NeedStatus.Bottleneck;
+            bool recovering = status == NeedStatus.Recovering;
+            bool on = bottleneck || recovering;
+            if (_ring.gameObject.activeSelf != on) _ring.gameObject.SetActive(on);
+            if (!on) return;
+
+            _ringRenderer.sharedMaterial = ViewKit.Mat(bottleneck ? RingBottleneck : RingRecovering);
+            float d = _ringDiameter * _levelScale * (bottleneck ? 1f + Mathf.Sin(time * 6f) * 0.05f : 1f);
+            _ring.localScale = new Vector3(d, 0.01f, d);
         }
 
         // Distinct silhouettes from primitives (build doc "what buildings communicate"). Front faces -z.

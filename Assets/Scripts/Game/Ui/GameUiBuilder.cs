@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 namespace ResortEmpire.Game.Ui
 {
-    // Builds the whole interface on one runtime canvas: top bar, S1 home and S2 wave panel.
+    // Builds the whole interface on one runtime canvas: top bar, S1 home, S2 wave panel and toasts.
     // A small driver keeps the visible widgets refreshed.
     public static class GameUiBuilder
     {
@@ -35,6 +35,8 @@ namespace ResortEmpire.Game.Ui
         TopBarUi _topBar;
         HomeUi _home;
         NeedsPanelUi _needs;
+        ToastUi _toasts;
+        NeedStatus[] _lastStatus;
         float _sinceRefresh;
 
         public void Init(GameController game)
@@ -44,6 +46,11 @@ namespace ResortEmpire.Game.Ui
             _topBar = new TopBarUi(canvas, game);
             _home = new HomeUi(canvas, game);
             _needs = new NeedsPanelUi(canvas, game);
+            _toasts = new ToastUi(canvas);
+            // Draw order, back to front: top bar, home, wave panel, toasts.
+            _toasts.Root.transform.SetAsLastSibling();
+
+            _lastStatus = new NeedStatus[System.Enum.GetValues(typeof(NeedId)).Length];
 
             _game.StateChanged += OnStateChanged;
             _game.WaveStarted += OnWaveStarted;
@@ -62,18 +69,55 @@ namespace ResortEmpire.Game.Ui
         void Update()
         {
             if (_game == null) return;
+            _toasts.Tick(Time.deltaTime);
             _sinceRefresh += Time.deltaTime;
             if (_sinceRefresh < RefreshInterval) return;
             _sinceRefresh = 0f;
+            WatchStatusShifts();
             RefreshAll();
         }
 
         void OnStateChanged() => RefreshAll();
 
-        void OnWaveStarted() => RefreshAll();
+        void OnWaveStarted()
+        {
+            var sim = _game.ActiveWave;
+            foreach (NeedId need in System.Enum.GetValues(typeof(NeedId)))
+                _lastStatus[(int)need] = sim.StatusOf(need);
+            RefreshAll();
+        }
 
         // No result screen yet: the island goes straight back to the next START WAVE.
         void OnWaveCompleted(WaveResult result) => _game.ContinueAfterResults();
+
+        // Status shifts drive the guest-voice toasts; the panel rows carry the persistent signal.
+        void WatchStatusShifts()
+        {
+            var sim = _game.ActiveWave;
+            if (sim == null || sim.Phase == WavePhase.WaveComplete) return;
+            foreach (NeedId need in System.Enum.GetValues(typeof(NeedId)))
+            {
+                var now = sim.StatusOf(need);
+                var before = _lastStatus[(int)need];
+                _lastStatus[(int)need] = now;
+                if (now == before) continue;
+                if (now == NeedStatus.Bottleneck) _toasts.Push("“" + GuestQuote(need) + "”");
+                else if (now == NeedStatus.Recovering)
+                    _toasts.Push(GameController.DisplayName(UiFactory.BuildingFor(need)) + " is catching up");
+            }
+        }
+
+        static string GuestQuote(NeedId need)
+        {
+            switch (need)
+            {
+                case NeedId.Rooms: return "Check-in takes a bit too long.";
+                case NeedId.Drinks: return "Drinks take a bit too long.";
+                case NeedId.Food: return "Food takes a bit too long.";
+                case NeedId.Relax: return "The pool line takes a bit too long.";
+                default: return "The bungalows take a bit too long.";
+            }
+        }
 
         void RefreshAll()
         {

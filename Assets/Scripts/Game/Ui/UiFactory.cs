@@ -51,9 +51,10 @@ namespace ResortEmpire.Game.Ui
             }
         }
 
-        // The built-in runtime font has no ★ ⚡ glyphs, so those symbols are drawn as sprites.
+        // The built-in runtime font has no ★ ⚡ ⚠ glyphs, so those symbols are drawn as sprites.
         static Sprite _star;
         static Sprite _bolt;
+        static Sprite _alert;
 
         static readonly Vector2[] BoltShape =
         {
@@ -62,8 +63,16 @@ namespace ResortEmpire.Game.Ui
             new Vector2(0.68f, 0.98f)
         };
 
+        static readonly Vector2[] AlertShape =
+            { new Vector2(0.5f, 0.96f), new Vector2(0.03f, 0.07f), new Vector2(0.97f, 0.07f) };
+
         public static Sprite Star => _star != null ? _star : _star = MakeIcon(InStar);
         public static Sprite Bolt => _bolt != null ? _bolt : _bolt = MakeIcon((x, y) => InPolygon(BoltShape, x, y));
+
+        // Triangle with the exclamation mark cut out of it.
+        public static Sprite Alert => _alert != null ? _alert : _alert = MakeIcon((x, y) =>
+            InPolygon(AlertShape, x, y)
+            && !(x > 0.45f && x < 0.55f && ((y > 0.36f && y < 0.74f) || (y > 0.17f && y < 0.28f))));
 
         public static Image Icon(Transform parent, string name, Sprite sprite, Color color)
         {

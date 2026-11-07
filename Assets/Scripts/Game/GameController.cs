@@ -4,7 +4,7 @@ using ResortEmpire.Sim;
 
 namespace ResortEmpire.Game
 {
-    // Single owner of game flow: wave lifecycle, player actions and change events.
+    // Single owner of game flow: wave lifecycle, player actions, autosave, change events.
     // Plain C# on purpose — the view and UI layers subscribe and render, they never decide.
     public sealed class GameController
     {
@@ -75,6 +75,7 @@ namespace ResortEmpire.Game
             if (NextWaveIndex >= _waves.Count) PrototypeComplete = true; // wave 8 result just claimed
             NextWaveIndex = Math.Min(NextWaveIndex + 1, _waves.Count);
             ActiveWave = null;
+            SaveSystem.Save(this);
             StateChanged?.Invoke();
         }
 
@@ -86,6 +87,7 @@ namespace ResortEmpire.Game
             bool inWave = ActiveWave != null && ActiveWave.Phase != WavePhase.WaveComplete;
             bool ok = inWave ? ActiveWave.MoveWorker(from, to) : Resort.MoveWorker(from, to);
             if (!ok) return false;
+            if (ActiveWave == null) SaveSystem.Save(this);
             StateChanged?.Invoke();
             Toast?.Invoke("Worker moved to " + DisplayName(to));
             return true;
@@ -104,6 +106,7 @@ namespace ResortEmpire.Game
         {
             if (ActiveWave != null) return false; // upgrades exist only between waves (WR6)
             if (!Resort.Upgrade(b)) return false;
+            SaveSystem.Save(this);
             StateChanged?.Invoke();
             Toast?.Invoke(DisplayName(b) + " upgraded to Lv" + Resort.Get(b).Level);
             return true;
@@ -113,6 +116,7 @@ namespace ResortEmpire.Game
         {
             if (ActiveWave != null) return false; // unlocks exist only between waves (WR6)
             if (!Resort.Unlock(b)) return false;
+            SaveSystem.Save(this);
             StateChanged?.Invoke();
             Toast?.Invoke(DisplayName(b) + " unlocked");
             return true;

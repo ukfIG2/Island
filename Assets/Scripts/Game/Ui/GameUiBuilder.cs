@@ -6,8 +6,8 @@ using UnityEngine.UI;
 
 namespace ResortEmpire.Game.Ui
 {
-    // Builds the whole interface on one runtime canvas: top bar, S1 home, S2 wave panel, S3 worker sheet
-    // and toasts. A small driver keeps the visible widgets refreshed.
+    // Builds the whole interface on one runtime canvas: S1 home, S2 wave panel, S3 worker sheet,
+    // toasts and the result overlay. A small driver keeps the visible widgets refreshed.
     public static class GameUiBuilder
     {
         public static void Build(GameBootstrap host, GameController game)
@@ -37,6 +37,7 @@ namespace ResortEmpire.Game.Ui
         NeedsPanelUi _needs;
         WorkerSheetUi _sheet;
         ToastUi _toasts;
+        ResultOverlayUi _results;
         NeedStatus[] _lastStatus;
         float _sinceRefresh;
 
@@ -49,9 +50,11 @@ namespace ResortEmpire.Game.Ui
             _sheet = new WorkerSheetUi(canvas, game, _toasts);
             _home = new HomeUi(canvas, game, _sheet);
             _needs = new NeedsPanelUi(canvas, game, _sheet);
-            // Draw order, back to front: top bar, home, wave panel, sheet, toasts.
+            _results = new ResultOverlayUi(canvas, game);
+            // Draw order, back to front: top bar, home, wave panel, sheet, toasts, result overlay.
             _sheet.Root.transform.SetAsLastSibling();
             _toasts.Root.transform.SetAsLastSibling();
+            _results.Root.transform.SetAsLastSibling();
 
             _lastStatus = new NeedStatus[System.Enum.GetValues(typeof(NeedId)).Length];
 
@@ -102,16 +105,17 @@ namespace ResortEmpire.Game.Ui
             RefreshAll();
         }
 
-        // No result screen yet: the island goes straight back to the next START WAVE.
         void OnWaveCompleted(WaveResult result)
         {
             _sheet.Close();
-            _game.ContinueAfterResults();
+            _results.Show(result);
+            RefreshAll();
         }
 
         // During a wave taps only route workers; between waves they open the action card.
         void OnBuildingTapped(BuildingId building)
         {
+            if (_results.Visible) return;
             if (_game.ActiveWave == null)
             {
                 _sheet.Close();
@@ -169,8 +173,9 @@ namespace ResortEmpire.Game.Ui
             bool betweenWaves = _game.ActiveWave == null;
             bool waveRunning = !betweenWaves && _game.CurrentPhase != WavePhase.WaveComplete;
             _topBar.Refresh();
-            _home.SetVisible(betweenWaves);
-            if (betweenWaves) _home.Refresh();
+            bool homeVisible = betweenWaves && !_results.Visible;
+            _home.SetVisible(homeVisible);
+            if (homeVisible) _home.Refresh();
             _needs.SetVisible(waveRunning);
             if (waveRunning) _needs.Refresh();
         }

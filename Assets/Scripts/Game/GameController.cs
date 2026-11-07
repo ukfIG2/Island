@@ -79,6 +79,16 @@ namespace ResortEmpire.Game
 
         // --- player actions -------------------------------------------------
 
+        // Free, instant, no confirmation (WR5); during a wave both buildings change speed at once.
+        public bool MoveWorker(BuildingId from, BuildingId to)
+        {
+            bool inWave = ActiveWave != null && ActiveWave.Phase != WavePhase.WaveComplete;
+            bool ok = inWave ? ActiveWave.MoveWorker(from, to) : Resort.MoveWorker(from, to);
+            if (!ok) return false;
+            StateChanged?.Invoke();
+            return true;
+        }
+
         public void SetPaused(bool paused)
         {
             if (ActiveWave == null || ActiveWave.Phase == WavePhase.WaveComplete) return;

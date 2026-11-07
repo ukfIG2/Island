@@ -56,6 +56,7 @@ namespace ResortEmpire.Game.View
             _root = new GameObject(GameController.DisplayName(id)).transform;
             _root.SetParent(parent, false);
             _root.localPosition = position;
+            _root.gameObject.AddComponent<BuildingTag>().Id = id;
 
             _built = new GameObject("Built");
             _built.transform.SetParent(_root, false);

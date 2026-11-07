@@ -58,6 +58,7 @@ namespace ResortEmpire.Game.Ui
             _game.StateChanged += OnStateChanged;
             _game.WaveStarted += OnWaveStarted;
             _game.WaveCompleted += OnWaveCompleted;
+            _game.BuildingTapped += OnBuildingTapped;
             RefreshAll();
         }
 
@@ -67,6 +68,7 @@ namespace ResortEmpire.Game.Ui
             _game.StateChanged -= OnStateChanged;
             _game.WaveStarted -= OnWaveStarted;
             _game.WaveCompleted -= OnWaveCompleted;
+            _game.BuildingTapped -= OnBuildingTapped;
         }
 
         void Update()
@@ -100,6 +102,26 @@ namespace ResortEmpire.Game.Ui
         {
             _sheet.Close();
             _game.ContinueAfterResults();
+        }
+
+        // A tap on an empty building opens the sheet for it; a tap on a staffed one offers the move
+        // toward the building that stands empty.
+        void OnBuildingTapped(BuildingId building)
+        {
+            if (_game.CurrentPhase == WavePhase.WaveComplete) return;
+            var state = _game.Resort.Get(building);
+            if (state == null) return;
+            if (!state.HasWorker)
+            {
+                _sheet.Open(building);
+                return;
+            }
+            foreach (var b in _game.Resort.Buildings)
+                if (!b.HasWorker)
+                {
+                    _sheet.Open(b.Id);
+                    return;
+                }
         }
 
         // Status shifts drive the guest-voice toasts; the panel rows carry the persistent signal.

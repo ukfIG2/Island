@@ -188,6 +188,14 @@ namespace ResortEmpire.Sim
         public int ServedUnits(NeedId n) => _lanes[(int)n].Served;
         public NeedStatus StatusOf(NeedId n) => _lanes[(int)n].Status;
 
+        // Only a warning carries a cause; Recovering and calm lines need nothing.
+        public QueueCause CauseOf(NeedId n)
+        {
+            var lane = _lanes[(int)n];
+            if (lane.Status != NeedStatus.Bottleneck || lane.Building == null) return QueueCause.None;
+            return lane.Building.HasWorker ? QueueCause.TooFewSeats : QueueCause.NoWorker;
+        }
+
         public bool ArrivalsClosed
         {
             get

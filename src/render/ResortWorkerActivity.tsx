@@ -36,6 +36,7 @@ import {
 import type {
   ResortWorldPoint
 } from './resortWorldAnchors';
+import { PMO_WORLD_ENABLED, usePmoNavigationWorld } from './spatialMeta/PmoNavigationScope';
 
 type Point3 =
   ResortWorldPoint;
@@ -145,6 +146,7 @@ function WorkerFigure({
   latestReassignment?:
     WorkerReassignmentImpact;
 }) {
+  const pmoWorld = usePmoNavigationWorld();
   const group =
     useRef<Group | null>(
       null
@@ -185,21 +187,23 @@ function WorkerFigure({
       null
     );
 
+  // A path belongs to the exact island/registry navigation world.
+  const transferWorld = useRef<ReturnType<typeof usePmoNavigationWorld>>(null);
   const transferDuration =
     useRef(
       1
     );
 
-  const destination =
-    workerPoint(
-      assignedNeed
-    );
+  const pmoDestination = pmoWorld?.endpoints[assignedNeed];
+  const destination: Point3 = PMO_WORLD_ENABLED
+    ? (pmoDestination ?? [0, 0, 0])
+    : workerPoint(assignedNeed);
 
   useEffect(
     () => {
       if (
-        currentKey ===
-        seenKey.current
+        currentKey === seenKey.current &&
+        (!PMO_WORLD_ENABLED || !pendingTransfer.current || transferRoute.current !== null)
       ) {
         return;
       }
@@ -212,17 +216,18 @@ function WorkerFigure({
         latestReassignment.to ===
           assignedNeed
       ) {
-        const route =
-          workerTransferRoute(
-            latestReassignment.from,
-            latestReassignment.to
-          );
+        const assessed = PMO_WORLD_ENABLED
+          ? pmoWorld?.serviceRoute(latestReassignment.from, latestReassignment.to)
+          : null;
+        const route: readonly Point3[] = PMO_WORLD_ENABLED
+          ? (assessed?.status === 'READY' && assessed.terrainVerified ? assessed.points : [])
+          : workerTransferRoute(latestReassignment.from, latestReassignment.to);
+        transferWorld.current = PMO_WORLD_ENABLED ? pmoWorld : null;
 
         pendingTransfer.current =
           latestReassignment;
 
-        transferRoute.current =
-          route;
+        transferRoute.current = PMO_WORLD_ENABLED && route.length < 2 ? null : route;
 
         transferDuration.current =
           walkingDuration(
@@ -236,11 +241,7 @@ function WorkerFigure({
           null;
       }
     },
-    [
-      assignedNeed,
-      currentKey,
-      latestReassignment
-    ]
+    [assignedNeed, currentKey, latestReassignment, pmoWorld]
   );
 
   useFrame(
@@ -259,10 +260,17 @@ function WorkerFigure({
       const route =
         transferRoute.current;
 
-      if (
-        !transfer ||
-        !route
-      ) {
+      // No PMO source, endpoint, certified transfer, or matching terrain epoch => invisible.
+      // In particular, do not place a reassigned worker at their new destination.
+      if (PMO_WORLD_ENABLED && (
+        !pmoWorld || !pmoDestination ||
+        currentKey !== seenKey.current ||
+        (transfer && (!route || route.length < 2 || transferWorld.current !== pmoWorld))
+      )) {
+        setFigureOpacity(group.current, 0);
+        return;
+      }
+      if (!transfer || !route) {
         setFigureOpacity(
           group.current,
           1
@@ -381,9 +389,7 @@ function WorkerFigure({
   return (
     <group
       ref={group}
-      position={
-        destination
-      }
+      position={PMO_WORLD_ENABLED ? undefined : destination}
       data-worker-id={
         workerId
       }

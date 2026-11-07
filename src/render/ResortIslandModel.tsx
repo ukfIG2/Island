@@ -132,7 +132,7 @@ export function ResortIslandModel({
   const gltf =
     useLoader(
       GLTFLoader,
-      '/models/emerald-cascade-island.glb'
+      '/models/cascade-isle-v2.glb'
     );
 
   const gl =
@@ -230,5 +230,5 @@ export function ResortIslandModel({
 
 useLoader.preload(
   GLTFLoader,
-  '/models/emerald-cascade-island.glb'
+  '/models/cascade-isle-v2.glb'
 );

@@ -1,6 +1,10 @@
 import { useFrame } from '@react-three/fiber';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import type { Group } from 'three';
+import type {IslandWaterBoundary} from './islandWaterBoundary';
+import {type SeaPaintStroke,type SeaPoint} from './seaCoastNavigation';
+import {planSeaArrivalV4,RRH_CRAFT_PROFILE} from './seaManeuverPlanner';
+import {SeaManeuverController} from './seaManeuverController';
 
 import {
   arrivalCompositionForWave,
@@ -180,61 +184,44 @@ function Wake({
 }
 
 function SeaCraft({
-  source,
-  progress,
-  lane
+  source,progress,lane,boundary,beachStrokes,waveNumber
 }: {
-  source: Exclude<
-    ArrivalSourceKind,
-    'seaplane'
-  >;
-  progress: number;
-  lane: number;
+  source: Exclude<ArrivalSourceKind,'seaplane'>;
+  progress:number;
+  lane:number;
+  boundary:IslandWaterBoundary|null;
+  beachStrokes:readonly SeaPaintStroke[];
+  waveNumber:number;
 }) {
-  const group =
-    useRef<Group | null>(null);
-
-  const t = smooth(progress);
-
-  const laneOffset =
-    (lane - 0.5) * 0.55;
-
-  const start =
-    offshorePoint(
-      6.5,
-      laneOffset,
-      SEA_SURFACE_Y
-    );
-
-  const control =
-    offshorePoint(
-      3.4,
-      laneOffset * 0.7,
-      SEA_SURFACE_Y + 0.02
-    );
-
-  const end =
-    offshorePoint(
-      0.85,
-      laneOffset * 0.35,
-      SEA_SURFACE_Y + 0.03
-    );
-
-  const position =
-    curve(
-      start,
-      control,
-      end,
-      t
-    );
-
-  const yaw =
-    heading(
-      start,
-      control,
-      end,
-      t
-    );
+  const group=useRef<Group|null>(null);
+  const displayProgress=useRef(0);
+  const route=useMemo(()=>{
+    if(!boundary||!beachStrokes.length)return null;
+    try {
+      // Distinct, deterministic random point IN the stamped discs for every
+      // craft and wave. Pure presentation: no game-Core random draws.
+      let seed=(Math.imul(waveNumber+1,2654435761)^(Math.round((lane+6)*1000)*40503)^
+        (source==='ferry'?131:source==='speedboats'?997:311))>>>0;
+      const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+      const laneOffset=(lane-.5)*.55;
+      const entry=offshorePoint(6.5,laneOffset,SEA_SURFACE_Y);
+      const sourceAtSea:SeaPoint=[entry[0],-2.35,entry[2]];
+      // Production projection retains only arriving semantics; no invented
+      // turnaround timing or Core wave commands.
+      const plan=planSeaArrivalV4({boundary,beachStrokes,random},sourceAtSea,
+        {...RRH_CRAFT_PROFILE,hullLength:source==='ferry'?2.35:source==='speedboats'?1.05:1.42,
+          beam:source==='ferry'?1.02:source==='speedboats'?.46:.56});
+      const motor=new SeaManeuverController(plan);
+      if(typeof window!=='undefined'&&new URLSearchParams(window.location.search).get('seaRouteDebug')==='1')
+        console.info('RRH_LIVE_SEA_PIPELINE_V4_ACTIVE',{waveNumber,source,lane,
+          brushTarget:plan.brushTarget,dock:plan.dockPose.position,lens:plan.lensEntry.position});
+      return {plan,motor,length:plan.arrival.slice(1).reduce((sum,p,i)=>sum+
+        Math.hypot(p[0]-plan.arrival[i][0],p[2]-plan.arrival[i][2]),0)};
+    }catch(error){console.error('RRH_LIVE_SEA_ROUTE_NOT_CERTIFIED',error);return null;}
+  },[source,lane,boundary,beachStrokes,waveNumber]);
+  const initial=useMemo(()=>route?route.motor.previewArrival(0):null,[route]);
+  const position:[number,number,number]=initial?.position?[initial.position[0],SEA_SURFACE_Y,initial.position[2]]:[0,SEA_SURFACE_Y,0];
+  const yaw=initial?.heading??0;
 
   const ferry =
     source === 'ferry';
@@ -256,25 +243,33 @@ function SeaCraft({
         ? 0.46
         : 0.56;
 
-  useFrame(({ clock }) => {
-    if (!group.current) return;
-
-    group.current.position.y =
-      position[1] +
-      Math.sin(
-        clock.elapsedTime *
-          (speedboat ? 3.4 : 1.9) +
-          lane
-      ) *
-        (ferry ? 0.018 : 0.035);
-
-    group.current.rotation.z =
-      Math.sin(
-        clock.elapsedTime * 1.5 +
-          lane
-      ) *
-      (ferry ? 0.008 : 0.018);
+  useFrame(({ clock }, delta) => {
+    if (!group.current||!route)return;
+    let next=displayProgress.current>progress+.08?progress:Math.min(progress,displayProgress.current+
+      Math.min(.08,Math.max(0,delta))*2.0/Math.max(1,route.length));
+    const maxYaw=Math.max(0,delta)*RRH_CRAFT_PROFILE.maxYawRate;
+    const deltaAngle=(at:number)=>{
+      const targetYaw=route.motor.previewArrival(smooth(at)).heading;
+      return Math.abs(Math.atan2(Math.sin(targetYaw-group.current!.rotation.y),
+        Math.cos(targetYaw-group.current!.rotation.y)));
+    };
+    if(next>displayProgress.current && deltaAngle(next)>maxYaw){
+      let lo=displayProgress.current,hi=next;
+      for(let i=0;i<18;i++){
+        const mid=(lo+hi)*.5;
+        if(deltaAngle(mid)<=maxYaw)lo=mid;else hi=mid;
+      }
+      next=lo;
+    }
+    displayProgress.current=next;
+    const sample=route.motor.previewArrival(smooth(next));
+    group.current.position.set(sample.position[0],SEA_SURFACE_Y,sample.position[2]);
+    group.current.position.y+=Math.sin(clock.elapsedTime*(speedboat?3.4:1.9)+lane)*
+      (ferry?.018:.035);
+    group.current.rotation.y=sample.heading;
+    group.current.rotation.z=Math.sin(clock.elapsedTime*1.5+lane)*(ferry?.008:.018);
   });
+  if(!route)return null;
 
   return (
     <group
@@ -808,9 +803,11 @@ function TransferGuest({
 }
 
 export function ResortArrivalActivity({
-  state
+  state,boundary,beachStrokes
 }: {
   state: BootstrapState;
+  boundary:IslandWaterBoundary|null;
+  beachStrokes:readonly SeaPaintStroke[];
 }) {
   const wave = state.normalWave;
 
@@ -856,6 +853,9 @@ export function ResortArrivalActivity({
             source={item.source}
             progress={item.progress}
             lane={item.lane}
+            boundary={boundary}
+            beachStrokes={beachStrokes}
+            waveNumber={state.currentWaveNumber}
           />
         )
       )}

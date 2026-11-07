@@ -231,7 +231,7 @@ export interface NormalWaveResult {
   readonly totalQueuePressure: number;
   readonly accumulatedWaitByNeed: NeedCounts;
   readonly bottleneckNeed: NormalWaveNeedId;
-  readonly bottleneckCause: NormalWaveBottleneckCause;
+  readonly bottleneckCause: NormalWaveBottleneckCause | 'none';
   readonly peakQueueByNeed: NeedCounts;
   readonly reassignments: readonly WorkerReassignmentImpact[];
   readonly guidance: string;
@@ -349,7 +349,7 @@ function slotsAfterWorkerHire(wave: NormalWaveState, to: NormalWaveNeedId): Reco
   return slots;
 }
 export function normalWaveCanHireWorker(state: BootstrapState, to: NormalWaveNeedId): boolean {
-  return (state.normalWave.phase === 'awaiting' || state.normalWave.phase === 'complete') && state.coins >= MVP_WORKER_PROOF_TUNING.hireCostCoins && slotsAfterWorkerHire(state.normalWave, to) !== null;
+  return state.progressionStage === 'mvp' && (state.normalWave.phase === 'awaiting' || state.normalWave.phase === 'complete') && state.coins >= MVP_WORKER_PROOF_TUNING.hireCostCoins && slotsAfterWorkerHire(state.normalWave, to) !== null;
 }
 function validateWorkerModel(wave: NormalWaveState): void {
   const entries = Object.entries(wave.workerAssignments);
@@ -541,9 +541,9 @@ function resultFor(wave: NormalWaveState): NormalWaveResult {
 
   const staffingWait = wave.staffingWaitByNeed[bottleneckNeed];
   const capacityWait = wave.capacityWaitByNeed[bottleneckNeed];
-  const bottleneckCause: NormalWaveBottleneckCause =
-    staffingWait > capacityWait ? 'staffing' : 'capacity';
-  const guidance = bottleneckCause === 'staffing'
+  const bottleneckCause: NormalWaveBottleneckCause | 'none' =
+    wave.totalQueuePressure === 0 ? 'none' : staffingWait > capacityWait ? 'staffing' : 'capacity';
+  const guidance = bottleneckCause === 'none' ? 'No service bottleneck was observed.' : bottleneckCause === 'staffing'
     ? `Reassign a Worker to ${bottleneckNeed} when its queue grows.`
     : `Consider an optional ${bottleneckNeed} capacity upgrade before a future wave.`;
 
@@ -870,6 +870,7 @@ export function applyBootstrapCommand(state: BootstrapState, command: BootstrapC
  }
 
  case 'HIRE_SPECIALIST': {
+      if (state.progressionStage !== 'mvp') throw new Error('MVP_SPECIALIST_STAGE_INVALID');
       if (state.normalWave.phase !== 'awaiting' && state.normalWave.phase !== 'complete') throw new Error('MVP_SPECIALIST_HIRE_PHASE_INVALID');
       if (!Object.prototype.hasOwnProperty.call(MVP_SPECIALIST_CATALOG, command.specialistId)) throw new Error('MVP_SPECIALIST_UNKNOWN');
       if (state.hiredSpecialists.includes(command.specialistId)) throw new Error('MVP_SPECIALIST_ALREADY_HIRED');
@@ -878,6 +879,7 @@ export function applyBootstrapCommand(state: BootstrapState, command: BootstrapC
     }
 
     case 'HIRE_WORKER': {
+      if (state.progressionStage !== 'mvp') throw new Error('MVP_WORKER_STAGE_INVALID');
       const wave = state.normalWave;
       if (wave.phase !== 'awaiting' && wave.phase !== 'complete') throw new Error('NORMAL_WAVE_HIRE_PHASE_INVALID');
       if (!wave.activeNeedIds.includes(command.to)) throw new Error('NORMAL_WAVE_TARGET_INACTIVE');
@@ -893,6 +895,7 @@ export function applyBootstrapCommand(state: BootstrapState, command: BootstrapC
     }
 
     case 'HIRE_MANAGER': {
+      if (state.progressionStage !== 'mvp') throw new Error('MVP_MANAGER_STAGE_INVALID');
       if (state.normalWave.phase !== 'awaiting' && state.normalWave.phase !== 'complete') throw new Error('MVP_MANAGER_HIRE_PHASE_INVALID');
       if (!NORMAL_SERVICE_IDS.includes(command.need) || !activeNeedIdsForAreas(state.purchasedAreas).includes(command.need)) throw new Error('MVP_MANAGER_BUILDING_LOCKED');
       if (state.normalWave.hiredManagers[command.need]) throw new Error('MVP_MANAGER_ALREADY_HIRED');

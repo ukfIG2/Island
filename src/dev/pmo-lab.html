@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RRH · PMO Navigation Lab (DEV)</title>
+  <style>
+    :root { font-family: Inter, system-ui, sans-serif; color: #eff4fa; background: #101a25; }
+    * { box-sizing:border-box; }
+    body { margin:0; }
+    .layout { display:grid; grid-template-columns:minmax(0,1fr) 340px; min-height:100vh; }
+    .scene { position:relative; overflow:hidden; min-height:100vh; background: radial-gradient(ellipse at 50% 35%,#2a4759,#0a1825 75%); }
+    #canvas { width:100%; height:100%; position:absolute; inset:0; }
+    .label { position:absolute; top:20px; left:20px; pointer-events:none; padding:12px 15px; background:#102434cf; border:1px solid #4f6d83; border-radius:12px; }
+    .label strong { display:block; font-size:15px; }
+    .label span { color:#c0d3df; font-size:12px; }
+    aside { padding:23px; overflow:auto; max-height:100vh; border-left:1px solid #345063; background:#152330; }
+    h1 { font-size:20px; margin:0 0 10px; }
+    h2 { font-size:13px; letter-spacing:.08em; color:#a7bdcf; text-transform:uppercase; margin:26px 0 10px; }
+    p,li { font-size:13px; line-height:1.45; color:#bcd0dc; }
+    .muted { color:#94aebe; font-size:12px; }
+    code { word-break:break-all; color:#e7b975; }
+    .controls { display:grid; gap:8px; margin-top:16px; }
+    button { cursor:pointer; border:1px solid #6a94b5; border-radius:8px; padding:10px; font-size:13px; color:white; background:#205877; }
+    button.secondary { background:#1d3243; }
+    button:hover { filter:brightness(1.18); }
+    .value { padding:10px; border:1px solid #375467; border-radius:8px; background:#0d1d29; margin:8px 0; font-size:12px; line-height:1.7; white-space:pre-wrap; }
+    .good { color:#68d69d; } .bad { color:#ff9590; } .warn { color:#edce86; }
+    .building { display:grid; grid-template-columns:1fr auto; gap:3px; border-bottom:1px solid #324659; padding:9px 0; font-size:13px; }
+    .building small { grid-column:1/-1; color:#8da9b8; }
+    .foot { padding-top:16px; font-size:12px; color:#a3bac8; }
+    #diagnostics { font-family:ui-monospace,monospace; white-space:pre-wrap; font-size:11px; }
+    @media (max-width:900px) { .layout{grid-template-columns:1fr;} .scene{min-height:60vh;} aside{max-height:none;} }
+  </style>
+</head>
+<body>
+  <main class="layout">
+    <section class="scene">
+      <div id="canvas"></div>
+      <div class="label"><strong>PMO NAV LAB</strong><span>Оригинальный остров · временные здания · отдельные пешки</span></div>
+    </section>
+    <aside>
+      <h1>Тест размещения и маршрутов</h1>
+      <p>При каждом <b>F5 / reload</b> — новая случайная расстановка 5 тестовых зданий на разрешённых участках PMO. Никаких сохранений в Core.</p>
+      <div class="value" id="seed">Seed: подготовка…</div>
+      <div class="controls">
+        <button id="regenerate">Новая расстановка (reload)</button>
+        <button id="repro" class="secondary">Открыть этот же seed</button>
+        <button id="topview" class="secondary">Вид сверху</button>
+      </div>
+      <h2>Геометрия и граф</h2>
+      <div id="stats" class="value">Загрузка GLB и PMO…</div>
+      <h2>Здания / достижимость с пляжа</h2>
+      <div id="buildings"></div>
+      <h2>Пешки</h2>
+      <div id="actors" class="value">Инициализация…</div>
+      <h2>Диагностика</h2>
+      <div id="diagnostics" class="value">…</div>
+      <p class="foot">Только development endpoint. Авторский PMO snapshot — fixture, не обязательно live-редакция. Красный маршрут означает отсутствие подтверждённого прохода; никакой телепортации или награды.</p>
+    </aside>
+  </main>
+  <script type="module" src="./pmo-lab.ts"></script>
+</body>
+</html>

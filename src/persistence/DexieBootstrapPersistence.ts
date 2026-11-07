@@ -131,7 +131,7 @@ function hasCanonicalWaveShape(value: unknown): value is NormalWaveState {
     finiteNonNegative(wave.suddenRush.extraDemand) &&
     (wave.result === null || (
       wave.result !== undefined &&
-      (wave.result.bottleneckCause === 'staffing' || wave.result.bottleneckCause === 'capacity') &&
+      (wave.result.bottleneckCause === 'staffing' || wave.result.bottleneckCause === 'capacity' || wave.result.bottleneckCause === 'none') &&
       typeof wave.result.guidance === 'string' &&
       hasNeedCounts(wave.result.accumulatedWaitByNeed)
     ))

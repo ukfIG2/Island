@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyBootstrapCommand as command, createInitialBootstrapState, PROTOTYPE_SUDDEN_RUSH_PROOF_TUNING, type BootstrapState } from './state';
+import { applyBootstrapCommand as command, createInitialBootstrapState, enableMvpProgression, PROTOTYPE_SUDDEN_RUSH_PROOF_TUNING, type BootstrapState } from './state';
 
 function tick(s: BootstrapState): BootstrapState { return command(s, { type: 'ADVANCE_SIMULATION', deltaMs: 1000 }); }
 function finish(s: BootstrapState): BootstrapState {
@@ -36,7 +36,7 @@ describe('FR-035 Sudden Rush staffed-target and zero-Energy resolution', () => {
     expect(state.energy).toBe(1);
   });
   it('never targets a staffed building if the player has preemptively staffed every active building', () => {
-    let state = secondWave('fr035-fully-staffed');
+    let state = enableMvpProgression(secondWave('fr035-fully-staffed'));
     state = { ...state, coins: 10000 };
     state = command(state, { type: 'UPGRADE_BUILDING', need: 'food' });
     state = command(state, { type: 'HIRE_WORKER', to: 'food' });

@@ -40,6 +40,7 @@ import { AreaUnlockMap } from './AreaUnlockMap';
 
 export interface AppProps {
   core: BootstrapCore;
+  pathfindingTest?: boolean;
   comebackRewardCoins?: number;
   onNewResort: () => Promise<void>;
 }
@@ -50,7 +51,7 @@ function labelNeed(need: NormalWaveNeedId): string {
 }
 
 
-export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
+export function App({ core, comebackRewardCoins = 0, onNewResort, pathfindingTest = false }: AppProps) {
   const snapshot = useSyncExternalStore(
     core.subscribe,
     core.getSnapshot,
@@ -120,7 +121,7 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
   );
 
   useEffect(() => {
-    if (wave.result !== null) setSelectedNeed(wave.result.bottleneckNeed);
+    if (wave.result !== null && wave.result.bottleneckCause !== 'none') setSelectedNeed(wave.result.bottleneckNeed);
   }, [wave.result?.bottleneckNeed]);
 
   useEffect(() => {
@@ -180,12 +181,13 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
               <small>Select a building to move workers or boost the current bottleneck.</small>
             </> : wave.result !== null ? <>
               <strong>{wave.result.rating}/5 · +{normalWaveCoinReward(wave)} Coins · +{PROTOTYPE_ENERGY_PROOF_TUNING.earnedPerCompletedWave} Energy</strong>
-              <small>{finalWaveComplete ? forecast.totalWaves + '/' + forecast.totalWaves + ' waves cleared' : NORMAL_SERVICE_CATALOG[wave.result.bottleneckNeed].buildingLabel + ' was the bottleneck. Review an optional response or continue without buying.'}</small>
+              <small>{finalWaveComplete ? forecast.totalWaves + '/' + forecast.totalWaves + ' waves cleared' : wave.result.bottleneckCause === 'none' ? 'No service bottleneck was observed. Continue when ready.' : NORMAL_SERVICE_CATALOG[wave.result.bottleneckNeed].buildingLabel + ' was the bottleneck. Review an optional response or continue without buying.'}</small>
             </> : null}
           </div>
           <WaveCompletionSummary wave={wave} />
           <div className="phase-command__actions">
             {wave.phase === 'awaiting' ? <button className="hud-primary-action" type="button" onClick={() => core.dispatch({ type: 'START_WAVE' })}>Start wave</button> : null}
+            {(wave.phase === 'incoming' || wave.phase === 'draining') ? <button className="hud-primary-action" type="button" onClick={() => { workerOriginRef.current = selectedNeed; setWorkerSheetOpen(true); }}>Manage workers</button> : null}
             {snapshot.progressionStage === 'mvp' && (wave.phase === 'awaiting' || wave.phase === 'complete') ? areaUnlocks.filter((unlock) => unlock.status === 'locked').map((unlock) => <p key={unlock.areaId} role="status">{unlock.buildingLabel} unlock: {snapshot.reputation}/{MVP_AREA_REPUTATION_PROVISIONAL[unlock.areaId]} cumulative Reputation. Purchase requires {unlock.coinCost} Coins separately.</p>) : null}
             {(wave.phase === 'awaiting' || wave.phase === 'complete') ? areaUnlocks.filter((unlock) => unlock.status === 'available').map((unlock) => <button className="phase-command__offer" key={unlock.areaId} type="button" onClick={() => { setSelectedNeed(unlock.need); core.dispatch({ type: 'PURCHASE_AREA', areaId: unlock.areaId }); }}><strong>Open {unlock.buildingLabel}</strong><small>New {NORMAL_SERVICE_CATALOG[unlock.need].needLabel} service + {unlock.includedWorkerId}</small><span>{unlock.coinCost} Coins</span></button>) : null}
             {wave.phase === 'complete' && !finalWaveComplete ? <WaveToUpgradeFlow key={snapshot.bootId + ':' + snapshot.currentWaveNumber} state={snapshot} onUpgrade={(need) => core.dispatch({ type: 'UPGRADE_BUILDING', need })} onNextWave={() => core.dispatch({ type: 'CONTINUE_TO_NEXT_WAVE' })} /> : null}
@@ -283,6 +285,7 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
         </>
         ) : null}
         {finalWaveComplete ? (
+          <div className="context-actions-tray" role="region" aria-label="Resort actions" tabIndex={0}>
           <aside className="context-card context-card--entered" aria-label="Resort finale">
             <div className="context-card__heading">
               <div><span>Campaign complete</span><h2>Resort summary</h2></div>
@@ -296,18 +299,10 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
             </div>
             <p className="context-card__guidance">{forecast.totalWaves}/{forecast.totalWaves} waves cleared. The resort is complete.</p>
           </aside>
+        <AreaUnlockMap state={snapshot} onSelectNeed={setSelectedNeed} onPurchase={(areaId) => core.dispatch({ type: 'PURCHASE_AREA', areaId })} />
+          </div>
         ) : (
-        <>
-        <section className="context-card" aria-label="VIP specialist roster">
-          <h2>VIP Specialists</h2>
-          <p>Specialists are reusable VIP roster prerequisites. They do not staff buildings or change normal-wave service.</p>
-          {(Object.keys(MVP_SPECIALIST_CATALOG) as MvpSpecialistId[]).map(specialistId => (
-            <div key={specialistId} className="progression-offer">
-              <span>{MVP_SPECIALIST_CATALOG[specialistId].name} · {MVP_SPECIALIST_CATALOG[specialistId].role}</span>
-              {snapshot.hiredSpecialists.includes(specialistId) ? <strong>Hired · ready for VIP requirements</strong> : <button type="button" disabled={(wave.phase !== 'awaiting' && wave.phase !== 'complete') || snapshot.coins < MVP_SPECIALIST_PROOF_TUNING.hireCostCoins} onClick={() => core.dispatch({ type: 'HIRE_SPECIALIST', specialistId })}>Hire Specialist · {MVP_SPECIALIST_PROOF_TUNING.hireCostCoins} Coins</button>}
-            </div>
-          ))}
-        </section>
+        <div className="context-actions-tray" role="region" aria-label="Resort actions" tabIndex={0}>
         <aside key={selectedNeed} className="context-card context-card--entered" aria-label="Selected building actions">
           <div className="context-card__heading">
             <div><span>{NORMAL_SERVICE_CATALOG[selectedNeed].needLabel}</span><h2>{NORMAL_SERVICE_CATALOG[selectedNeed].buildingLabel}</h2></div>
@@ -318,7 +313,7 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
             <span><b>Lv.{wave.buildingLevelsByNeed[selectedNeed]}</b> building</span><span><b>{normalWaveBuildingQualityBonus(snapshot, selectedNeed)}</b> quality bonus</span>
             <span><b>{selectedWorkers.length}</b> worker{selectedWorkers.length === 1 ? '' : 's'}</span>
           </div>
-          {wave.result?.bottleneckNeed === selectedNeed ? <p className="context-card__guidance">{wave.result.guidance}</p> : null}
+          {wave.result?.bottleneckCause !== 'none' && wave.result?.bottleneckNeed === selectedNeed ? <p className="context-card__guidance">{wave.result.guidance}</p> : null}
           <InvestmentRecommendation state={snapshot} selectedNeed={selectedNeed} />
           <div className="context-card__actions">
             {canReassign ? <button type="button" ref={moveWorkerButtonRef} onClick={() => { workerOriginRef.current = selectedNeed; setWorkerSheetOpen(true); }}>Move worker</button> : null}
@@ -328,7 +323,19 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
             {managerHired ? <span>Manager: {MVP_MANAGER_CATALOG[selectedNeed].name} · service ×{MVP_MANAGER_PROOF_TUNING.serviceSpeedMultiplier}</span> : canHireManager ? <button type="button" disabled={snapshot.coins < MVP_MANAGER_PROOF_TUNING.hireCostCoins} onClick={() => core.dispatch({ type: 'HIRE_MANAGER', need: selectedNeed })}>Hire Manager {MVP_MANAGER_CATALOG[selectedNeed].name} · {MVP_MANAGER_PROOF_TUNING.hireCostCoins} Coins</button> : null}
             {selectedUnlock?.status === 'available' ? <button type="button" onClick={() => core.dispatch({ type: 'PURCHASE_AREA', areaId: selectedUnlock.areaId })}>Open area - {selectedUnlock.coinCost} Coins</button> : null}
           </div>
-        </aside></>
+        </aside>
+        <AreaUnlockMap state={snapshot} onSelectNeed={setSelectedNeed} onPurchase={(areaId) => core.dispatch({ type: 'PURCHASE_AREA', areaId })} />
+        <section className="context-card" aria-label="VIP specialist roster">
+          <h2>VIP Specialists</h2>
+          <p>Specialists are reusable VIP roster prerequisites. They do not staff buildings or change normal-wave service.</p>
+          {(Object.keys(MVP_SPECIALIST_CATALOG) as MvpSpecialistId[]).map(specialistId => (
+            <div key={specialistId} className="progression-offer">
+              <span>{MVP_SPECIALIST_CATALOG[specialistId].name} · {MVP_SPECIALIST_CATALOG[specialistId].role}</span>
+              {snapshot.hiredSpecialists.includes(specialistId) ? <strong>Hired · ready for VIP requirements</strong> : <button type="button" disabled={(wave.phase !== 'awaiting' && wave.phase !== 'complete') || snapshot.coins < MVP_SPECIALIST_PROOF_TUNING.hireCostCoins} onClick={() => core.dispatch({ type: 'HIRE_SPECIALIST', specialistId })}>Hire Specialist · {MVP_SPECIALIST_PROOF_TUNING.hireCostCoins} Coins</button>}
+            </div>
+          ))}
+        </section>
+        </div>
         )}
 
         {workerSheetOpen && !finalWaveComplete ? (
@@ -356,11 +363,10 @@ export function App({ core, comebackRewardCoins = 0, onNewResort }: AppProps) {
           </div>
         ) : null}
 
-        <AreaUnlockMap state={snapshot} onSelectNeed={setSelectedNeed} onPurchase={(areaId) => core.dispatch({ type: 'PURCHASE_AREA', areaId })} />
       </section>
 
       <section className="shell__world" aria-label="Resort world projection">
-        <ResortWorld3D state={snapshot} selectedNeed={selectedNeed} onSelectNeed={setSelectedNeed} />
+        <ResortWorld3D state={snapshot} selectedNeed={selectedNeed} onSelectNeed={setSelectedNeed} pathfindingTest={pathfindingTest} />
       </section>
     </main>
   );

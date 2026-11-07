@@ -29,10 +29,6 @@ import {
 } from './debug/DebugTransport';
 
 import {
-  installDevFacade
-} from './dev/installDevFacade';
-
-import {
   DexieBootstrapPersistence
 } from './persistence/DexieBootstrapPersistence';
 
@@ -46,25 +42,31 @@ import {
 } from './runtime/PrototypeInactivity';
 
 async function boot(): Promise<void> {
+  const pathfindingTest = import.meta.env.DEV &&
+    /^\/pathfinding-test\/?$/.test(decodeURIComponent(window.location.pathname));
   const persistence = new DexieBootstrapPersistence();
   const capacityUpgradeProof =
     import.meta.env.DEV &&
     new URLSearchParams(window.location.search).get('proof') === 'capacity-upgrade';
 
-  const restored = capacityUpgradeProof
+  const restored = pathfindingTest || capacityUpgradeProof
     ? null
     : await persistence
         .load()
         .catch(() => null);
 
-  const initial = capacityUpgradeProof
+  const initial = pathfindingTest
+    ? createInitialBootstrapState('rrh-pathfinding-dev-no-persistence')
+    : capacityUpgradeProof
     ? createInitialBootstrapState(
         'capacity-upgrade-browser-proof',
         {
           totalDemand: 6,
           releasePerTick: 3,
           baseServiceCapacity: { reception: 10, food: 1, drinks: 10, relax: 10, oceanView: 10 },
-          queuePressurePerLostStar: 4
+          queuePressurePerLostStar: 4,
+    arrivalDurationMs: 2_000,
+    serviceDurationMs: 45_000
         }
       )
     : restored ??
@@ -72,7 +74,7 @@ async function boot(): Promise<void> {
         crypto.randomUUID()
       );
 
-  const liveInitial = capacityUpgradeProof ? initial : enableMvpProgression(initial);
+  const liveInitial = capacityUpgradeProof || pathfindingTest ? initial : enableMvpProgression(initial);
   const debugEvents = new DebugRingBufferSink(64);
 
   const enabledDebugCategories: Array<keyof BootstrapDebugEvents> =
@@ -88,7 +90,7 @@ async function boot(): Promise<void> {
   const core = new BootstrapCore(liveInitial, debug);
 
   const claimComebackReward = (): boolean => {
-    if (capacityUpgradeProof || !consumePrototypeComebackEligibility(window.localStorage, Date.now())) return false;
+    if (pathfindingTest || capacityUpgradeProof || !consumePrototypeComebackEligibility(window.localStorage, Date.now())) return false;
     core.dispatch({ type: 'CLAIM_COMEBACK_REWARD' });
     return true;
   };
@@ -99,24 +101,23 @@ async function boot(): Promise<void> {
   // in the renderer-independent core and are not coupled to Pixi rendering.
   const simulationClock = new SimulationClock(core, 1000);
 
-  if (document.visibilityState === 'visible') {
+  if (!pathfindingTest && document.visibilityState === 'visible') {
     simulationClock.start();
   }
 
-  installDevFacade(
-    core,
-    simulationClock,
-    debugEvents
-  );
+  if (import.meta.env.DEV) {
+    const { installDevFacade } = await import('./dev/installDevFacade');
+    installDevFacade(core, simulationClock, debugEvents);
+  }
 
   const persistSnapshot = (): void => {
-    if (!capacityUpgradeProof) {
+    if (!capacityUpgradeProof && !pathfindingTest) {
       void persistence.save(core.getSnapshot()).catch(() => undefined);
     }
   };
 
   const startNewResort = async (): Promise<void> => {
-    if (capacityUpgradeProof) return;
+    if (capacityUpgradeProof || pathfindingTest) return;
 
     const fresh = createInitialBootstrapState(crypto.randomUUID(), undefined, 'mvp');
     simulationClock.stop();
@@ -132,9 +133,10 @@ async function boot(): Promise<void> {
   };
 
   const handleVisibilityChange = (): void => {
+    if (pathfindingTest) return;
     if (document.visibilityState !== 'visible') {
       simulationClock.stop();
-      if (!capacityUpgradeProof) recordPrototypeInactivity(window.localStorage, Date.now());
+      if (!capacityUpgradeProof && !pathfindingTest) recordPrototypeInactivity(window.localStorage, Date.now());
       persistSnapshot();
       return;
     }
@@ -151,7 +153,7 @@ async function boot(): Promise<void> {
     'pagehide',
     () => {
       simulationClock.stop();
-      if (!capacityUpgradeProof) recordPrototypeInactivity(window.localStorage, Date.now());
+      if (!capacityUpgradeProof && !pathfindingTest) recordPrototypeInactivity(window.localStorage, Date.now());
       persistSnapshot();
     },
     { once: true }
@@ -167,6 +169,7 @@ async function boot(): Promise<void> {
     <StrictMode>
       <App
         core={core}
+        pathfindingTest={pathfindingTest}
         comebackRewardCoins={comebackRewardGranted ? PROTOTYPE_ECONOMY_PROOF_TUNING.comebackRewardCoins : 0}
         onNewResort={startNewResort}
       />

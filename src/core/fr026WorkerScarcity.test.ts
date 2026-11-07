@@ -12,7 +12,7 @@ function expectScarce(state: GameState) {
   }
 }
 const prepared = (): GameState => {
-  const state = createInitialBootstrapState('fr026-scarcity');
+  const state = createInitialBootstrapState('fr026-scarcity', undefined, 'mvp');
   return { ...state, coins: 120, normalWave: { ...state.normalWave, buildingLevelsByNeed: { ...state.normalWave.buildingLevelsByNeed, reception: 2, food: 2 } } };
 };
 describe('FR-026 strictly fewer Workers than available Worker slots', () => {

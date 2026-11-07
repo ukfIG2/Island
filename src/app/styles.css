@@ -485,7 +485,7 @@ button:disabled {
 .phase-command{position:absolute;z-index:8;left:18px;bottom:94px;width:min(360px,calc(100vw - 360px));display:flex;align-items:flex-end;justify-content:space-between;gap:14px;padding:12px 14px;border:1px solid rgba(184,230,216,.2);border-radius:18px;background:rgba(5,20,25,.88);backdrop-filter:blur(14px);box-shadow:0 18px 50px rgba(0,0,0,.24);pointer-events:auto}
 .phase-command--complete{border-color:rgba(245,217,120,.42);background:linear-gradient(135deg,rgba(61,48,22,.92),rgba(5,20,25,.94))}
 .phase-command__copy{display:grid;gap:3px;min-width:0}.phase-command__eyebrow{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#9ed8d0}.phase-command--complete .phase-command__eyebrow{color:#f5d978}.phase-command__copy strong{font-size:15px;line-height:1.15}.phase-command__copy small{font-size:10px;line-height:1.3;opacity:.72}
-.phase-command__actions{display:grid;gap:6px;flex:0 0 auto}.phase-command__actions button{min-width:102px;min-height:34px;padding:7px 9px;font-size:10px}.phase-command__actions .hud-primary-action{min-width:112px}
+.phase-command__actions{display:grid;gap:6px;flex:1 1 auto;min-width:0;grid-template-columns:minmax(0,1fr)}.phase-command__actions>p{overflow-wrap:anywhere}.phase-command__actions button{min-width:102px;min-height:34px;padding:7px 9px;font-size:10px}.phase-command__actions .hud-primary-action{min-width:112px}
 @media (max-width:760px){.phase-command{width:min(330px,calc(100vw - 36px));right:auto}.phase-command__copy small{display:none}}
 
 .phase-command__offer{display:grid;gap:1px;min-width:148px;text-align:left}.phase-command__offer strong{font-size:11px}.phase-command__offer small{font-size:9px;line-height:1.2;opacity:.72}.phase-command__offer span{font-size:9px;color:#f5d978}
@@ -550,3 +550,43 @@ button:disabled {
 .vip-opportunity-panel h2 { font-size:14px;margin:0 0 8px }
 .vip-opportunity-panel .progression-offer { position:static;max-width:100%;margin:5px 0 }
 @media (max-width:600px) { .shell__panel > .vip-management { top:72px;right:12px;width:min(192px,calc(100vw - 24px)) } .shell__panel > .vip-opportunity-panel { top:118px;right:12px;width:min(240px,calc(100vw - 24px));max-height:38vh } }
+
+/* Landscape action ownership: one bounded scroll region for building + VIP roster. */
+.context-actions-tray{position:absolute;z-index:7;top:94px;right:18px;width:286px;max-height:calc(100dvh - 212px);display:grid;align-content:start;gap:8px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;pointer-events:auto}
+.context-actions-tray>.context-card{position:relative;inset:auto;box-sizing:border-box;width:100%;max-width:100%;margin:0}
+.context-actions-tray:focus-visible{outline:2px solid #f5d978;outline-offset:2px}
+@media(max-width:900px){.context-actions-tray{top:82px;right:10px;width:214px;max-height:calc(100dvh - 204px)}}
+
+/* Landscape: keep the full phase-command surface reachable above the lower HUD. */
+@media (orientation:landscape) and (max-height:420px){.phase-command{max-height:calc(100dvh - 114px);overflow-y:auto;align-items:flex-start}}
+
+/* NFR-006: expansions share the right bounded action tray; preserve the left primary CTA. */
+.context-actions-tray>.area-unlock-map{position:relative;inset:auto;box-sizing:border-box;min-width:0;width:100%;max-width:100%;display:grid;gap:7px;padding:10px;border:1px solid rgba(245,217,120,.35);border-radius:14px;background:rgba(5,22,28,.9);color:#ecf7ee;pointer-events:auto}
+@media(orientation:landscape) and (max-height:420px){.phase-command__actions .hud-primary-action,.context-card__actions button,.worker-row__destinations button,.worker-sheet__header button,.context-actions-tray .area-unlock-map button{min-height:44px}}
+
+/* NFR-006: primary completion choice precedes lengthy optional unlock details. */
+.phase-command--complete .phase-command__actions>.hud-primary-action,.phase-command--complete .phase-command__actions>.progression-offer{order:-1}
+
+/* NFR-006: anchor Start wave in the lower thumb zone while optional offers scroll. */
+@media(orientation:landscape) and (max-height:420px){.phase-command--awaiting .phase-command__actions>.hud-primary-action{order:99;position:sticky;bottom:0;z-index:5}}
+
+/* NFR-006: completion actions remain in the landscape thumb zone. */
+@media(orientation:landscape) and (max-height:420px){.phase-command--complete .phase-command__actions>.hud-primary-action{position:absolute;bottom:12px;right:14px;z-index:12}.phase-command--complete .progression-offer>.hud-primary-action{margin-top:48px}}
+
+/* NFR-008: legible operational controls in compact landscape */
+@media (orientation:landscape) and (max-height:480px) and (max-width:900px) {
+.world-status {bottom:10px;gap:6px;padding:6px}
+.world-status__accommodation {display:none}
+.world-status__building {min-width:100px;min-height:54px;padding:8px 10px}
+.world-status__building strong {font-size:13px;line-height:1.2}
+.world-status__building span {font-size:12px;line-height:1.2;opacity:1}
+.phase-command {bottom:94px;max-height:calc(100dvh - 165px)}
+.phase-command__eyebrow,.phase-command__copy small {font-size:11px}
+.phase-command__copy strong {font-size:16px}
+.phase-command__actions button,.context-card__actions button {font-size:12px;min-height:44px}
+.context-card__stats {grid-template-columns:repeat(2,minmax(0,1fr))}
+.context-card__stats span {font-size:11px;line-height:1.2;opacity:1;overflow-wrap:anywhere}
+.context-card__stats b {font-size:15px}
+.phase-command__offer strong,.progression-offer strong {font-size:12px}
+.phase-command__offer small,.progression-offer small {font-size:11px}
+}

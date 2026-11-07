@@ -35,8 +35,10 @@ import type {
   ResortWorldPoint
 } from './resortWorldAnchors';
 
-type Point3 =
-  ResortWorldPoint;
+import { PMO_WORLD_ENABLED, usePmoNavigationWorld } from './spatialMeta/PmoNavigationScope';
+import { guestShouldTraverseArrivalRoute } from './pmoGuestMotion';
+
+type Point3 = ResortWorldPoint;
 
 type GuestStage =
   | 'queue'
@@ -226,30 +228,17 @@ function AnimatedGuest({
       null
     );
 
-  const active =
-    guestActivePoint(
-      need,
-      index
-    );
+  // PMO_GUEST_CERTIFIED_V1: renderer coordinates from the same terrain-bound snapshot.
+  const pmoWorld = usePmoNavigationWorld();
+  const pmoEndpoint = pmoWorld?.endpoints[need];
+  const active: Point3 = PMO_WORLD_ENABLED ? (pmoEndpoint ?? [0, 0, 0]) : guestActivePoint(need, index);
 
-  const exit =
-    guestExitPoint(
-      need,
-      index
-    );
+  const exit: Point3 = PMO_WORLD_ENABLED ? active : guestExitPoint(need, index);
 
-  const queueRoute =
-    useMemo(
-      () =>
-        guestQueueRoute(
-          need,
-          index
-        ),
-      [
-        need,
-        index
-      ]
-    );
+  const queueRoute = useMemo(() =>
+    PMO_WORLD_ENABLED ? (pmoWorld?.serviceRoute('reception', need).points ?? []) : guestQueueRoute(need, index),
+    [need, index, pmoWorld]
+  );
 
   const queueDuration =
     useMemo(
@@ -273,7 +262,13 @@ function AnimatedGuest({
         return;
       }
 
-      if (
+      // PMO fail-closed: no actor at the zero-origin or an unreachable service.
+    if (PMO_WORLD_ENABLED && (!pmoWorld || !pmoEndpoint || queueRoute.length < 2)) {
+      setFigureOpacity(group.current, 0);
+      return;
+    }
+
+    if (
         startedAt.current ===
         null
       ) {
@@ -289,10 +284,7 @@ function AnimatedGuest({
         elapsed +
         index * 0.41;
 
-      if (
-        stage ===
-        'queue'
-      ) {
+      if (guestShouldTraverseArrivalRoute(stage, PMO_WORLD_ENABLED, queueRoute.length)) {
         const delay =
           index * 0.10;
 
@@ -448,8 +440,9 @@ function AnimatedGuest({
     }
   );
 
-  return (
-    <group
+  // No certified PMO route means no simulated movement or arrival at a fake location.
+  if (PMO_WORLD_ENABLED && (stage === 'served' || !pmoEndpoint || queueRoute.length < 2)) return null;
+  return (<group
       ref={group}
     >
       <GuestFigure

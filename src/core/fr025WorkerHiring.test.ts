@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { applyBootstrapCommand, createInitialBootstrapState, normalizePrototypeWorkerRoster, normalWaveCanHireWorker, MVP_WORKER_PROOF_TUNING } from './state';
 const prepared = () => {
-  const state = createInitialBootstrapState('fr025');
+  const state = createInitialBootstrapState('fr025', undefined, 'mvp');
   return { ...state, coins: 120, normalWave: { ...state.normalWave, buildingLevelsByNeed: { ...state.normalWave.buildingLevelsByNeed, reception: 2 as const } } };
 };
 describe('FR-025 Additional Worker hiring', () => {
   it('preserves the original Prototype scarcity without upgrades', () => {
     const state = createInitialBootstrapState('fr025-prototype');
     expect(normalWaveCanHireWorker({ ...state, coins: 120 }, 'food')).toBe(false);
-    expect(() => applyBootstrapCommand({ ...state, coins: 120 }, { type: 'HIRE_WORKER', to: 'food' })).toThrow('NORMAL_WAVE_WORKER_SCARCITY_INVALID');
+    expect(() => applyBootstrapCommand({ ...state, coins: 120 }, { type: 'HIRE_WORKER', to: 'food' })).toThrow('MVP_WORKER_STAGE_INVALID');
   });
   it('charges once, assigns directly and activates an available reserve slot elsewhere', () => {
     const state = prepared();

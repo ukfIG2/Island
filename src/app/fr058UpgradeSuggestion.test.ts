@@ -5,7 +5,7 @@ import { UpgradeSuggestionDetails } from './WaveToUpgradeFlow';
 import { NORMAL_SERVICE_CATALOG, applyBootstrapCommand, createInitialBootstrapState, normalWaveUpgradeQuote, type BootstrapState } from '../core/state';
 
 function complete(seed: string): BootstrapState {
-  let state = applyBootstrapCommand(createInitialBootstrapState(seed), { type: 'START_WAVE' });
+  let state = applyBootstrapCommand(createInitialBootstrapState(seed, { totalDemand: 12, releasePerTick: 4, baseServiceCapacity: { reception: 10, food: 1, drinks: 10, relax: 1, oceanView: 1 }, queuePressurePerLostStar: 0.5, arrivalDurationMs: 1000, serviceDurationMs: 1000 }), { type: 'START_WAVE' });
   for (let i = 0; i < 800 && state.normalWave.phase !== 'complete'; i++)
     state = applyBootstrapCommand(state, { type: 'ADVANCE_SIMULATION', deltaMs: 1000 });
   expect(state.normalWave.phase).toBe('complete');

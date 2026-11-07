@@ -5,7 +5,7 @@ import { applyBootstrapCommand, createInitialBootstrapState, normalWaveCoinRewar
 import { UpgradeSuggestionDetails, WaveToUpgradeFlow } from './WaveToUpgradeFlow';
 
 function completed(): BootstrapState {
-  let s = applyBootstrapCommand(createInitialBootstrapState('fr057-flow'), { type: 'START_WAVE' });
+  let s = applyBootstrapCommand(createInitialBootstrapState('fr057-flow', { totalDemand: 12, releasePerTick: 4, baseServiceCapacity: { reception: 10, food: 1, drinks: 10, relax: 1, oceanView: 1 }, queuePressurePerLostStar: 0.5, arrivalDurationMs: 1000, serviceDurationMs: 1000 }), { type: 'START_WAVE' });
   for (let i = 0; i < 800 && s.normalWave.phase !== 'complete'; i++)
     s = applyBootstrapCommand(s, { type: 'ADVANCE_SIMULATION', deltaMs: 1000 });
   expect(s.normalWave.phase).toBe('complete');

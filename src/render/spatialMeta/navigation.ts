@@ -57,7 +57,7 @@ export interface RouteResult {
 }
 
 const DEFAULTS: Required<NavigationOptions> = {
-  sampleStep: 0.28, paintToleranceY: 0.52, maxGrade: 0.72,
+  sampleStep: 0.14, paintToleranceY: 0.52, maxGrade: 0.72,
   maxStepHeight: 0.20, portalSnapRadius: 0.58, strictTransitionTypes: false
 };
 const hypotXZ = (a: SpatialPoint, b: SpatialPoint) => Math.hypot(a[0] - b[0], a[2] - b[2]);
@@ -144,7 +144,7 @@ export function compileNavigation(
   function safeWalk(a: SpatialPoint, b: SpatialPoint): boolean {
     const len = hypotXZ(a, b);
     if (len < 1e-9) return Math.abs(a[1] - b[1]) < 1e-8;
-    const n = Math.ceil(len / (cfg.sampleStep * 0.5));
+    const n = Math.ceil(len / Math.min(0.017, cfg.sampleStep * 0.25));
     let prev = a;
     for (let i = 1; i <= n; i++) {
       const t = i / n;
@@ -158,12 +158,26 @@ export function compileNavigation(
     }
     return Math.abs(prev[1] - b[1]) <= cfg.maxStepHeight;
   }
+  // The old quadratic pair scan made 0.14m PMO sampling expensive. Group
+  // terrain nodes by their world XZ grid coordinate and test only neighbors.
+  // Topological admission is STILL safeWalk(), never grid adjacency alone.
   const walks = Object.values(graph.nodes);
-  for (let i = 0; i < walks.length; i++) for (let j = i + 1; j < walks.length; j++) {
-    if (hypotXZ(walks[i].position, walks[j].position) > cfg.sampleStep * 1.52) continue;
-    if (!safeWalk(walks[i].position, walks[j].position)) continue;
-    addEdge(walks[i].id, walks[j].id, 'walk', walks[i].sourceId);
-    addEdge(walks[j].id, walks[i].id, 'walk', walks[j].sourceId);
+  const buckets=new Map<string,number[]>();
+  const cell=(p:SpatialPoint)=>[Math.floor(p[0]/cfg.sampleStep),Math.floor(p[2]/cfg.sampleStep)];
+  for(let i=0;i<walks.length;i++){
+    const [x,z]=cell(walks[i].position), key=x+':'+z;
+    const items=buckets.get(key)||[];items.push(i);buckets.set(key,items);
+  }
+  for(let i=0;i<walks.length;i++){
+    const [x,z]=cell(walks[i].position);
+    for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++){
+      for(const j of buckets.get((x+dx)+':'+(z+dz))||[]){
+        if(j<=i||hypotXZ(walks[i].position,walks[j].position)>cfg.sampleStep*1.52)continue;
+        if(!safeWalk(walks[i].position,walks[j].position))continue;
+        addEdge(walks[i].id,walks[j].id,'walk',walks[i].sourceId);
+        addEdge(walks[j].id,walks[i].id,'walk',walks[j].sourceId);
+      }
+    }
   }
 
   for (const obj of registry.objects) {

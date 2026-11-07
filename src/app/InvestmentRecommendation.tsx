@@ -9,7 +9,7 @@ export interface InvestmentRecommendationProps {
 export function InvestmentRecommendation({ state, selectedNeed }: InvestmentRecommendationProps) {
   const wave = state.normalWave;
   const result = wave.result;
-  if (wave.phase !== 'complete' || result === null || result.bottleneckNeed !== selectedNeed) return null;
+  if (wave.phase !== 'complete' || result === null || result.bottleneckCause === 'none' || result.bottleneckNeed !== selectedNeed) return null;
   const building = NORMAL_SERVICE_CATALOG[selectedNeed].buildingLabel;
   const quote = normalWaveUpgradeQuote(state, selectedNeed);
   const capacityOffer = quote === null

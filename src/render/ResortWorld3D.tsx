@@ -1,21 +1,58 @@
-import { Canvas } from '@react-three/fiber';
-import { Suspense, useMemo, useState } from 'react';
+import { IslandOrbitCamera, type OrbitAction, type OrbitRequest } from './IslandOrbitCamera';
+import { Canvas, useFrame } from '@react-three/fiber';
+// RRH SPATIAL META DEV V5
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import { PMO_WORLD_ENABLED, PmoNavigationScope, usePmoNavigationWorld } from './spatialMeta/PmoNavigationScope';
 import * as THREE from 'three';
 
 import { arrivalCompositionForWave } from '../core/arrivalComposition';
 import type { BootstrapState, NormalWaveNeedId } from '../core/state';
 
 import { environmentProfileForWave } from './environmentProfile';
-import { ResortOcean } from './ResortOcean';
+import { serviceGrowthTiers } from './serviceGrowthVisual';
+import { ResortOcean, type OceanWavePreset } from './ResortOcean';
+import { DEFAULT_SHORE_WATER_PROFILE } from './shoreWaterProfile';
+import {
+  ISLAND_MESH_BOUNDARY_SOURCE,
+  type IslandWaterBoundary,
+  type IslandWaterBoundarySource
+} from './islandWaterBoundary';
 import { CALIBRATED_ANCHOR_POINTS, RESORT_WORLD_ANCHORS, type ResortWorldPoint } from './resortWorldAnchors';
 import { SERVICE_SPATIAL } from './resortWorldSpatial';
 import { ResortArrivalActivity } from './ResortArrivalActivity';
+import {getPublishedPmoRegistry} from './spatialMeta/pmoServiceLayout';
+import {readSeaBeachPmoStrokes} from './seaBeachPmoStrokes';
+import type {SeaContourInput} from './seaCoastNavigation';
 import { ResortGuestFlowActivity } from './ResortGuestFlowActivity';
+import { PmoProductionGuestTraffic } from './PmoProductionGuestTraffic';
 import { ResortIslandModel } from './ResortIslandModel';
+import { PmoTransitionStructures } from './PmoTransitionStructures';
+import type { PathfindingTestStatus } from '../dev/PathfindingTestScene';
 import {
   TropicalRain
 } from './ResortWorldArt';
 import { ResortWorkerActivity } from './ResortWorkerActivity';
+
+// The lab is never part of the production module graph. Both components and
+// their expensive transitive dependencies are loaded only in DEV sessions.
+const DevPmoPortalInspection = import.meta.env.DEV
+  ? lazy(async () => ({default:(await import('./PmoPortalInspection')).PmoPortalInspection}))
+  : null;
+const DevPathfindingTestScene = import.meta.env.DEV
+  ? lazy(async () => ({default:(await import('../dev/PathfindingTestScene')).PathfindingTestScene}))
+  : null;
+const DevPathfindingTestPanel = import.meta.env.DEV
+  ? lazy(async () => ({default:(await import('../dev/PathfindingTestPanel')).PathfindingTestPanel}))
+  : null;
+const DevSpatialMetaCanvasBridge = import.meta.env.DEV
+  ? lazy(async () => ({default:(await import('./spatialMeta/SpatialMetaCanvasBridge')).SpatialMetaCanvasBridge}))
+  : null;
+const DevSpatialMetaPanel = import.meta.env.DEV
+  ? lazy(async () => ({default:(await import('./spatialMeta/SpatialMetaDev')).SpatialMetaDevPanel}))
+  : null;
+
+// PMO_WORLD_BINDING_V1 · PMO_NAV_SCOPE_V1: scene poses come from one terrain-bound world; legacy agents disabled in preview until PMO routes are wired.
+
 
 const ACTIVE_SERVICE_ORDER: readonly NormalWaveNeedId[] = [
   'reception',
@@ -61,12 +98,26 @@ type AnchorId = typeof ANCHOR_IDS[number];
 type Point3 = ResortWorldPoint;
 
 interface ResortWorld3DProps {
+  pathfindingTest?: boolean;
   state: BootstrapState;
   selectedNeed: NormalWaveNeedId;
   onSelectNeed: (need: NormalWaveNeedId) => void;
 }
 
 interface WorldSceneProps extends ResortWorld3DProps {
+  shuffleKey: number;
+  waveKey: number;
+  fullWaveKey: number;
+  fullAuditKey:number;
+  onTestStatus: (status: PathfindingTestStatus) => void;
+  wavePreset: OceanWavePreset;
+  shoreMaskEnabled: boolean;
+  shoreOffset: number;
+  shoreFeather: number;
+  shoreWaterEnabled: boolean;
+  shoreEdgeOpacity: number;
+  shoreFadeWidth: number;
+  shoreTintStrength: number;
   calibrationMode: boolean;
   anchors: Partial<Record<AnchorId, Point3>>;
   onPick: (point: Point3) => void;
@@ -108,6 +159,17 @@ function CalibrationMarkers({
 }
 
 
+/** Purely visual Core-level projection: no colliders, destinations or extra gameplay state. */
+function ServiceGrowthArchitecture({need,level,compact}:{need:NormalWaveNeedId;level:number;compact:boolean}){
+ const width=compact?0.72:0.51,depth=compact?0.49:0.35;
+ return <group name={`service-growth-${need}`} userData={{level,visualOnly:true}}>
+  {serviceGrowthTiers(level).map(stage=>{const tier=stage-2,scale=1-tier*0.06;return <group key={stage} name={`service-growth-tier-${stage}`} position={[0,(compact?0.58:0.54)+tier*0.17,0]}>
+   <mesh castShadow raycast={()=>{}} position={[0,0.16,0]}><boxGeometry args={[width*scale,0.05,depth*scale]}/><meshStandardMaterial color={tier%2?'#b66a48':'#e1bb76'} roughness={0.78}/></mesh>
+   {[-1,1].map(side=><mesh key={side} castShadow raycast={()=>{}} position={[side*width*(0.36-tier*0.02),0.08,0]}><boxGeometry args={[0.04,0.15,depth*scale*0.72]}/><meshStandardMaterial color='#80583e' roughness={0.88}/></mesh>)}
+  </group>})}
+ </group>;
+}
+
 function EmbeddedServiceAnchor({
   need,
   state,
@@ -119,8 +181,9 @@ function EmbeddedServiceAnchor({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const spatial =
-    SERVICE_SPATIAL[need];
+  const pmoWorld = usePmoNavigationWorld();
+  const spatial = PMO_WORLD_ENABLED ? pmoWorld?.layout.services[need] : SERVICE_SPATIAL[need];
+  if (!spatial) return null;
 
   const dx =
     spatial.center[0] -
@@ -157,6 +220,7 @@ function EmbeddedServiceAnchor({
       position={[...spatial.entrance]}
       rotation={[0, yaw, 0]}
     >
+      <ServiceGrowthArchitecture need={need} level={state.normalWave.buildingLevelsByNeed[need]} compact={false} />
       <mesh
         position={[0, 0.025, 0]}
         rotation={[-Math.PI / 2, 0, 0]}
@@ -463,7 +527,9 @@ function CompactServiceBuilding({
   selected: boolean;
   onSelect: () => void;
 }) {
-  const spatial = SERVICE_SPATIAL[need];
+  const pmoWorld = usePmoNavigationWorld();
+  const spatial = PMO_WORLD_ENABLED ? pmoWorld?.layout.services[need] : SERVICE_SPATIAL[need];
+  if (!spatial) return null;
 
   const dx =
     spatial.entrance[0] -
@@ -502,6 +568,7 @@ function CompactServiceBuilding({
       position={[...spatial.center]}
       rotation={[0, yaw, 0]}
     >
+      <ServiceGrowthArchitecture need={need} level={state.normalWave.buildingLevelsByNeed[need]} compact={true} />
       {/* Selection / activity marker */}
       <mesh
         position={[0, 0.025, 0]}
@@ -838,14 +905,77 @@ function VipSpaWorldBuilding() {
     </group>
   );
 }
+/** Geometry-derived water boundary, independent of the island model's implementation.
+ * New island assets only have to render meshes; they can optionally annotate
+ * terrain with mesh.userData.oceanBoundary = true and exclude props with false.
+ */
+function IslandBoundaryCapture({
+  onPick,
+  onBoundary,
+  source = ISLAND_MESH_BOUNDARY_SOURCE
+}: {
+  onPick?: (point: Point3) => void;
+  onBoundary: (next: IslandWaterBoundary | null) => void;
+  source?: IslandWaterBoundarySource;
+}) {
+  const root = useRef<THREE.Group>(null);
+  const signature = useRef('');
+  const elapsed = useRef(0);
+
+  // Only resample when the source geometry changes. Never dispatch every frame.
+  useFrame((_, delta) => {
+    elapsed.current += Math.min(Math.max(delta, 0), 1);
+    if (elapsed.current < 0.75 || !root.current) return;
+    elapsed.current = 0;
+    const nextSignature = source.fingerprint(root.current);
+    if (nextSignature === signature.current) return;
+    signature.current = nextSignature;
+    try {
+      onBoundary(source.capture(root.current, {
+        seaLevel: -0.78,
+        originX: -21,
+        originZ: -21,
+        worldSize: 42,
+        resolution: 512
+      }));
+    } catch (error) {
+      console.warn('Island water boundary capture failed; retaining unmasked ocean', error);
+      onBoundary(null);
+    }
+  });
+
+  return (
+    <group ref={root} name="replaceable-island-boundary-source">
+      <ResortIslandModel onPick={onPick} />
+    </group>
+  );
+}
+
 function WorldScene({
+  pathfindingTest, shuffleKey, waveKey, fullWaveKey, fullAuditKey, onTestStatus,
   state,
   selectedNeed,
   onSelectNeed,
+  wavePreset,
+  shoreMaskEnabled,
+  shoreOffset,
+  shoreFeather,
+  shoreWaterEnabled,
+  shoreEdgeOpacity,
+  shoreFadeWidth,
+  shoreTintStrength,
   calibrationMode,
   anchors,
   onPick
 }: WorldSceneProps) {
+  const [islandBoundary, setIslandBoundary] = useState<IslandWaterBoundary | null>(null);
+  const seaPublishedRegistry=getPublishedPmoRegistry().registry;
+  const seaPaint=useMemo(()=>readSeaBeachPmoStrokes(seaPublishedRegistry),[seaPublishedRegistry]);
+  const seaContour=useMemo<SeaContourInput|null>(()=>islandBoundary&&seaPaint.length
+    ?{boundary:islandBoundary,beachStrokes:seaPaint}:null,[islandBoundary,seaPaint]);
+  // GPU textures are owned by the receiving scene; old generations are disposed.
+  useEffect(() => () => islandBoundary?.distanceTexture.dispose(), [islandBoundary]);
+
   const environment = environmentProfileForWave(
     state.currentWaveNumber,
     state.normalWave.phase
@@ -912,14 +1042,27 @@ function WorldScene({
         shadow-normalBias={0.035}
       />
 
-      <ResortOcean environment={environment} />
+      <ResortOcean
+        environment={environment}
+        wavePreset={wavePreset}
+        islandBoundary={islandBoundary}
+        shoreMaskEnabled={shoreMaskEnabled}
+        shoreOffset={shoreOffset}
+        shoreFeather={shoreFeather}
+        shoreWaterEnabled={shoreWaterEnabled}
+        shoreEdgeOpacity={shoreEdgeOpacity}
+        shoreFadeWidth={shoreFadeWidth}
+        shoreTintStrength={shoreTintStrength}
+      />
 
       <Suspense fallback={null}>
-        <ResortIslandModel
+        <IslandBoundaryCapture
           onPick={calibrationMode ? onPick : undefined}
+          onBoundary={setIslandBoundary}
         />
       </Suspense>
 
+      <PmoTransitionStructures />
       <TropicalRain
         active={environment.weather === 'tropical-rain'}
       />
@@ -928,11 +1071,12 @@ function WorldScene({
         <CalibrationMarkers anchors={anchors} />
       ) : (
         <>
-          <ResortArrivalActivity state={state} />
-          <ResortGuestFlowActivity state={state} />
+          {!PMO_WORLD_ENABLED ? <ResortArrivalActivity state={state} boundary={islandBoundary} beachStrokes={seaPaint} /> : null}
+          {!pathfindingTest ? <ResortGuestFlowActivity state={state} /> : null}
+          {!pathfindingTest && PMO_WORLD_ENABLED ? <PmoProductionGuestTraffic state={state} /> : null}
           {state.progressionStage === 'mvp' && state.vipBuildings.spa ? <VipSpaWorldBuilding /> : null}
 
-          {activeNeeds.map(need =>
+          {!pathfindingTest ? activeNeeds.map(need =>
             SERVICE_SPATIAL[need].embedded ? (
               <EmbeddedServiceAnchor
                 key={need}
@@ -950,9 +1094,10 @@ function WorldScene({
                 onSelect={() => onSelectNeed(need)}
               />
             )
-          )}
+          ) : null}
 
-          <ResortWorkerActivity state={state} />
+          {!pathfindingTest ? <ResortWorkerActivity state={state} /> : null}
+          {pathfindingTest && DevPathfindingTestScene ? <Suspense fallback={null}><DevPathfindingTestScene shuffleKey={shuffleKey} waveKey={waveKey} fullWaveKey={fullWaveKey} fullAuditKey={fullAuditKey} onStatus={onTestStatus} seaContour={seaContour} /></Suspense> : null}
         </>
       )}
     </>
@@ -960,6 +1105,34 @@ function WorldScene({
 }
 
 export function ResortWorld3D(props: ResortWorld3DProps) {
+  // Pathfinding inspection starts with the REAL PMO editor visible. The
+  // canonical registry is read-only until the user explicitly forks a copy.
+  const [showSpatialEditor, setShowSpatialEditor] = useState(
+    () => import.meta.env.DEV && (RRH_SPATIAL_DEV_ENABLED || Boolean(props.pathfindingTest))
+  );
+  const [showPmoInspection, setShowPmoInspection] = useState(false);
+  const [orbitRequest, setOrbitRequest] = useState<OrbitRequest | null>(null);
+  const rotateIsland = (action: OrbitAction) => setOrbitRequest(prev => ({serial:(prev?.serial ?? 0) + 1, action}));
+  const [shuffleKey,setShuffleKey]=useState(0);
+  const [waveKey,setWaveKey]=useState(0);
+  const [fullWaveKey,setFullWaveKey]=useState(0);
+  const [fullAuditKey,setFullAuditKey]=useState(0);
+  const [testStatus,setTestStatus]=useState<PathfindingTestStatus|null>(null);
+  const devPathfindingTest=import.meta.env.DEV && Boolean(props.pathfindingTest);
+  // Wave selection belongs to renderer presentation, not gameplay state.
+  const [wavePreset, setWavePreset] = useState<OceanWavePreset>('default');
+  const [shoreMaskEnabled, setShoreMaskEnabled] = useState(true);
+  const [shoreOffset, setShoreOffset] = useState(0.12);
+  const [shoreFeather, setShoreFeather] = useState(0.24);
+  const [shoreWaterEnabled, setShoreWaterEnabled] = useState(true);
+  const [shoreEdgeOpacity, setShoreEdgeOpacity] = useState<number>(DEFAULT_SHORE_WATER_PROFILE.edgeOpacity);
+  const [shoreFadeWidth, setShoreFadeWidth] = useState<number>(DEFAULT_SHORE_WATER_PROFILE.fadeWidth);
+  const [shoreTintStrength, setShoreTintStrength] = useState<number>(DEFAULT_SHORE_WATER_PROFILE.tintStrength);
+  const shoreDebug = useMemo(
+    () => new URLSearchParams(window.location.search).has('shoreDebug'),
+    []
+  );
+
   const calibrationMode = useMemo(
     () =>
       new URLSearchParams(window.location.search).get('calibrate') === '1',
@@ -1002,6 +1175,7 @@ export function ResortWorld3D(props: ResortWorld3DProps) {
       className="shell__three"
       style={{ position: 'relative' }}
       data-renderer="three-r3f"
+      data-ocean-wave-preset={wavePreset}
       data-selected-need={props.selectedNeed}
       data-arrival-source={
         arrivalCompositionForWave(
@@ -1063,13 +1237,203 @@ export function ResortWorld3D(props: ResortWorld3DProps) {
             THREE.PCFShadowMap;
         }}
       >
+        {(RRH_SPATIAL_DEV_ENABLED || devPathfindingTest || calibrationMode) ? <IslandOrbitCamera request={orbitRequest} /> : null}
+        {showPmoInspection && DevPmoPortalInspection ? <Suspense fallback={null}><DevPmoPortalInspection /></Suspense> : null}
+        {showSpatialEditor && DevSpatialMetaCanvasBridge ? <Suspense fallback={null}><DevSpatialMetaCanvasBridge /></Suspense> : null}
+        <PmoNavigationScope>
         <WorldScene
           {...props}
+          pathfindingTest={devPathfindingTest}
+          shuffleKey={shuffleKey}
+          waveKey={waveKey}
+          fullWaveKey={fullWaveKey}
+          fullAuditKey={fullAuditKey}
+          onTestStatus={setTestStatus}
+          wavePreset={wavePreset}
+          shoreMaskEnabled={shoreMaskEnabled}
+          shoreOffset={shoreOffset}
+          shoreFeather={shoreFeather}
+          shoreWaterEnabled={shoreWaterEnabled}
+          shoreEdgeOpacity={shoreEdgeOpacity}
+          shoreFadeWidth={shoreFadeWidth}
+          shoreTintStrength={shoreTintStrength}
           calibrationMode={calibrationMode}
           anchors={anchors}
           onPick={handlePick}
         />
+        </PmoNavigationScope>
       </Canvas>
+      {(RRH_SPATIAL_DEV_ENABLED || devPathfindingTest || calibrationMode) ? (
+        <div role="group" aria-label="Orbit camera controls" style={{
+          position:'absolute',left:12,top:12,zIndex:55,display:'flex',flexWrap:'wrap',maxWidth:'calc(100% - 24px)',gap:4,alignItems:'center',
+          padding:5,borderRadius:8,background:'rgba(5,20,24,0.85)',color:'white',
+          fontFamily:'system-ui,sans-serif',fontSize:12
+        }}>
+          <span style={{padding:'0 5px'}}>Camera</span>
+          {([['left','↶'],['right','↷'],['up','↑'],['down','↓'],['reset','Reset']] as const).map(([action,label])=>(
+            <button type="button" key={action} title={'Orbit camera: '+action}
+              onClick={()=>rotateIsland(action)} style={{padding:'5px 8px',color:'#eef9f4',
+                background:'rgba(255,255,255,0.12)',border:'1px solid rgba(255,255,255,.25)',borderRadius:5,
+                cursor:'pointer'}}>{label}</button>
+          ))}
+          {devPathfindingTest ? <button type="button" title="Toggle non-destructive experimental bridge-3 approach"
+            aria-pressed={new URLSearchParams(window.location.search).get('pmoBentBridge3')==='1'}
+            onClick={()=>{const url=new URL(window.location.href);
+              if(url.searchParams.get('pmoBentBridge3')==='1')url.searchParams.delete('pmoBentBridge3');
+              else url.searchParams.set('pmoBentBridge3','1');
+              window.location.assign(url.toString());}}
+            style={{padding:'5px 8px',color:'#eef9f4',background:'rgba(255,255,255,0.12)',
+              border:'1px solid rgba(255,255,255,.25)',borderRadius:5,cursor:'pointer'}}>Bridge 3 lab</button> : null}
+          {devPathfindingTest ? <button type="button" title="Experiment: paint actual terrain, retire all generated stair surfaces and edges"
+            aria-pressed={new URLSearchParams(window.location.search).get('pmoWalkPaintLab')==='1'}
+            onClick={()=>{const url=new URL(window.location.href);
+              if(url.searchParams.get('pmoWalkPaintLab')==='1')url.searchParams.delete('pmoWalkPaintLab');
+              else {url.searchParams.set('pmoWalkPaintLab','1');url.searchParams.delete('pmoBentBridge3');}
+              window.location.assign(url.toString());}}
+            style={{padding:'5px 8px',color:'#eef9f4',
+              background:new URLSearchParams(window.location.search).get('pmoWalkPaintLab')==='1'?'#346c57':'rgba(255,255,255,0.12)',
+              border:'1px solid rgba(255,255,255,.25)',borderRadius:5,cursor:'pointer'}}>Walk paint lab</button> : null}
+          {DevSpatialMetaPanel ? <button type="button" aria-pressed={showSpatialEditor} title="Открыть реальный PMO-реестр и редактор"
+            onClick={() => setShowSpatialEditor(v => !v)}
+            style={{padding:'5px 8px',color:'#eef9f4',
+              background:showSpatialEditor?'#345d70':'rgba(255,255,255,0.12)',
+              border:'1px solid rgba(255,255,255,.25)',borderRadius:5,cursor:'pointer'}}>
+            {showSpatialEditor ? 'Закрыть PMO' : 'Реестр PMO'}
+          </button> : null}
+          {DevPmoPortalInspection ? <button type="button" aria-pressed={showPmoInspection} title="Show authored building 3/8/9 and transition axes"
+            onClick={()=>setShowPmoInspection(v=>!v)} style={{padding:'5px 8px',color:'#eef9f4',
+              background:showPmoInspection?'#345d70':'rgba(255,255,255,0.12)',
+              border:'1px solid rgba(255,255,255,.25)',borderRadius:5,cursor:'pointer'}}>PMO points</button> : null}
+          <span style={{opacity:.7,padding:'0 4px'}}>Right drag · wheel</span>
+        </div>
+      ) : null}
+      {showSpatialEditor && DevSpatialMetaPanel ? <Suspense fallback={null}><DevSpatialMetaPanel inPathfindingTest={devPathfindingTest} /></Suspense> : null}
+      {devPathfindingTest && DevPathfindingTestPanel ? <Suspense fallback={null}><DevPathfindingTestPanel status={testStatus}
+        onWave={()=>setWaveKey(n=>n+1)}
+        onFullWave={()=>setFullWaveKey(n=>n>0?n+1:1)} onCrowd={()=>setFullWaveKey(n=>n<0?n-1:-1)} onShuffle={()=>setShuffleKey(n=>n+1)} onFullAudit={()=>setFullAuditKey(n=>n+1)} /></Suspense> : null}
+
+      {!calibrationMode ? (
+        <div
+          role="group"
+          aria-label="Ocean wave preset"
+          style={{
+            position: 'absolute',
+            left: 12,
+            bottom: 12,
+            zIndex: 20,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '6px 8px',
+            borderRadius: 10,
+            border: '1px solid rgba(255,255,255,0.20)',
+            background: 'rgba(5,20,24,0.82)',
+            color: '#eef9f4',
+            fontFamily: 'inherit',
+            fontSize: 11
+          }}
+        >
+          <span style={{ marginRight: 3 }}>Sea</span>
+          {(['default', 'waves-60'] as const).map(preset => {
+            const selected = wavePreset === preset;
+
+            return (
+              <button
+                key={preset}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => setWavePreset(preset)}
+                style={{
+                  cursor: 'pointer',
+                  padding: '5px 8px',
+                  borderRadius: 7,
+                  fontSize: 11,
+                  color: selected ? '#102c34' : '#e8f7f6',
+                  background: selected ? '#aee9dc' : 'rgba(255,255,255,0.10)',
+                  border: selected
+                    ? '1px solid #aee9dc'
+                    : '1px solid rgba(255,255,255,0.20)'
+                }}
+              >
+                {preset === 'default' ? 'Default' : 'Waves +60%'}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {shoreDebug ? (
+        <section
+          aria-label="Island water boundary diagnostics"
+          style={{
+            position: 'absolute', right: 12, bottom: 12, zIndex: 30,
+            width: 240, padding: 12, borderRadius: 10,
+            background: 'rgba(5,20,24,0.88)', color: '#eef9f4',
+            border: '1px solid rgba(255,255,255,.2)',
+            fontFamily: 'monospace', fontSize: 11
+          }}
+        >
+          <strong>IslandWaterBoundary</strong>
+          <label style={{ display: 'block', marginTop: 10 }}>
+            <input
+              type="checkbox" checked={shoreMaskEnabled}
+              onChange={event => setShoreMaskEnabled(event.target.checked)}
+            />{' '}Coast cutout
+          </label>
+          <label style={{ display: 'block', marginTop: 10 }}>
+            Shore offset: {shoreOffset.toFixed(2)}
+            <input type="range" min="-0.5" max="0.7" step="0.02"
+              value={shoreOffset}
+              onChange={event => setShoreOffset(Number(event.target.value))}
+              style={{ display: 'block', width: '100%' }}
+            />
+          </label>
+          <label style={{ display: 'block', marginTop: 10 }}>
+            Feather: {shoreFeather.toFixed(2)}
+            <input type="range" min="0.04" max="0.7" step="0.02"
+              value={shoreFeather}
+              onChange={event => setShoreFeather(Number(event.target.value))}
+              style={{ display: 'block', width: '100%' }}
+            />
+          </label>
+          <div style={{ borderTop: '1px solid rgba(255,255,255,.18)', marginTop: 12, paddingTop: 10 }}>
+            <strong>Shallow-water gradient</strong>
+          </div>
+          <label style={{ display: 'block', marginTop: 10 }}>
+            <input
+              type="checkbox" checked={shoreWaterEnabled}
+              onChange={event => setShoreWaterEnabled(event.target.checked)}
+            />{' '}Coastal transparency
+          </label>
+          <label style={{ display: 'block', marginTop: 10 }}>
+            Water opacity at shore: {Math.round(shoreEdgeOpacity * 100)}%
+            <input type="range" min="0.35" max="1" step="0.01"
+              value={shoreEdgeOpacity}
+              onChange={event => setShoreEdgeOpacity(Number(event.target.value))}
+              style={{ display: 'block', width: '100%' }}
+            />
+          </label>
+          <label style={{ display: 'block', marginTop: 10 }}>
+            Fade distance: {shoreFadeWidth.toFixed(2)}
+            <input type="range" min="0.2" max="3" step="0.05"
+              value={shoreFadeWidth}
+              onChange={event => setShoreFadeWidth(Number(event.target.value))}
+              style={{ display: 'block', width: '100%' }}
+            />
+          </label>
+          <label style={{ display: 'block', marginTop: 10 }}>
+            Shallow tint: {Math.round(shoreTintStrength * 100)}%
+            <input type="range" min="0" max="0.2" step="0.01"
+              value={shoreTintStrength}
+              onChange={event => setShoreTintStrength(Number(event.target.value))}
+              style={{ display: 'block', width: '100%' }}
+            />
+          </label>
+          <div style={{ opacity: 0.7, marginTop: 10 }}>
+            Geometry-derived coast. Gradient leaves waves unchanged.
+          </div>
+        </section>
+      ) : null}
 
       {calibrationMode ? (
         <section
@@ -1135,3 +1499,8 @@ export function ResortWorld3D(props: ResortWorld3DProps) {
     </div>
   );
 }
+
+// RRH SPATIAL META DEV V5: isolated debug mode only.
+const RRH_SPATIAL_DEV_ENABLED = import.meta.env.DEV && typeof window !== 'undefined' &&
+  new URLSearchParams(window.location.search).get('spatialDev') === '1' &&
+  new URLSearchParams(window.location.search).get('calibrate') !== '1';

@@ -27,6 +27,7 @@ namespace ResortEmpire.Game
         public event Action WaveStarted;
         public event Action<WaveResult> WaveCompleted;             // fired exactly once per wave
         public event Action StateChanged;
+        public event Action<string> Toast;
         public event Action<BuildingId> BuildingTapped;
 
         public GameController(TuningConfig tuning, ResortState resort, int nextWaveIndex, List<WaveDef> waves)
@@ -86,6 +87,7 @@ namespace ResortEmpire.Game
             bool ok = inWave ? ActiveWave.MoveWorker(from, to) : Resort.MoveWorker(from, to);
             if (!ok) return false;
             StateChanged?.Invoke();
+            Toast?.Invoke("Worker moved to " + DisplayName(to));
             return true;
         }
 

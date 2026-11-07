@@ -58,6 +58,7 @@ namespace ResortEmpire.Game.Ui
             _game.StateChanged += OnStateChanged;
             _game.WaveStarted += OnWaveStarted;
             _game.WaveCompleted += OnWaveCompleted;
+            _game.Toast += OnToast;
             _game.BuildingTapped += OnBuildingTapped;
             RefreshAll();
         }
@@ -68,6 +69,7 @@ namespace ResortEmpire.Game.Ui
             _game.StateChanged -= OnStateChanged;
             _game.WaveStarted -= OnWaveStarted;
             _game.WaveCompleted -= OnWaveCompleted;
+            _game.Toast -= OnToast;
             _game.BuildingTapped -= OnBuildingTapped;
         }
 
@@ -81,6 +83,8 @@ namespace ResortEmpire.Game.Ui
             WatchStatusShifts();
             RefreshAll();
         }
+
+        void OnToast(string message) => _toasts.Push(message);
 
         void OnStateChanged()
         {

@@ -47,7 +47,7 @@ namespace ResortEmpire.Game.Ui
             _topBar = new TopBarUi(canvas, game);
             _home = new HomeUi(canvas, game);
             _toasts = new ToastUi(canvas);
-            _sheet = new WorkerSheetUi(canvas, game);
+            _sheet = new WorkerSheetUi(canvas, game, _toasts);
             _needs = new NeedsPanelUi(canvas, game, _sheet);
             // Draw order, back to front: top bar, home, wave panel, sheet, toasts.
             _sheet.Root.transform.SetAsLastSibling();

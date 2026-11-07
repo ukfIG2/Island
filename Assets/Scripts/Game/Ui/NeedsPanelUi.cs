@@ -89,6 +89,17 @@ namespace ResortEmpire.Game.Ui
             _speedLabel.text = _game.SimSpeed < 2f ? "1x" : "4x";
         }
 
+        static string CauseMessage(BuildingId building, QueueCause cause)
+        {
+            string name = GameController.DisplayName(building);
+            switch (cause)
+            {
+                case QueueCause.NoWorker: return name + " has no Worker";
+                case QueueCause.TooFewSeats: return name + " needs more seats";
+                default: return name + " queue growing";
+            }
+        }
+
         public void SetVisible(bool visible)
         {
             if (_root.activeSelf != visible) _root.SetActive(visible);
@@ -117,12 +128,13 @@ namespace ResortEmpire.Game.Ui
                 row.Status.text = UiFactory.StatusWord(status);
                 row.Status.color = UiFactory.StatusColor(status);
 
-                // Warnings follow the queue; Recovering reads as the positive signal it is.
+                // Warnings follow the queue and name what it needs (CAM-31): a Worker or more seats.
+                // Recovering reads as the positive signal it is.
                 string message = null;
                 bool warning = false;
                 if (status == NeedStatus.Bottleneck)
                 {
-                    message = GameController.DisplayName(building) + " queue growing";
+                    message = CauseMessage(building, sim.CauseOf(row.Need));
                     warning = true;
                 }
                 else if (status == NeedStatus.Recovering)

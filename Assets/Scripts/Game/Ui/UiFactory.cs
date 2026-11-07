@@ -18,6 +18,7 @@ namespace ResortEmpire.Game.Ui
         public static readonly Color Recovering = Hex(0xE3B23C);
         public static readonly Color Positive = Hex(0x3E8E5A);
         public static readonly Color Neutral = Hex(0x7FB2BF);
+        public static readonly Color Premium = new Color(0.94f, 0.78f, 0.37f);
 
         static Font _font;
         static Sprite _rounded;
@@ -227,6 +228,19 @@ namespace ResortEmpire.Game.Ui
         // --- display names and status styling --------------------------------
 
         public static string NeedName(NeedId n) => n == NeedId.OceanView ? "Ocean View" : n.ToString();
+
+        // Ocean View is the premium stay: its waits weigh more in satisfaction (TuningConfig), so the
+        // player sees it marked wherever needs are listed.
+        public static bool IsPremium(NeedId n) => n == NeedId.OceanView;
+
+        public static Image PremiumTag(Transform parent)
+        {
+            var chip = PanelImage(parent, "PremiumTag", Premium);
+            chip.raycastTarget = false;
+            var text = Label(chip.transform, "Text", "Premium", 16, Panel, TextAnchor.MiddleCenter, FontStyle.Bold);
+            Place(text.gameObject, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            return chip;
+        }
 
         public static Color NeedColor(NeedId n)
         {

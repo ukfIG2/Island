@@ -5,11 +5,12 @@ using UnityEngine.UI;
 
 namespace ResortEmpire.Game.Ui
 {
-    // S3 bottom sheet: pick which staffed building gives up its worker.
+    // S3 bottom sheet: pick which staffed building gives up its worker — the cost stays visible.
     // The island stays visible above the sheet.
     public sealed class WorkerSheetUi
     {
         readonly GameController _game;
+        readonly ToastUi _toasts;
         readonly GameObject _root;
         readonly Text _title;
         readonly Text _hint;
@@ -19,9 +20,10 @@ namespace ResortEmpire.Game.Ui
         public GameObject Root => _root;
         public bool IsOpen => _root.activeSelf;
 
-        public WorkerSheetUi(Transform canvas, GameController game)
+        public WorkerSheetUi(Transform canvas, GameController game, ToastUi toasts)
         {
             _game = game;
+            _toasts = toasts;
             var panel = UiFactory.PanelImage(canvas, "WorkerSheet", UiFactory.Panel);
             _root = panel.gameObject;
             // Fills the screen left of the wave panel, so the panel's Pause button stays reachable.
@@ -86,16 +88,17 @@ namespace ResortEmpire.Game.Ui
                 _hint.text = "No worker is free to move right now.";
                 return;
             }
-            _hint.text = "Workers are at the buildings below.";
+            _hint.text = "Taking a worker leaves their building empty.";
 
             const float step = 296f;
             float x0 = -(sources.Count - 1) * step * 0.5f; // centered in the sheet; up to 4 sources fit
             for (int i = 0; i < sources.Count; i++)
             {
                 var source = sources[i].Id;
+                string sourceName = GameController.DisplayName(source);
                 var button = UiFactory.TextButton(_root.transform, "From" + source,
-                    "Take from " + GameController.DisplayName(source), 24, UiFactory.PanelLight, UiFactory.Cream,
-                    () => OnPick(source));
+                    "Take from " + sourceName + "\n<size=18><color=#FAF6EEAA>leaves " + sourceName + " empty</color></size>",
+                    24, UiFactory.PanelLight, UiFactory.Cream, () => OnPick(source));
                 UiFactory.PlaceFixed(button.gameObject, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                     new Vector2(x0 + i * step, 24f), new Vector2(280f, 128f));
                 _options.Add(button.gameObject);
@@ -107,6 +110,7 @@ namespace ResortEmpire.Game.Ui
         {
             if (_target == null) return;
             if (_game.MoveWorker(source, _target.Value)) Close();
+            else _toasts.Push("That move isn't possible right now");
         }
     }
 }

@@ -818,6 +818,34 @@ namespace ResortEmpire.Sim.Tests
             }
         }
 
+        // CAM-31: while a line grows the player can tell an unstaffed building from an undersized one.
+        [Test]
+        public void QueueCause_NamesMissingWorkerOrTooFewSeats()
+        {
+            var t = TuningConfig.Default;
+
+            var unstaffed = new WaveSimulation(NewGameWithEmpty(t, BuildingId.BeachBar), CraftedWave(drinks: 60), t);
+            unstaffed.StartWave();
+            Assert.AreEqual(QueueCause.None, unstaffed.CauseOf(NeedId.Drinks), "no cause before the line grows");
+            TickUntilBottleneck(unstaffed, NeedId.Drinks, t.BottleneckThresholdUnits + 2);
+            Assert.AreEqual(QueueCause.NoWorker, unstaffed.CauseOf(NeedId.Drinks), "empty Beach Bar");
+
+            var undersized = new WaveSimulation(NewGameWithEmpty(t, BuildingId.BeachBar), CraftedWave(food: 60), t);
+            undersized.StartWave();
+            TickUntilBottleneck(undersized, NeedId.Food, t.BottleneckThresholdUnits + 2);
+            Assert.AreEqual(QueueCause.TooFewSeats, undersized.CauseOf(NeedId.Food), "staffed, full Restaurant");
+
+            // help lands: the line turns Recovering and the cause clears
+            Assert.IsTrue(unstaffed.MoveWorker(BuildingId.Restaurant, BuildingId.BeachBar));
+            Assert.AreEqual(NeedStatus.Recovering, unstaffed.StatusOf(NeedId.Drinks));
+            Assert.AreEqual(QueueCause.None, unstaffed.CauseOf(NeedId.Drinks), "Recovering carries no cause");
+
+            // a building that loses its Worker mid-warning reads as unstaffed at once
+            Assert.IsTrue(undersized.MoveWorker(BuildingId.Restaurant, BuildingId.BeachBar));
+            TickUntilBottleneck(undersized, NeedId.Food, t.BottleneckThresholdUnits + 2);
+            Assert.AreEqual(QueueCause.NoWorker, undersized.CauseOf(NeedId.Food), "Restaurant left empty");
+        }
+
         [Test]
         public void Rewards_MathPinnedToThresholds()
         {

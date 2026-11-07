@@ -2,7 +2,8 @@
     "name": "ResortEmpire.Game",
     "rootNamespace": "ResortEmpire.Game",
     "references": [
-        "ResortEmpire.Sim"
+        "ResortEmpire.Sim",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

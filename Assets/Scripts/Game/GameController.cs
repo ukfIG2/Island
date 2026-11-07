@@ -91,6 +91,15 @@ namespace ResortEmpire.Game
             return true;
         }
 
+        public bool Boost(BuildingId b)
+        {
+            if (ActiveWave == null || ActiveWave.Phase == WavePhase.WaveComplete) return false;
+            if (!ActiveWave.UseEnergyBoost(b)) return false;
+            StateChanged?.Invoke();
+            Toast?.Invoke("Speed Up active at " + DisplayName(b));
+            return true;
+        }
+
         public bool Upgrade(BuildingId b)
         {
             if (ActiveWave != null) return false; // upgrades exist only between waves (WR6)

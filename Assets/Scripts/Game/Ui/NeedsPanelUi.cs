@@ -55,6 +55,9 @@ namespace ResortEmpire.Game.Ui
                     new Vector2(0f, 1f), new Vector2(0.5f, 0.5f), new Vector2(24f, -24f), new Vector2(18f, 18f));
                 var name = UiFactory.Label(bg.transform, "Name", UiFactory.NeedName(need), 25, UiFactory.Cream, TextAnchor.MiddleLeft, FontStyle.Bold);
                 UiFactory.Place(name.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(44f, -44f), new Vector2(-250f, -6f));
+                if (UiFactory.IsPremium(need))
+                    UiFactory.PlaceFixed(UiFactory.PremiumTag(bg.transform).gameObject,
+                        new Vector2(0f, 1f), new Vector2(0f, 0.5f), new Vector2(190f, -25f), new Vector2(74f, 24f));
                 var counter = UiFactory.Label(bg.transform, "Counter", "", 23, UiFactory.CreamDim, TextAnchor.MiddleRight);
                 UiFactory.PlaceFixed(counter.gameObject, Vector2.one, Vector2.one, new Vector2(-158f, -8f), new Vector2(100f, 32f));
                 var boost = UiFactory.TextButton(bg.transform, "Boost", "", 18, UiFactory.Recovering, UiFactory.Panel, null);

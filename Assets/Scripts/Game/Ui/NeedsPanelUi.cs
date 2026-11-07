@@ -26,6 +26,7 @@ namespace ResortEmpire.Game.Ui
         readonly Row[] _rows;
         readonly Text[] _messages = new Text[3];
         readonly Image[] _messageIcons = new Image[3];
+        readonly GameObject _arrivedChip;
         readonly Text _pauseLabel;
         readonly Text _speedLabel;
 
@@ -83,6 +84,13 @@ namespace ResortEmpire.Game.Ui
                 UiFactory.Place(_messages[i].gameObject, new Vector2(0f, 1f), Vector2.one,
                     new Vector2(54f, -550f - i * 32f), new Vector2(-22f, -518f - i * 32f));
             }
+
+            var chip = UiFactory.PanelImage(panel.transform, "ArrivedChip", UiFactory.Positive);
+            chip.raycastTarget = false;
+            _arrivedChip = chip.gameObject;
+            UiFactory.PlaceFixed(_arrivedChip, Vector2.zero, Vector2.zero, new Vector2(16f, 14f), new Vector2(240f, 44f));
+            var chipText = UiFactory.Label(chip.transform, "Text", "All guests arrived", 22, UiFactory.Cream, TextAnchor.MiddleCenter);
+            UiFactory.Place(chipText.gameObject, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
             var pause = UiFactory.TextButton(panel.transform, "Pause", "Pause", 22, UiFactory.PanelLight, UiFactory.Cream, OnPause);
             UiFactory.PlaceFixed(pause.gameObject, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-136f, 14f), new Vector2(120f, 44f));
@@ -186,6 +194,8 @@ namespace ResortEmpire.Game.Ui
                 _messageIcons[i].enabled = false;
             }
 
+            // Arrivals have stopped; the wave itself runs on until every line is empty (WR3).
+            _arrivedChip.SetActive(sim.ArrivalsClosed);
             _pauseLabel.text = _game.IsPaused ? "Resume" : "Pause";
             _speedLabel.text = _game.SimSpeed < 2f ? "1x" : "4x";
         }

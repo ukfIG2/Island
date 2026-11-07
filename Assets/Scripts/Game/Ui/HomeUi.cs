@@ -66,6 +66,9 @@ namespace ResortEmpire.Game.Ui
                     new Vector2(0f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(34f, 0f), new Vector2(16f, 16f));
                 var name = UiFactory.Label(row.transform, "Name", UiFactory.NeedName(needs[i]), 24, UiFactory.Cream);
                 UiFactory.Place(name.gameObject, Vector2.zero, Vector2.one, new Vector2(56f, 0f), new Vector2(-120f, 0f));
+                if (UiFactory.IsPremium(needs[i]))
+                    UiFactory.PlaceFixed(UiFactory.PremiumTag(row.transform).gameObject,
+                        new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(188f, 0f), new Vector2(74f, 24f));
                 var count = UiFactory.Label(row.transform, "Count", "", 24, UiFactory.Cream, TextAnchor.MiddleRight, FontStyle.Bold);
                 UiFactory.PlaceFixed(count.gameObject, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-24f, 0f), new Vector2(90f, 36f));
                 _rows[i] = new ForecastRow { Need = needs[i], Rect = rect, Count = count };
@@ -207,7 +210,7 @@ namespace ResortEmpire.Game.Ui
             {
                 _upgrade.gameObject.SetActive(false);
                 _worker.gameObject.SetActive(false);
-                _cardInfo.text = "Locked area";
+                _cardInfo.text = UiFactory.IsPremium(BuildingNeeds.Serves(b)) ? "Locked · premium ocean view" : "Locked area";
                 int afterWave = b == BuildingId.Pool ? t.PoolEligibleAfterWave : t.BungalowsEligibleAfterWave;
                 int cost = b == BuildingId.Pool ? t.PoolUnlockCostCoins : t.BungalowsUnlockCostCoins;
                 bool can = r.CanUnlock(b, out _);
@@ -221,7 +224,8 @@ namespace ResortEmpire.Game.Ui
             }
 
             _unlock.gameObject.SetActive(false);
-            _cardInfo.text = "Lv " + state.Level + " · " + t.CapacityPerLevel[state.Level - 1] + " seats";
+            _cardInfo.text = "Lv " + state.Level + " · " + t.CapacityPerLevel[state.Level - 1] + " seats"
+                + (UiFactory.IsPremium(BuildingNeeds.Serves(b)) ? " · premium" : "");
             bool maxed = state.Level >= t.CapacityPerLevel.Length;
             int upCost = maxed ? 0 : t.UpgradeCostCoins[state.Level - 1];
             bool canUpgrade = !maxed && _game.ActiveWave == null && r.Coins >= upCost; // never offered during a wave

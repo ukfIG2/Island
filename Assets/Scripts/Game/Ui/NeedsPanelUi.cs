@@ -14,6 +14,8 @@ namespace ResortEmpire.Game.Ui
             public Text Counter;
             public BarWidget Bar;
             public Text Status;
+            public Button Boost;
+            public Text BoostLabel;
         }
 
         const float QueueBarFullUnits = 12f;
@@ -54,12 +56,22 @@ namespace ResortEmpire.Game.Ui
                 UiFactory.Place(name.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(44f, -44f), new Vector2(-250f, -6f));
                 var counter = UiFactory.Label(bg.transform, "Counter", "", 23, UiFactory.CreamDim, TextAnchor.MiddleRight);
                 UiFactory.PlaceFixed(counter.gameObject, Vector2.one, Vector2.one, new Vector2(-158f, -8f), new Vector2(100f, 32f));
+                var boost = UiFactory.TextButton(bg.transform, "Boost", "", 18, UiFactory.Recovering, UiFactory.Panel, null);
+                UiFactory.PlaceFixed(boost.gameObject, Vector2.one, Vector2.one, new Vector2(-8f, -8f), new Vector2(142f, 38f));
+                UiFactory.PlaceFixed(UiFactory.Icon(boost.transform, "Bolt", UiFactory.Bolt, UiFactory.Panel).gameObject,
+                    new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(8f, 0f), new Vector2(22f, 22f));
+                UiFactory.Place(UiFactory.ButtonLabel(boost).gameObject, Vector2.zero, Vector2.one, new Vector2(24f, 0f), Vector2.zero);
+                boost.onClick.AddListener(() => _game.Boost(UiFactory.BuildingFor(need)));
                 var bar = new BarWidget(bg.transform, "QueueBar", new Color(0f, 0f, 0f, 0.35f));
                 UiFactory.Place(bar.Root, Vector2.zero, new Vector2(1f, 0f), new Vector2(44f, 14f), new Vector2(-170f, 30f));
                 var status = UiFactory.Label(bg.transform, "Status", "", 20, UiFactory.Neutral, TextAnchor.MiddleRight);
                 UiFactory.PlaceFixed(status.gameObject, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-8f, 8f), new Vector2(156f, 30f));
 
-                _rows[i] = new Row { Need = need, Rect = rect, Counter = counter, Bar = bar, Status = status };
+                _rows[i] = new Row
+                {
+                    Need = need, Rect = rect, Counter = counter, Bar = bar,
+                    Status = status, Boost = boost, BoostLabel = UiFactory.ButtonLabel(boost)
+                };
             }
 
             for (int i = 0; i < _messages.Length; i++)
@@ -130,6 +142,24 @@ namespace ResortEmpire.Game.Ui
                 row.Bar.SetFill(sim.QueueLength(row.Need) / QueueBarFullUnits, UiFactory.StatusColor(status));
                 row.Status.text = UiFactory.StatusWord(status);
                 row.Status.color = UiFactory.StatusColor(status);
+
+                // Speed Up is offered only where a building is overloaded — an offer, never a gate (build doc §5.3.9).
+                // A running boost shows as a word, not a countdown.
+                bool boosting = sim.BoostRemaining(building) > 0f;
+                bool overloaded = status == NeedStatus.Bottleneck || status == NeedStatus.Recovering;
+                if (boosting)
+                {
+                    row.Boost.gameObject.SetActive(true);
+                    row.Boost.interactable = false;
+                    row.BoostLabel.text = "Speeding up";
+                }
+                else if (overloaded && sim.CanBoost(building))
+                {
+                    row.Boost.gameObject.SetActive(true);
+                    row.Boost.interactable = true;
+                    row.BoostLabel.text = "Speed Up " + _game.Tuning.EnergyBoostCost;
+                }
+                else row.Boost.gameObject.SetActive(false);
 
                 // Warnings follow the queue and name what it needs (CAM-31): a Worker or more seats.
                 // Recovering reads as the positive signal it is.

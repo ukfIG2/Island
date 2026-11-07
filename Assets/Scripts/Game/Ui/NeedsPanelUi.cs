@@ -27,7 +27,7 @@ namespace ResortEmpire.Game.Ui
         readonly Text _pauseLabel;
         readonly Text _speedLabel;
 
-        public NeedsPanelUi(Transform canvas, GameController game)
+        public NeedsPanelUi(Transform canvas, GameController game, WorkerSheetUi sheet)
         {
             _game = game;
             var panel = UiFactory.PanelImage(canvas, "NeedsPanel", UiFactory.Panel);
@@ -44,6 +44,9 @@ namespace ResortEmpire.Game.Ui
                 var need = needs[i];
                 var bg = UiFactory.PanelImage(panel.transform, "Row" + need, UiFactory.PanelShade);
                 var rect = UiFactory.PlaceFixed(bg.gameObject, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16f, -52f), new Vector2(488f, 84f));
+                var rowButton = bg.gameObject.AddComponent<Button>();
+                rowButton.targetGraphic = bg;
+                rowButton.onClick.AddListener(() => sheet.Open(UiFactory.BuildingFor(need)));
 
                 UiFactory.PlaceFixed(UiFactory.Dot(bg.transform, "Dot", UiFactory.NeedColor(need)).gameObject,
                     new Vector2(0f, 1f), new Vector2(0.5f, 0.5f), new Vector2(24f, -24f), new Vector2(18f, 18f));

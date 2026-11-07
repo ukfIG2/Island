@@ -818,6 +818,39 @@ namespace ResortEmpire.Sim.Tests
             }
         }
 
+        // CAM-33: Workers stay one fewer than buildings and keep their places from wave to wave, and a
+        // between-waves snapshot rebuilt through Restore (the save's load path) puts every one back.
+        // Unlocks adding a staffed building are pinned in WR6_UpgradeAndUnlockRulesAndCosts.
+        [Test]
+        public void Workers_KeepTheirPlacesAcrossWavesAndALoad()
+        {
+            var t = TuningConfig.Default;
+            var resort = ResortState.NewGame(t);
+            Assert.AreEqual(resort.Buildings.Count - 1, resort.Workers);
+
+            Assert.IsTrue(resort.MoveWorker(BuildingId.Reception, BuildingId.BeachBar));
+            RunFullWave(resort, WaveTable.Default8()[0], t);
+            Assert.IsFalse(resort.Get(BuildingId.Reception).HasWorker, "the move outlives the wave");
+            Assert.IsTrue(resort.Get(BuildingId.BeachBar).HasWorker);
+            Assert.IsTrue(resort.Get(BuildingId.Restaurant).HasWorker);
+            Assert.AreEqual(resort.Buildings.Count - 1, resort.Workers);
+
+            var ids = new BuildingId[resort.Buildings.Count];
+            var levels = new int[ids.Length];
+            var staffed = new bool[ids.Length];
+            for (int i = 0; i < ids.Length; i++)
+            {
+                ids[i] = resort.Buildings[i].Id;
+                levels[i] = resort.Buildings[i].Level;
+                staffed[i] = resort.Buildings[i].HasWorker;
+            }
+            var loaded = ResortState.Restore(t, resort.Coins, resort.Energy, resort.ResortValue,
+                resort.WavesCompleted, resort.Workers, ids, levels, staffed);
+            Assert.AreEqual(resort.Workers, loaded.Workers);
+            foreach (var b in resort.Buildings)
+                Assert.AreEqual(b.HasWorker, loaded.Get(b.Id).HasWorker, b.Id + " after the load");
+        }
+
         // CAM-31: while a line grows the player can tell an unstaffed building from an undersized one.
         [Test]
         public void QueueCause_NamesMissingWorkerOrTooFewSeats()

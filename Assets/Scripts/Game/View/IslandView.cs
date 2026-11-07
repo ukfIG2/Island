@@ -1,11 +1,13 @@
 using System.Collections.Generic;
 using ResortEmpire.Sim;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 
 namespace ResortEmpire.Game.View
 {
     // The 3D blockout island. Reads GameController/sim state every frame and reconciles visuals to it;
-    // it never changes game state.
+    // it never changes game state except by reporting building taps to the controller.
     public sealed class IslandView : MonoBehaviour
     {
         // The island sits in the screen band left free by the forecast card (left) and the wave panel (right).
@@ -48,6 +50,7 @@ namespace ResortEmpire.Game.View
         void Update()
         {
             if (_game == null) return;
+            HandleTap();
 
             var sim = _game.ActiveWave;
             if (sim != _trackedSim) TrackNewWave(sim);
@@ -68,6 +71,20 @@ namespace ResortEmpire.Game.View
             }
 
             UpdateBoat(sim, animDt);
+        }
+
+        void HandleTap()
+        {
+            var pointer = Pointer.current;
+            if (pointer == null || !pointer.press.wasPressedThisFrame) return;
+            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
+            var cam = Camera.main;
+            if (cam == null) return;
+
+            var ray = cam.ScreenPointToRay(pointer.position.ReadValue());
+            if (!Physics.Raycast(ray, out var hit, 200f)) return;
+            var tag = hit.collider.GetComponentInParent<BuildingTag>();
+            if (tag != null) _game.RaiseBuildingTapped(tag.Id);
         }
 
         void TrackNewWave(WaveSimulation sim)

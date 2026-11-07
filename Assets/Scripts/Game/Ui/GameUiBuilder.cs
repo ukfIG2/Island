@@ -6,8 +6,8 @@ using UnityEngine.UI;
 
 namespace ResortEmpire.Game.Ui
 {
-    // Builds the whole interface on one runtime canvas: top bar, S1 home, S2 wave panel and toasts.
-    // A small driver keeps the visible widgets refreshed.
+    // Builds the whole interface on one runtime canvas: top bar, S1 home, S2 wave panel, S3 worker sheet
+    // and toasts. A small driver keeps the visible widgets refreshed.
     public static class GameUiBuilder
     {
         public static void Build(GameBootstrap host, GameController game)
@@ -35,6 +35,7 @@ namespace ResortEmpire.Game.Ui
         TopBarUi _topBar;
         HomeUi _home;
         NeedsPanelUi _needs;
+        WorkerSheetUi _sheet;
         ToastUi _toasts;
         NeedStatus[] _lastStatus;
         float _sinceRefresh;
@@ -45,9 +46,11 @@ namespace ResortEmpire.Game.Ui
             var canvas = transform;
             _topBar = new TopBarUi(canvas, game);
             _home = new HomeUi(canvas, game);
-            _needs = new NeedsPanelUi(canvas, game);
             _toasts = new ToastUi(canvas);
-            // Draw order, back to front: top bar, home, wave panel, toasts.
+            _sheet = new WorkerSheetUi(canvas, game);
+            _needs = new NeedsPanelUi(canvas, game, _sheet);
+            // Draw order, back to front: top bar, home, wave panel, sheet, toasts.
+            _sheet.Root.transform.SetAsLastSibling();
             _toasts.Root.transform.SetAsLastSibling();
 
             _lastStatus = new NeedStatus[System.Enum.GetValues(typeof(NeedId)).Length];
@@ -55,6 +58,7 @@ namespace ResortEmpire.Game.Ui
             _game.StateChanged += OnStateChanged;
             _game.WaveStarted += OnWaveStarted;
             _game.WaveCompleted += OnWaveCompleted;
+            _game.BuildingTapped += OnBuildingTapped;
             RefreshAll();
         }
 
@@ -64,6 +68,7 @@ namespace ResortEmpire.Game.Ui
             _game.StateChanged -= OnStateChanged;
             _game.WaveStarted -= OnWaveStarted;
             _game.WaveCompleted -= OnWaveCompleted;
+            _game.BuildingTapped -= OnBuildingTapped;
         }
 
         void Update()
@@ -77,18 +82,47 @@ namespace ResortEmpire.Game.Ui
             RefreshAll();
         }
 
-        void OnStateChanged() => RefreshAll();
+        void OnStateChanged()
+        {
+            _sheet.OnStateChanged();
+            RefreshAll();
+        }
 
         void OnWaveStarted()
         {
             var sim = _game.ActiveWave;
             foreach (NeedId need in System.Enum.GetValues(typeof(NeedId)))
                 _lastStatus[(int)need] = sim.StatusOf(need);
+            _sheet.Close();
             RefreshAll();
         }
 
         // No result screen yet: the island goes straight back to the next START WAVE.
-        void OnWaveCompleted(WaveResult result) => _game.ContinueAfterResults();
+        void OnWaveCompleted(WaveResult result)
+        {
+            _sheet.Close();
+            _game.ContinueAfterResults();
+        }
+
+        // A tap on an empty building opens the sheet for it; a tap on a staffed one offers the move
+        // toward the building that stands empty.
+        void OnBuildingTapped(BuildingId building)
+        {
+            if (_game.CurrentPhase == WavePhase.WaveComplete) return;
+            var state = _game.Resort.Get(building);
+            if (state == null) return;
+            if (!state.HasWorker)
+            {
+                _sheet.Open(building);
+                return;
+            }
+            foreach (var b in _game.Resort.Buildings)
+                if (!b.HasWorker)
+                {
+                    _sheet.Open(b.Id);
+                    return;
+                }
+        }
 
         // Status shifts drive the guest-voice toasts; the panel rows carry the persistent signal.
         void WatchStatusShifts()

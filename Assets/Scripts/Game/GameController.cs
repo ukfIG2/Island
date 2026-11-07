@@ -27,6 +27,7 @@ namespace ResortEmpire.Game
         public event Action WaveStarted;
         public event Action<WaveResult> WaveCompleted;             // fired exactly once per wave
         public event Action StateChanged;
+        public event Action<BuildingId> BuildingTapped;
 
         public GameController(TuningConfig tuning, ResortState resort, int nextWaveIndex, List<WaveDef> waves)
         {
@@ -85,6 +86,9 @@ namespace ResortEmpire.Game
             ActiveWave.IsPaused = paused;
             StateChanged?.Invoke();
         }
+
+        // The view layer reports taps here; UI panels subscribe to BuildingTapped.
+        public void RaiseBuildingTapped(BuildingId b) => BuildingTapped?.Invoke(b);
 
         public static string DisplayName(BuildingId b)
             => b == BuildingId.BeachBar ? "Beach Bar" : b.ToString();

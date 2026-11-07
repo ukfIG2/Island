@@ -37,6 +37,14 @@ namespace ResortEmpire.Sim
         Satisfied
     }
 
+    // CAM-31: what a growing line needs, so the player can pick the right fix.
+    public enum QueueCause
+    {
+        None,
+        NoWorker,       // the building is empty: a Worker fixes it
+        TooFewSeats     // the building is staffed and full: only more seats fix it
+    }
+
     public static class BuildingNeeds
     {
         // Build doc §4.5: Reception = hotel block -> Rooms; Bungalows = premium ocean huts -> OceanView.

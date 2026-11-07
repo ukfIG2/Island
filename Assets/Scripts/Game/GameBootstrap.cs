@@ -11,7 +11,8 @@ namespace ResortEmpire.Game
         void Awake()
         {
             var tuning = TuningConfig.Default;
-            Game = new GameController(tuning, ResortState.NewGame(tuning), 1, WaveTable.Default8());
+            var (resort, nextWaveIndex) = SaveSystem.LoadOrNew(tuning);
+            Game = new GameController(tuning, resort, nextWaveIndex, WaveTable.Default8());
             View.IslandViewBuilder.Build(this, Game);
             Ui.GameUiBuilder.Build(this, Game);
         }

@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 namespace ResortEmpire.Game.Ui
 {
-    // Builds the whole interface on one runtime canvas: S1 home and S2 wave panel.
+    // Builds the whole interface on one runtime canvas: top bar, S1 home and S2 wave panel.
     // A small driver keeps the visible widgets refreshed.
     public static class GameUiBuilder
     {
@@ -32,6 +32,7 @@ namespace ResortEmpire.Game.Ui
         const float RefreshInterval = 0.25f;
 
         GameController _game;
+        TopBarUi _topBar;
         HomeUi _home;
         NeedsPanelUi _needs;
         float _sinceRefresh;
@@ -40,6 +41,7 @@ namespace ResortEmpire.Game.Ui
         {
             _game = game;
             var canvas = transform;
+            _topBar = new TopBarUi(canvas, game);
             _home = new HomeUi(canvas, game);
             _needs = new NeedsPanelUi(canvas, game);
 
@@ -77,6 +79,7 @@ namespace ResortEmpire.Game.Ui
         {
             bool betweenWaves = _game.ActiveWave == null;
             bool waveRunning = !betweenWaves && _game.CurrentPhase != WavePhase.WaveComplete;
+            _topBar.Refresh();
             _home.SetVisible(betweenWaves);
             if (betweenWaves) _home.Refresh();
             _needs.SetVisible(waveRunning);

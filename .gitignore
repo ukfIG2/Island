@@ -84,6 +84,9 @@ mono_crash.*
 *.unitypackage
 *.unitypackage.meta
 *.app
+# What Unity writes next to an IL2CPP build: never shipped, never committed
+*_BackUpThisFolder_ButDontShipItWithYourGame/
+*_BurstDebugInformation_DoNotShip/
 
 # Crashlytics generated file
 crashlytics-build.properties

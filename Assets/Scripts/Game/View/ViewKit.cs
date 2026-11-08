@@ -7,13 +7,13 @@ namespace ResortEmpire.Game.View
     static class ViewKit
     {
         static readonly Dictionary<Color, Material> Materials = new Dictionary<Color, Material>();
-        static Shader _lit;
 
+        // Each colour copies a URP Lit material kept in Resources: a shader only looked up by name is left out of
+        // phone builds, and nothing could be built there.
         public static Material Mat(Color color)
         {
             if (Materials.TryGetValue(color, out var cached) && cached != null) return cached;
-            if (_lit == null) _lit = Shader.Find("Universal Render Pipeline/Lit");
-            var mat = new Material(_lit) { color = color };
+            var mat = new Material(Resources.Load<Material>("Island/Lit")) { color = color };
             if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
             if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0.15f);
             Materials[color] = mat;

@@ -5,16 +5,19 @@ using UnityEngine;
 
 namespace ResortEmpire.Game.View
 {
-    // One building spot. The player reads its level from its size and its seats from the pips in front,
-    // filled while guests are served. While locked the spot shows a construction site, marked when it
-    // can be bought.
+    // One building spot. The player must read three things at a glance (build doc AC2d):
+    // seat count (pips in front), staffing (worker marker above the roof) and the waiting line.
+    // While locked the spot shows a construction site, marked when it can be bought.
     sealed class BuildingView
     {
+        const int MaxVisibleQueue = 12;
         const float PipSpacing = 0.32f;
 
         static readonly Color PipEmpty = ViewKit.Hex(0xF2EEE6);
+        static readonly Color WorkerColor = ViewKit.Hex(0xE8743B);
         static readonly Color SiteMarkerLocked = ViewKit.Hex(0x9A9A93);
         static readonly Color SiteMarkerAvailable = ViewKit.Hex(0xE8743B);
+        static readonly Vector3 GuestScale = new Vector3(0.28f, 0.32f, 0.28f);
 
         public readonly BuildingId Id;
         public readonly NeedId Need;
@@ -25,17 +28,24 @@ namespace ResortEmpire.Game.View
         readonly GameObject _site;
         readonly Transform _siteMarker;
         readonly Renderer _siteMarkerRenderer;
+        readonly Transform _worker;
         readonly Transform _pipRow;
         readonly List<Renderer> _pips = new List<Renderer>();
+        readonly List<GameObject> _queue = new List<GameObject>();
         readonly Material _guestMat;
+        readonly float _roofY;
         readonly float _frontZ;
+        readonly float _side;          // +1: queue extends right of the seats, -1: left
+        readonly float _bobPhase;
         int _shownLevel = -1;
         float _levelScale = 1f;
 
-        public BuildingView(Transform parent, BuildingId id, Vector3 position)
+        public BuildingView(Transform parent, BuildingId id, Vector3 position, float queueSide)
         {
             Id = id;
             Need = BuildingNeeds.Serves(id);
+            _side = queueSide;
+            _bobPhase = (int)id * 1.3f;
             _guestMat = ViewKit.Mat(UiFactory.NeedColor(Need));
 
             _root = new GameObject(GameController.DisplayName(id)).transform;
@@ -46,10 +56,13 @@ namespace ResortEmpire.Game.View
             _built.transform.SetParent(_root, false);
             _body = new GameObject("Body").transform;
             _body.SetParent(_built.transform, false);
-            BuildBody(id, _body, out _frontZ, out _);
+            _roofY = BuildBody(id, _body, out _frontZ, out _);
 
             _pipRow = new GameObject("Seats").transform;
             _pipRow.SetParent(_built.transform, false);
+
+            _worker = ViewKit.Prim(PrimitiveType.Capsule, "Worker", _built.transform,
+                Vector3.zero, new Vector3(0.34f, 0.34f, 0.34f), WorkerColor, collider: false).transform;
 
             _site = new GameObject("ConstructionSite");
             _site.transform.SetParent(_root, false);
@@ -67,7 +80,16 @@ namespace ResortEmpire.Game.View
             _siteMarkerRenderer = _siteMarker.GetComponent<Renderer>();
         }
 
-        public void Sync(BuildingState state, TuningConfig tuning, bool siteAvailable, int seated, float time)
+        public Vector3 QueueSlotWorld(int index)
+        {
+            float half = (_pips.Count - 1) * 0.5f * PipSpacing;
+            var origin = new Vector3(_side * (half + 0.55f), 0.32f, _pipRow.localPosition.z - 0.05f);
+            var slot = origin + new Vector3(_side * (index % 2) * 0.4f, 0f, -(index / 2) * 0.42f);
+            return _root.TransformPoint(slot);
+        }
+
+        public void Sync(BuildingState state, TuningConfig tuning, bool siteAvailable, int seated,
+            int queueShown, float time)
         {
             bool built = state != null;
             if (_built.activeSelf != built) _built.SetActive(built);
@@ -83,8 +105,15 @@ namespace ResortEmpire.Game.View
 
             if (state.Level != _shownLevel) ApplyLevel(state.Level, tuning);
 
+            _worker.gameObject.SetActive(state.HasWorker);
+            if (state.HasWorker)
+                _worker.localPosition = new Vector3(0f,
+                    _roofY * _levelScale + 0.55f + Mathf.Sin(time * 2.4f + _bobPhase) * 0.08f, 0f);
+
             for (int i = 0; i < _pips.Count; i++)
                 _pips[i].sharedMaterial = i < seated ? _guestMat : ViewKit.Mat(PipEmpty);
+
+            SetQueue(queueShown);
         }
 
         // Each level makes the building a little bigger and gives it the seats that level holds.
@@ -105,6 +134,28 @@ namespace ResortEmpire.Game.View
                     new Vector3(0.22f, 0.12f, 0.22f), PipEmpty, collider: false);
                 _pips.Add(pip.GetComponent<Renderer>());
             }
+            // Queue slots hang off the seat row, so already-placed guests must follow its new width.
+            for (int i = 0; i < _queue.Count; i++) _queue[i].transform.position = QueueSlotWorld(i);
+        }
+
+        void SetQueue(int count)
+        {
+            int visible = Mathf.Min(count, MaxVisibleQueue);
+            while (_queue.Count < visible)
+            {
+                var guest = ViewKit.Prim(PrimitiveType.Capsule, "Waiting", _root, Vector3.zero, GuestScale,
+                    UiFactory.NeedColor(Need), collider: false);
+                guest.transform.position = QueueSlotWorld(_queue.Count);
+                _queue.Add(guest);
+            }
+            for (int i = 0; i < _queue.Count; i++)
+            {
+                bool on = i < visible;
+                if (_queue[i].activeSelf != on) _queue[i].SetActive(on);
+            }
+            // A longer line than we draw is shown as a bigger last guest, never as a number.
+            if (visible > 0)
+                _queue[visible - 1].transform.localScale = count > MaxVisibleQueue ? GuestScale * 1.35f : GuestScale;
         }
 
         // Distinct silhouettes from primitives (build doc "what buildings communicate"). Front faces -z.

@@ -1,3 +1,4 @@
+using ResortEmpire.Sim;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -175,6 +176,15 @@ namespace ResortEmpire.Game.Ui
             return img;
         }
 
+        public static Image Dot(Transform parent, string name, Color color)
+        {
+            var img = Go(parent, name).AddComponent<Image>();
+            img.sprite = Circle;
+            img.color = color;
+            img.raycastTarget = false;
+            return img;
+        }
+
         public static Text Label(Transform parent, string name, string value, int size, Color color,
             TextAnchor align = TextAnchor.MiddleLeft, FontStyle style = FontStyle.Normal)
         {
@@ -204,6 +214,29 @@ namespace ResortEmpire.Game.Ui
         }
 
         public static Text ButtonLabel(Button b) => b.GetComponentInChildren<Text>();
+
+        // --- display names and need styling ----------------------------------
+
+        public static string NeedName(NeedId n) => n == NeedId.OceanView ? "Ocean View" : n.ToString();
+
+        public static Color NeedColor(NeedId n)
+        {
+            switch (n)
+            {
+                case NeedId.Rooms: return Hex(0x5B8FD4);
+                case NeedId.Drinks: return Hex(0xD45FA0);
+                case NeedId.Food: return Hex(0xE8975A);
+                case NeedId.Relax: return Hex(0x58C1B2);
+                default: return Hex(0x8E6FC9);
+            }
+        }
+
+        public static BuildingId BuildingFor(NeedId n)
+        {
+            foreach (BuildingId b in System.Enum.GetValues(typeof(BuildingId)))
+                if (BuildingNeeds.Serves(b) == n) return b;
+            return BuildingId.Reception;
+        }
 
         static Color Hex(int rgb)
             => new Color(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f);

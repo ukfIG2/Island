@@ -46,7 +46,10 @@ namespace ResortEmpire.Game.View
 
             float time = Time.time;
             foreach (var view in _views)
-                view.Sync(_game.Resort.Get(view.Id), SiteAvailable(view.Id), time);
+            {
+                int seated = sim != null ? sim.SeatedCount(view.Need) : 0;
+                view.Sync(_game.Resort.Get(view.Id), _game.Tuning, SiteAvailable(view.Id), seated, time);
+            }
 
             UpdateBoat(sim, animDt);
         }

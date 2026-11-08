@@ -45,9 +45,9 @@ namespace ResortEmpire.Game.Ui
             _game = game;
             var canvas = transform;
             _topBar = new TopBarUi(canvas, game);
-            _home = new HomeUi(canvas, game);
             _toasts = new ToastUi(canvas);
             _sheet = new WorkerSheetUi(canvas, game, _toasts);
+            _home = new HomeUi(canvas, game, _sheet);
             _needs = new NeedsPanelUi(canvas, game, _sheet);
             // Draw order, back to front: top bar, home, wave panel, sheet, toasts.
             _sheet.Root.transform.SetAsLastSibling();
@@ -97,6 +97,7 @@ namespace ResortEmpire.Game.Ui
             var sim = _game.ActiveWave;
             foreach (NeedId need in System.Enum.GetValues(typeof(NeedId)))
                 _lastStatus[(int)need] = sim.StatusOf(need);
+            _home.CloseCard();
             _sheet.Close();
             RefreshAll();
         }
@@ -108,10 +109,15 @@ namespace ResortEmpire.Game.Ui
             _game.ContinueAfterResults();
         }
 
-        // A tap on an empty building opens the sheet for it; a tap on a staffed one offers the move
-        // toward the building that stands empty.
+        // During a wave taps only route workers; between waves they open the action card.
         void OnBuildingTapped(BuildingId building)
         {
+            if (_game.ActiveWave == null)
+            {
+                _sheet.Close();
+                _home.OpenCard(building);
+                return;
+            }
             if (_game.CurrentPhase == WavePhase.WaveComplete) return;
             var state = _game.Resort.Get(building);
             if (state == null) return;
@@ -120,6 +126,7 @@ namespace ResortEmpire.Game.Ui
                 _sheet.Open(building);
                 return;
             }
+            // Tapping a staffed building offers the move toward the building that stands empty.
             foreach (var b in _game.Resort.Buildings)
                 if (!b.HasWorker)
                 {

@@ -215,7 +215,7 @@ namespace ResortEmpire.Game.Ui
 
         public static Text ButtonLabel(Button b) => b.GetComponentInChildren<Text>();
 
-        // --- display names and need styling ----------------------------------
+        // --- display names and status styling --------------------------------
 
         public static string NeedName(NeedId n) => n == NeedId.OceanView ? "Ocean View" : n.ToString();
 
@@ -238,7 +238,59 @@ namespace ResortEmpire.Game.Ui
             return BuildingId.Reception;
         }
 
+        public static Color StatusColor(NeedStatus s)
+        {
+            switch (s)
+            {
+                case NeedStatus.Bottleneck: return Warning;
+                case NeedStatus.Recovering: return Recovering;
+                case NeedStatus.Satisfied: return Positive;
+                case NeedStatus.Locked: return CreamDim;
+                default: return Neutral;
+            }
+        }
+
+        public static string StatusWord(NeedStatus s)
+        {
+            switch (s)
+            {
+                case NeedStatus.Bottleneck: return "Queue growing";
+                case NeedStatus.Recovering: return "Catching up";
+                case NeedStatus.Satisfied: return "Satisfied";
+                case NeedStatus.Locked: return "Locked";
+                default: return "Steady";
+            }
+        }
+
         static Color Hex(int rgb)
             => new Color(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f);
+    }
+
+    // Horizontal meter: rounded background with a left-anchored fill.
+    public sealed class BarWidget
+    {
+        public readonly GameObject Root;
+        readonly Image _fill;
+        readonly RectTransform _fillRect;
+
+        public BarWidget(Transform parent, string name, Color background)
+        {
+            var back = UiFactory.PanelImage(parent, name, background);
+            back.raycastTarget = false;
+            Root = back.gameObject;
+            _fill = UiFactory.PanelImage(back.transform, "Fill", UiFactory.Cream);
+            _fill.raycastTarget = false;
+            _fillRect = UiFactory.Place(_fill.gameObject, Vector2.zero, new Vector2(0f, 1f),
+                new Vector2(2f, 2f), new Vector2(-2f, -2f));
+            SetFill(0f, UiFactory.Cream);
+        }
+
+        public void SetFill(float fraction, Color color)
+        {
+            fraction = Mathf.Clamp01(fraction);
+            _fill.enabled = fraction > 0.03f;
+            _fill.color = color;
+            _fillRect.anchorMax = new Vector2(fraction, 1f);
+        }
     }
 }

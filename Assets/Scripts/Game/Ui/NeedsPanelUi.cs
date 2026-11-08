@@ -14,11 +14,15 @@ namespace ResortEmpire.Game.Ui
             public Text Counter;
             public BarWidget Bar;
             public Text Status;
+            public Text Worker;
             public Button Boost;
             public Text BoostLabel;
         }
 
         const float QueueBarFullUnits = 12f;
+        const float RowHeight = 92f;              // three lines: name and count, Worker and status, queue bar
+        const float RowSpacing = 100f;
+        static readonly Color WorkerHere = new Color(0.62f, 0.86f, 0.66f);   // the green of "What went well" on the result card
 
         readonly GameController _game;
         readonly GameObject _root;
@@ -38,7 +42,7 @@ namespace ResortEmpire.Game.Ui
             _game = game;
             var panel = UiFactory.PanelImage(canvas, "NeedsPanel", UiFactory.Panel);
             _root = panel.gameObject;
-            UiFactory.PlaceFixed(_root, Vector2.one, Vector2.one, new Vector2(-12f, -96f), new Vector2(520f, 700f));
+            UiFactory.PlaceFixed(_root, Vector2.one, Vector2.one, new Vector2(-12f, -96f), new Vector2(520f, 740f));
 
             _title = UiFactory.Label(panel.transform, "Title", "", 26, UiFactory.Cream, TextAnchor.MiddleLeft, FontStyle.Bold);
             UiFactory.Place(_title.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(20f, -46f), new Vector2(-20f, -10f));
@@ -49,7 +53,7 @@ namespace ResortEmpire.Game.Ui
             {
                 var need = needs[i];
                 var bg = UiFactory.PanelImage(panel.transform, "Row" + need, UiFactory.PanelShade);
-                var rect = UiFactory.PlaceFixed(bg.gameObject, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16f, -52f), new Vector2(488f, 84f));
+                var rect = UiFactory.PlaceFixed(bg.gameObject, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(16f, -52f), new Vector2(488f, RowHeight));
                 var rowButton = bg.gameObject.AddComponent<Button>();
                 rowButton.targetGraphic = bg;
                 rowButton.onClick.AddListener(() => sheet.Open(UiFactory.BuildingFor(need)));
@@ -69,15 +73,19 @@ namespace ResortEmpire.Game.Ui
                     new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(8f, 0f), new Vector2(22f, 22f));
                 UiFactory.Place(UiFactory.ButtonLabel(boost).gameObject, Vector2.zero, Vector2.one, new Vector2(24f, 0f), Vector2.zero);
                 boost.onClick.AddListener(() => OnBoost(UiFactory.BuildingFor(need)));
-                var bar = new BarWidget(bg.transform, "QueueBar", new Color(0f, 0f, 0f, 0.35f));
-                UiFactory.Place(bar.Root, Vector2.zero, new Vector2(1f, 0f), new Vector2(44f, 14f), new Vector2(-170f, 30f));
+                // Second line: whether a Worker stands at the building (left) and how the line is doing (right).
+                var worker = UiFactory.Label(bg.transform, "Worker", "", 20, UiFactory.Cream, TextAnchor.MiddleLeft);
+                UiFactory.PlaceFixed(worker.gameObject, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(44f, -46f), new Vector2(220f, 26f));
                 var status = UiFactory.Label(bg.transform, "Status", "", 20, UiFactory.Neutral, TextAnchor.MiddleRight);
-                UiFactory.PlaceFixed(status.gameObject, new Vector2(1f, 0f), new Vector2(1f, 0f), new Vector2(-8f, 8f), new Vector2(156f, 30f));
+                UiFactory.PlaceFixed(status.gameObject, Vector2.one, Vector2.one, new Vector2(-8f, -46f), new Vector2(200f, 26f));
+                // Third line: the queue bar, the full width of the row.
+                var bar = new BarWidget(bg.transform, "QueueBar", new Color(0f, 0f, 0f, 0.35f));
+                UiFactory.Place(bar.Root, Vector2.zero, new Vector2(1f, 0f), new Vector2(44f, 8f), new Vector2(-16f, 20f));
 
                 _rows[i] = new Row
                 {
                     Need = need, Rect = rect, Counter = counter, Bar = bar,
-                    Status = status, Boost = boost, BoostLabel = UiFactory.ButtonLabel(boost)
+                    Status = status, Worker = worker, Boost = boost, BoostLabel = UiFactory.ButtonLabel(boost)
                 };
             }
 
@@ -85,10 +93,10 @@ namespace ResortEmpire.Game.Ui
             {
                 _messageIcons[i] = UiFactory.Icon(panel.transform, "MessageIcon" + i, UiFactory.Alert, UiFactory.Warning);
                 UiFactory.PlaceFixed(_messageIcons[i].gameObject, new Vector2(0f, 1f), new Vector2(0f, 0.5f),
-                    new Vector2(22f, -534f - i * 32f), new Vector2(24f, 24f));
+                    new Vector2(22f, -574f - i * 32f), new Vector2(24f, 24f));
                 _messages[i] = UiFactory.Label(panel.transform, "Message" + i, "", 22, UiFactory.Cream);
                 UiFactory.Place(_messages[i].gameObject, new Vector2(0f, 1f), Vector2.one,
-                    new Vector2(54f, -550f - i * 32f), new Vector2(-22f, -518f - i * 32f));
+                    new Vector2(54f, -590f - i * 32f), new Vector2(-22f, -558f - i * 32f));
             }
 
             var chip = UiFactory.PanelImage(panel.transform, "ArrivedChip", UiFactory.Positive);
@@ -158,7 +166,7 @@ namespace ResortEmpire.Game.Ui
                 bool active = _game.Resort.IsUnlocked(building) && sim.DemandTotal(row.Need) > 0;
                 row.Rect.gameObject.SetActive(active);
                 if (!active) continue; // locked needs stay hidden, never alarming
-                row.Rect.anchoredPosition = new Vector2(16f, -52f - shown * 92f);
+                row.Rect.anchoredPosition = new Vector2(16f, -52f - shown * RowSpacing);
                 shown++;
 
                 var status = sim.StatusOf(row.Need);
@@ -166,6 +174,12 @@ namespace ResortEmpire.Game.Ui
                 row.Bar.SetFill(sim.QueueLength(row.Need) / QueueBarFullUnits, UiFactory.StatusColor(status));
                 row.Status.text = UiFactory.StatusWord(status);
                 row.Status.color = UiFactory.StatusColor(status);
+
+                // Where the Worker stands is always in view: a staffed building runs at full speed, an empty one slowly.
+                bool staffed = _game.Resort.Get(building).HasWorker;
+                row.Worker.text = staffed ? "Worker here" : "No Worker";
+                row.Worker.color = staffed ? WorkerHere : UiFactory.Cream;
+                row.Worker.fontStyle = staffed ? FontStyle.Normal : FontStyle.Bold;
 
                 // Speed Up is offered only where a building is overloaded — an offer, never a gate (build doc §5.3.9).
                 // A running boost shows as a word, not a countdown.
@@ -211,7 +225,7 @@ namespace ResortEmpire.Game.Ui
                     messageCount++;
                 }
             }
-            RowsBottom = 52f + shown * 92f - 8f;
+            RowsBottom = 52f + shown * RowSpacing - (RowSpacing - RowHeight);
             for (int i = messageCount; i < _messages.Length; i++)
             {
                 _messages[i].text = "";

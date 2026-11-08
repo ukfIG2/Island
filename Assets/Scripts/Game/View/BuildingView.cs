@@ -1,11 +1,18 @@
+using System.Collections.Generic;
+using ResortEmpire.Game.Ui;
 using ResortEmpire.Sim;
 using UnityEngine;
 
 namespace ResortEmpire.Game.View
 {
-    // One building spot. While locked the spot shows a construction site, marked when it can be bought.
+    // One building spot. The player reads its level from its size and its seats from the pips in front,
+    // filled while guests are served. While locked the spot shows a construction site, marked when it
+    // can be bought.
     sealed class BuildingView
     {
+        const float PipSpacing = 0.32f;
+
+        static readonly Color PipEmpty = ViewKit.Hex(0xF2EEE6);
         static readonly Color SiteMarkerLocked = ViewKit.Hex(0x9A9A93);
         static readonly Color SiteMarkerAvailable = ViewKit.Hex(0xE8743B);
 
@@ -18,11 +25,18 @@ namespace ResortEmpire.Game.View
         readonly GameObject _site;
         readonly Transform _siteMarker;
         readonly Renderer _siteMarkerRenderer;
+        readonly Transform _pipRow;
+        readonly List<Renderer> _pips = new List<Renderer>();
+        readonly Material _guestMat;
+        readonly float _frontZ;
+        int _shownLevel = -1;
+        float _levelScale = 1f;
 
         public BuildingView(Transform parent, BuildingId id, Vector3 position)
         {
             Id = id;
             Need = BuildingNeeds.Serves(id);
+            _guestMat = ViewKit.Mat(UiFactory.NeedColor(Need));
 
             _root = new GameObject(GameController.DisplayName(id)).transform;
             _root.SetParent(parent, false);
@@ -32,7 +46,10 @@ namespace ResortEmpire.Game.View
             _built.transform.SetParent(_root, false);
             _body = new GameObject("Body").transform;
             _body.SetParent(_built.transform, false);
-            BuildBody(id, _body, out _, out _);
+            BuildBody(id, _body, out _frontZ, out _);
+
+            _pipRow = new GameObject("Seats").transform;
+            _pipRow.SetParent(_built.transform, false);
 
             _site = new GameObject("ConstructionSite");
             _site.transform.SetParent(_root, false);
@@ -50,7 +67,7 @@ namespace ResortEmpire.Game.View
             _siteMarkerRenderer = _siteMarker.GetComponent<Renderer>();
         }
 
-        public void Sync(BuildingState state, bool siteAvailable, float time)
+        public void Sync(BuildingState state, TuningConfig tuning, bool siteAvailable, int seated, float time)
         {
             bool built = state != null;
             if (_built.activeSelf != built) _built.SetActive(built);
@@ -61,6 +78,32 @@ namespace ResortEmpire.Game.View
                 _siteMarkerRenderer.sharedMaterial = ViewKit.Mat(siteAvailable ? SiteMarkerAvailable : SiteMarkerLocked);
                 float lift = siteAvailable ? Mathf.Sin(time * 3f) * 0.12f : 0f;
                 _siteMarker.localPosition = new Vector3(0f, 1.5f + lift, 0f);
+                return;
+            }
+
+            if (state.Level != _shownLevel) ApplyLevel(state.Level, tuning);
+
+            for (int i = 0; i < _pips.Count; i++)
+                _pips[i].sharedMaterial = i < seated ? _guestMat : ViewKit.Mat(PipEmpty);
+        }
+
+        // Each level makes the building a little bigger and gives it the seats that level holds.
+        void ApplyLevel(int level, TuningConfig tuning)
+        {
+            _shownLevel = level;
+            _levelScale = 1f + 0.1f * (level - 1);
+            _body.localScale = Vector3.one * _levelScale;
+
+            int capacity = tuning.CapacityPerLevel[Mathf.Clamp(level, 1, tuning.CapacityPerLevel.Length) - 1];
+            foreach (var pip in _pips) Object.Destroy(pip.gameObject);
+            _pips.Clear();
+            _pipRow.localPosition = new Vector3(0f, 0.08f, _frontZ * _levelScale - 0.15f);
+            for (int i = 0; i < capacity; i++)
+            {
+                float x = (i - (capacity - 1) * 0.5f) * PipSpacing;
+                var pip = ViewKit.Prim(PrimitiveType.Cube, "Seat", _pipRow, new Vector3(x, 0f, 0f),
+                    new Vector3(0.22f, 0.12f, 0.22f), PipEmpty, collider: false);
+                _pips.Add(pip.GetComponent<Renderer>());
             }
         }
 

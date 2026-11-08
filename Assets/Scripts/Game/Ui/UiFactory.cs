@@ -20,6 +20,7 @@ namespace ResortEmpire.Game.Ui
 
         static Font _font;
         static Sprite _rounded;
+        static Sprite _circle;
 
         public static Font Font
         {
@@ -38,6 +39,83 @@ namespace ResortEmpire.Game.Ui
                 if (_rounded == null) _rounded = MakeSprite(32, 12, new Vector4(14f, 14f, 14f, 14f));
                 return _rounded;
             }
+        }
+
+        public static Sprite Circle
+        {
+            get
+            {
+                if (_circle == null) _circle = MakeSprite(32, 15, Vector4.zero);
+                return _circle;
+            }
+        }
+
+        // The built-in runtime font has no ★ ⚡ glyphs, so those symbols are drawn as sprites.
+        static Sprite _star;
+        static Sprite _bolt;
+
+        static readonly Vector2[] BoltShape =
+        {
+            new Vector2(0.60f, 0.98f), new Vector2(0.20f, 0.44f), new Vector2(0.46f, 0.44f),
+            new Vector2(0.36f, 0.02f), new Vector2(0.80f, 0.58f), new Vector2(0.54f, 0.58f),
+            new Vector2(0.68f, 0.98f)
+        };
+
+        public static Sprite Star => _star != null ? _star : _star = MakeIcon(InStar);
+        public static Sprite Bolt => _bolt != null ? _bolt : _bolt = MakeIcon((x, y) => InPolygon(BoltShape, x, y));
+
+        public static Image Icon(Transform parent, string name, Sprite sprite, Color color)
+        {
+            var img = Go(parent, name).AddComponent<Image>();
+            img.sprite = sprite;
+            img.color = color;
+            img.preserveAspect = true;
+            img.raycastTarget = false;
+            return img;
+        }
+
+        static bool InStar(float x, float y)
+        {
+            var points = new Vector2[10];
+            for (int i = 0; i < 10; i++)
+            {
+                float angle = Mathf.PI * 0.5f + i * Mathf.PI / 5f;
+                float radius = i % 2 == 0 ? 0.49f : 0.2f;
+                points[i] = new Vector2(0.5f + Mathf.Cos(angle) * radius, 0.47f + Mathf.Sin(angle) * radius);
+            }
+            return InPolygon(points, x, y);
+        }
+
+        static bool InPolygon(Vector2[] poly, float x, float y)
+        {
+            bool inside = false;
+            for (int i = 0, j = poly.Length - 1; i < poly.Length; j = i++)
+                if ((poly[i].y > y) != (poly[j].y > y)
+                    && x < (poly[j].x - poly[i].x) * (y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x)
+                    inside = !inside;
+            return inside;
+        }
+
+        // Rasterizes a 0..1 shape test into a white sprite, 4x4 supersampled for soft edges.
+        static Sprite MakeIcon(System.Func<float, float, bool> inside)
+        {
+            const int size = 64;
+            var tex = new Texture2D(size, size, TextureFormat.ARGB32, false)
+            {
+                hideFlags = HideFlags.HideAndDontSave,
+                wrapMode = TextureWrapMode.Clamp
+            };
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    int hits = 0;
+                    for (int sy = 0; sy < 4; sy++)
+                        for (int sx = 0; sx < 4; sx++)
+                            if (inside((x + (sx + 0.5f) / 4f) / size, (y + (sy + 0.5f) / 4f) / size)) hits++;
+                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, hits / 16f));
+                }
+            tex.Apply();
+            return Sprite.Create(tex, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), 100f);
         }
 
         static Sprite MakeSprite(int size, int radius, Vector4 border)

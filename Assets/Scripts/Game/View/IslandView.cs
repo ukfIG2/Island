@@ -28,11 +28,11 @@ namespace ResortEmpire.Game.View
             BuildTerrain();
             BuildBoat();
 
-            AddBuilding(BuildingId.Reception, new Vector3(-1.2f, GroundY, 8.0f));
-            AddBuilding(BuildingId.Restaurant, new Vector3(-4.8f, GroundY, 5.6f));
-            AddBuilding(BuildingId.BeachBar, new Vector3(-5.6f, GroundY, 1.6f));
-            AddBuilding(BuildingId.Pool, new Vector3(2.4f, GroundY, 5.6f));
-            AddBuilding(BuildingId.Bungalows, new Vector3(3.2f, GroundY, 1.2f));
+            AddBuilding(BuildingId.Reception, new Vector3(-1.2f, GroundY, 8.0f), +1f);
+            AddBuilding(BuildingId.Restaurant, new Vector3(-4.8f, GroundY, 5.6f), +1f);
+            AddBuilding(BuildingId.BeachBar, new Vector3(-5.6f, GroundY, 1.6f), +1f);
+            AddBuilding(BuildingId.Pool, new Vector3(2.4f, GroundY, 5.6f), -1f);
+            AddBuilding(BuildingId.Bungalows, new Vector3(3.2f, GroundY, 1.2f), -1f);
         }
 
         void Update()
@@ -48,7 +48,8 @@ namespace ResortEmpire.Game.View
             foreach (var view in _views)
             {
                 int seated = sim != null ? sim.SeatedCount(view.Need) : 0;
-                view.Sync(_game.Resort.Get(view.Id), _game.Tuning, SiteAvailable(view.Id), seated, time);
+                int line = sim != null ? sim.QueueLength(view.Need) : 0;
+                view.Sync(_game.Resort.Get(view.Id), _game.Tuning, SiteAvailable(view.Id), seated, line, time);
             }
 
             UpdateBoat(sim, animDt);
@@ -79,9 +80,9 @@ namespace ResortEmpire.Game.View
             return false;
         }
 
-        void AddBuilding(BuildingId id, Vector3 position)
+        void AddBuilding(BuildingId id, Vector3 position, float queueSide)
         {
-            _views.Add(new BuildingView(transform, id, position));
+            _views.Add(new BuildingView(transform, id, position, queueSide));
         }
 
         void BuildTerrain()

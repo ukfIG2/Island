@@ -91,6 +91,24 @@ namespace ResortEmpire.Game
             return true;
         }
 
+        public bool Upgrade(BuildingId b)
+        {
+            if (ActiveWave != null) return false; // upgrades exist only between waves (WR6)
+            if (!Resort.Upgrade(b)) return false;
+            StateChanged?.Invoke();
+            Toast?.Invoke(DisplayName(b) + " upgraded to Lv" + Resort.Get(b).Level);
+            return true;
+        }
+
+        public bool Unlock(BuildingId b)
+        {
+            if (ActiveWave != null) return false; // unlocks exist only between waves (WR6)
+            if (!Resort.Unlock(b)) return false;
+            StateChanged?.Invoke();
+            Toast?.Invoke(DisplayName(b) + " unlocked");
+            return true;
+        }
+
         public void SetPaused(bool paused)
         {
             if (ActiveWave == null || ActiveWave.Phase == WavePhase.WaveComplete) return;

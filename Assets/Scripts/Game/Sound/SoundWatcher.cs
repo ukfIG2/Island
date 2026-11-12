@@ -16,7 +16,9 @@ namespace ResortEmpire.Game.Sound
         readonly Action<SoundCue, float> _emit;     // the cue and how loud, 0..1 of its own loudness
         readonly NeedStatus[] _status = new NeedStatus[Needs.Length];
         WaveSimulation _sim;
-        bool _rushSeen, _closedSeen, _completeSeen;
+        bool _rushSeen, _closedSeen, _completeSeen, _atBeach;
+
+        public const float LeavingVolume = 0.45f;     // a vessel leaving is heard fainter than one coming in
 
         public SoundWatcher(GameController game, Action<SoundCue, float> emit)
         {
@@ -57,7 +59,12 @@ namespace ResortEmpire.Game.Sound
             _rushSeen = !atTheStart && sim.RushFired;
             _closedSeen = !atTheStart && sim.ArrivalsClosed;
             _completeSeen = !atTheStart && sim.Phase == WavePhase.WaveComplete;
+            _atBeach = !atTheStart && AtTheBeach(sim);
         }
+
+        // The vessels are at the beach from the moment a wave starts until arrivals close (as the island shows them).
+        static bool AtTheBeach(WaveSimulation sim) =>
+            sim.Phase == WavePhase.WaveIncoming || (sim.Phase == WavePhase.WaveActive && !sim.ArrivalsClosed);
 
         // Called every frame.
         public void Poll()
@@ -83,6 +90,13 @@ namespace ResortEmpire.Game.Sound
                     else if (now == NeedStatus.Recovering) _emit(SoundCue.LineCatchingUp, 1f);
                 }
 
+            bool atBeach = AtTheBeach(sim);
+            if (atBeach != _atBeach)
+            {
+                _atBeach = atBeach;
+                _emit(VesselFor(_game.NextWaveIndex), atBeach ? 1f : LeavingVolume);
+            }
+
             if (!_rushSeen && sim.RushFired)
             {
                 _rushSeen = true;
@@ -99,6 +113,22 @@ namespace ResortEmpire.Game.Sound
             {
                 _completeSeen = true;
                 if (sim.Result != null) _emit(ResultCue(sim.Result), 1f);
+            }
+        }
+
+        // The vessel of each wave, as the island shows it (IslandBoats): the shuttle in waves 1 and 4, speedboats in
+        // 2 and 5, the resort ferry in 3 and 6, the seaplane from wave 7 on.
+        public static SoundCue VesselFor(int wave)
+        {
+            switch (Math.Min(Math.Max(wave, 1), 8))
+            {
+                case 1:
+                case 4: return SoundCue.BoatShuttle;
+                case 2:
+                case 5: return SoundCue.BoatSpeedboats;
+                case 3:
+                case 6: return SoundCue.BoatFerry;
+                default: return SoundCue.BoatSeaplane;
             }
         }
 

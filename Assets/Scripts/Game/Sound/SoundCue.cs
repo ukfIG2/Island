@@ -12,6 +12,8 @@ namespace ResortEmpire.Game.Sound
         LineGrowing,        // a line starts to grow: gentle, once per change
         LineCatchingUp,     // help landed and the line is shrinking
         SuddenRush,
+        // the vessel that brings a wave, heard coming in and, fainter, leaving
+        BoatShuttle, BoatSpeedboats, BoatFerry, BoatSeaplane,
         // the flow of a wave
         WaveStart,
         GuestsArrived,      // arrivals have closed; the wave runs on until the last line is empty
@@ -66,6 +68,10 @@ namespace ResortEmpire.Game.Sound
                 case SoundCue.LineGrowing: return new CueInfo(SoundCategory.Effect, 0.55f, minGap: 6f, group: 1, groupGap: 2.5f);
                 case SoundCue.LineCatchingUp: return new CueInfo(SoundCategory.Effect, 0.55f, minGap: 4f, group: 1, groupGap: 2.5f);
                 case SoundCue.SuddenRush: return new CueInfo(SoundCategory.Effect, 0.70f, minGap: 5f);
+                case SoundCue.BoatShuttle:
+                case SoundCue.BoatSpeedboats:
+                case SoundCue.BoatFerry:
+                case SoundCue.BoatSeaplane: return new CueInfo(SoundCategory.Effect, 0.65f, minGap: 1f);
                 case SoundCue.WaveStart: return new CueInfo(SoundCategory.Effect, 0.65f, minGap: 2f);
                 case SoundCue.GuestsArrived: return new CueInfo(SoundCategory.Effect, 0.50f, minGap: 2f);
                 case SoundCue.ResultOneStar:

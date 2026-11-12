@@ -180,6 +180,48 @@ namespace ResortEmpire.Game.Tests
         }
 
         [Test]
+        public void EachWaveCallsItsOwnVessel_AsTheIslandShowsIt()
+        {
+            var expected = new[]
+            {
+                SoundCue.BoatShuttle, SoundCue.BoatSpeedboats, SoundCue.BoatFerry, SoundCue.BoatShuttle,
+                SoundCue.BoatSpeedboats, SoundCue.BoatFerry, SoundCue.BoatSeaplane, SoundCue.BoatSeaplane
+            };
+            for (int wave = 1; wave <= 8; wave++) Assert.AreEqual(expected[wave - 1], SoundWatcher.VesselFor(wave), "wave " + wave);
+            Assert.AreEqual(SoundCue.BoatSeaplane, SoundWatcher.VesselFor(9), "the endless waves keep the seaplane");
+            Assert.AreEqual(SoundCue.BoatSeaplane, SoundWatcher.VesselFor(40));
+        }
+
+        [Test]
+        public void AVessel_IsHeardComingInWhenTheWaveStarts_AndFainterLeavingWhenArrivalsClose()
+        {
+            var game = NewGame(2);                               // wave 2: speedboats
+            var heard = new Heard();
+            using (var watcher = new SoundWatcher(game, heard.Add))
+            {
+                game.StartNextWave();
+                watcher.Poll();
+                Assert.AreEqual(1, heard.Count(SoundCue.BoatSpeedboats), "coming in");
+                int at = heard.Cues.IndexOf(SoundCue.BoatSpeedboats);
+                Assert.AreEqual(1f, heard.Volumes[at], 0.0001f);
+
+                Run(game, watcher, 60);
+                Assert.AreEqual(1, heard.Count(SoundCue.BoatSpeedboats), "it waits at the beach while guests arrive");
+                Run(game, watcher, 60);
+                Assert.AreEqual(2, heard.Count(SoundCue.BoatSpeedboats), "leaving");
+                int leaving = heard.Cues.LastIndexOf(SoundCue.BoatSpeedboats);
+                Assert.Less(heard.Volumes[leaving], 1f, "a vessel leaving is heard fainter");
+                RunToTheEndOf(game, watcher);
+                Assert.AreEqual(2, heard.Count(SoundCue.BoatSpeedboats), "and never again in this wave");
+            }
+        }
+
+        static void RunToTheEndOf(GameController game, SoundWatcher watcher)
+        {
+            Run(game, watcher, 3000);
+        }
+
+        [Test]
         public void AFinishedWave_SoundsItsResultOnce_ChosenByTheStars()
         {
             InTempFolder(() =>

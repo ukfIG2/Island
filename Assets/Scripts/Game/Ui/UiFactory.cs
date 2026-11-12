@@ -238,6 +238,7 @@ namespace ResortEmpire.Game.Ui
             b.targetGraphic = img;
             var t = Label(img.transform, "Label", label, fontSize, fg, TextAnchor.MiddleCenter, FontStyle.Bold);
             Place(t.gameObject, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            b.onClick.AddListener(() => Sound.Sfx.Play(Sound.SoundCue.Click));   // every button answers with the same soft click
             if (onClick != null) b.onClick.AddListener(onClick);
             return b;
         }

@@ -30,6 +30,9 @@ namespace ResortEmpire.Game.Sound
         Ocean,              // loop: the sea and a light wind, always
         Rain,               // loop: in the rainy waves
         Gull,               // now and then
+        // the music: two moods, one at a time
+        MusicCalm,          // loop: between waves and under the menus
+        MusicBusy,          // loop: while a wave runs
     }
 
     public enum SoundCategory
@@ -93,6 +96,8 @@ namespace ResortEmpire.Game.Sound
                 case SoundCue.ResortSummary: return new CueInfo(SoundCategory.Effect, 0.65f, minGap: 2f);
                 case SoundCue.Ocean: return new CueInfo(SoundCategory.Atmosphere, 0.30f, loop: true);
                 case SoundCue.Rain: return new CueInfo(SoundCategory.Atmosphere, 0.28f, loop: true);
+                case SoundCue.MusicCalm: return new CueInfo(SoundCategory.Music, 0.30f, loop: true);
+                case SoundCue.MusicBusy: return new CueInfo(SoundCategory.Music, 0.30f, loop: true);
                 case SoundCue.Gull: return new CueInfo(SoundCategory.Atmosphere, 0.35f, minGap: 8f);
                 default: return new CueInfo(SoundCategory.Effect, 0.5f);
             }

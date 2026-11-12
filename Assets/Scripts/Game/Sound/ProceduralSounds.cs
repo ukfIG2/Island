@@ -43,6 +43,8 @@ namespace ResortEmpire.Game.Sound
                 case SoundCue.Ocean: samples = Ocean(); break;
                 case SoundCue.Rain: samples = Rain(); break;
                 case SoundCue.Gull: samples = Gull(); break;
+                case SoundCue.MusicCalm: samples = Music(beatSeconds: 1.0f, busy: false); break;
+                case SoundCue.MusicBusy: samples = Music(beatSeconds: 2f / 3f, busy: true); break;
                 default: return null;
             }
             return Finish(samples);
@@ -299,6 +301,60 @@ namespace ResortEmpire.Game.Sound
             return b;
         }
 
+        // Music that repeats without a seam: four chords of four beats (a warm C major, A minor, F major, G), a soft pad
+        // that swells through each change, a low note on the first beat, and small notes of the pentatonic scale on top.
+        // The calm mood lets a few of them ring; the busy mood plays them as a steady, light run of eighth notes.
+        // Every note is written round the end of the loop, so the end leads straight into the start.
+        static float[] Music(float beatSeconds, bool busy)
+        {
+            const int chords = 4, beatsPerChord = 4;
+            float chordSeconds = beatsPerChord * beatSeconds;
+            var b = Silence(chords * chordSeconds);
+
+            float[][] pad =
+            {
+                new[] { 130.81f, 164.81f, 196.00f, 246.94f },    // C major seventh
+                new[] { 110.00f, 130.81f, 164.81f, 196.00f },    // A minor seventh
+                new[] { 174.61f, 220.00f, 261.63f, 329.63f },    // F major seventh
+                new[] { 196.00f, 246.94f, 293.66f, 329.63f },    // G with a sixth
+            };
+            float[] root = { 65.41f, 55.00f, 87.31f, 98.00f };
+            // The calm melody: (beat in the chord, pitch). Only a few notes, left to ring.
+            (float beat, float freq)[][] calm =
+            {
+                new[] { (0.5f, E5), (2.5f, G5), (3.5f, D5) },
+                new[] { (0.5f, C5), (2.0f, E5), (3.0f, A5) },
+                new[] { (0.5f, A5), (2.5f, G5), (3.5f, E5) },
+                new[] { (0.5f, D5), (1.5f, G5), (3.0f, E5) },
+            };
+            // The busy run: eighth notes through the chord's own notes, an octave up.
+            int[][] runShape = { new[] { 0, 1, 2, 3, 2, 1, 2, 1 }, new[] { 0, 2, 1, 3, 2, 1, 3, 2 } };
+
+            for (int c = 0; c < chords; c++)
+            {
+                float at = c * chordSeconds;
+                foreach (float f in pad[c])
+                    Tone(b, at, chordSeconds + 1.2f, f, 0.30f, 1.0f, 0f, Pad, PadGain, release: 1.2f, wrap: true);
+                Tone(b, at, chordSeconds + 0.8f, root[c], 0.40f, 0.12f, 0.35f, Warm, WarmGain, release: 0.8f, wrap: true);
+                if (!busy)
+                {
+                    foreach (var note in calm[c])
+                        Tone(b, at + note.beat * beatSeconds, 2.2f, note.freq, 0.20f, 0.006f, 2.0f, Pluck, PluckGain, wrap: true);
+                }
+                else
+                {
+                    var shape = runShape[c % 2];
+                    for (int k = 0; k < 8; k++)
+                    {
+                        float f = pad[c][shape[k]] * 2f;
+                        Tone(b, at + k * beatSeconds * 0.5f, 0.9f, f, 0.15f, 0.005f, 4.5f, Pluck, PluckGain, wrap: true);
+                    }
+                    Tone(b, at + 2f * beatSeconds, 0.9f, root[c], 0.30f, 0.03f, 2.5f, Warm, WarmGain, wrap: true);   // a soft pulse
+                }
+            }
+            return b;
+        }
+
         // --- building blocks -----------------------------------------------------------------------------------
 
         // Makes a loop of n samples from n + fade samples: the extra tail is faded into the start, so the last
@@ -342,16 +398,20 @@ namespace ResortEmpire.Game.Sound
         }
 
         // A note with overtones: the ratios are the overtones' pitch next to the note, the gains how loud they are.
+        // With wrap, what runs past the end of the sound carries on at its start (for loops).
         static void Tone(float[] b, float at, float length, float freq, float amp, float attack, float fade,
-            float[] ratios, float[] gains, float release = 0.015f)
+            float[] ratios, float[] gains, float release = 0.015f, bool wrap = false)
         {
             int start = (int)(at * Rate), n = (int)(length * Rate);
-            for (int i = 0; i < n && start + i < b.Length; i++)
+            for (int i = 0; i < n; i++)
             {
+                int index = start + i;
+                if (wrap) index %= b.Length;
+                else if (index >= b.Length) break;
                 double t = i / (double)Rate;
                 float s = 0f;
                 for (int p = 0; p < ratios.Length; p++) s += gains[p] * (float)Math.Sin(2 * Math.PI * freq * ratios[p] * t);
-                b[start + i] += amp * Envelope(i, n, t, attack, fade, release) * s;
+                b[index] += amp * Envelope(i, n, t, attack, fade, release) * s;
             }
         }
 

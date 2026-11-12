@@ -12,6 +12,8 @@ namespace ResortEmpire.Game.Ui
         static readonly Color WentWellColor = new Color(0.62f, 0.86f, 0.66f);
 
         readonly GameController _game;
+        readonly System.Action<WaveResult> _claimed;
+        WaveResult _shown;
         readonly GameObject _root;
         readonly Text _title;
         readonly Image[] _stars = new Image[5];
@@ -28,9 +30,11 @@ namespace ResortEmpire.Game.Ui
         public GameObject Root => _root;
         public bool Visible => _root.activeSelf;
 
-        public ResultOverlayUi(Transform canvas, GameController game)
+        // 'claimed' is told which result was claimed, after the game has moved on to between waves.
+        public ResultOverlayUi(Transform canvas, GameController game, System.Action<WaveResult> claimed = null)
         {
             _game = game;
+            _claimed = claimed;
             var dim = UiFactory.Go(canvas, "ResultOverlay").AddComponent<Image>();
             dim.color = new Color(0f, 0f, 0f, 0.55f); // plain square dim; blocks taps behind it
             _root = dim.gameObject;
@@ -103,6 +107,7 @@ namespace ResortEmpire.Game.Ui
 
         public void Show(WaveResult result)
         {
+            _shown = result;
             _root.SetActive(true);
             _title.text = "Wave " + result.WaveIndex + " complete";
             for (int i = 0; i < _stars.Length; i++)
@@ -133,6 +138,7 @@ namespace ResortEmpire.Game.Ui
         {
             _root.SetActive(false);
             _game.ContinueAfterResults();
+            _claimed?.Invoke(_shown);
         }
     }
 }

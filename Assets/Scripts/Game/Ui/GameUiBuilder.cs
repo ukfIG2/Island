@@ -41,6 +41,7 @@ namespace ResortEmpire.Game.Ui
         ToastUi _toasts;
         ResultOverlayUi _results;
         UpgradeSuggestionUi _suggestion;
+        AreaOfferUi _area;
         ResumeOverlayUi _resume;
         Button _resetView;
         System.Func<bool> _viewMoved;
@@ -64,12 +65,14 @@ namespace ResortEmpire.Game.Ui
             _home = new HomeUi(canvas, game, _sheet);
             _needs = new NeedsPanelUi(canvas, game, _sheet);
             _results = new ResultOverlayUi(canvas, game, OnResultClaimed);
-            _suggestion = new UpgradeSuggestionUi(canvas, game);
+            _suggestion = new UpgradeSuggestionUi(canvas, game, OnSuggestionClosed);
+            _area = new AreaOfferUi(canvas, game);
             _resume = new ResumeOverlayUi(canvas, game);
-            // Draw order, back to front: top bar, home, wave panel, sheet, resume card, upgrade suggestion, toasts, result overlay.
+            // Draw order, back to front: top bar, home, wave panel, sheet, resume card, upgrade suggestion, area offer, toasts, result overlay.
             _sheet.Root.transform.SetAsLastSibling();
             _resume.Root.transform.SetAsLastSibling();
             _suggestion.Root.transform.SetAsLastSibling();
+            _area.Root.transform.SetAsLastSibling();
             _toasts.Root.transform.SetAsLastSibling();
             _results.Root.transform.SetAsLastSibling();
 
@@ -139,20 +142,41 @@ namespace ResortEmpire.Game.Ui
         }
 
         // S4 leads on to S5 (UI handoff): one optional investment, skipped when the wave left nothing to improve and after
-        // the last wave. "Later" in S5 goes back to the island.
+        // the last wave. Then S9 follows when the wave just finished made a new area available; skipped, that area waits
+        // at its construction site. "Later" on either card goes back to the island.
         void OnResultClaimed(WaveResult result)
         {
-            if (!_game.PrototypeComplete) _suggestion.TryShow(result);
+            if (!_game.PrototypeComplete && !_suggestion.TryShow(result)) ShowDueArea();
             RefreshAll();
+        }
+
+        void OnSuggestionClosed()
+        {
+            ShowDueArea();
+            RefreshAll();
+        }
+
+        void ShowDueArea()
+        {
+            var due = AreaOffer.DueAfterWave(_game.Resort, _game.Tuning);
+            if (due.HasValue) _area.Show(due.Value);
         }
 
         // During a wave taps only route workers; between waves they open the action card.
         void OnBuildingTapped(BuildingId building)
         {
-            if (_results.Visible || _suggestion.Visible) return;
+            if (_results.Visible || _suggestion.Visible || _area.Visible) return;
             if (_game.ActiveWave == null)
             {
                 _sheet.Close();
+                // An area that can be built reopens its offer from the construction site; everything else opens the card.
+                var offer = AreaOffer.For(_game.Resort, _game.Tuning, _game.Waves, building);
+                if (offer != null && (offer.State == AreaState.Available || offer.State == AreaState.NotAffordable))
+                {
+                    _home.CloseCard();
+                    _area.Show(building);
+                    return;
+                }
                 _home.OpenCard(building);
                 return;
             }
@@ -207,13 +231,14 @@ namespace ResortEmpire.Game.Ui
             bool betweenWaves = _game.ActiveWave == null;
             bool waveRunning = !betweenWaves && _game.CurrentPhase != WavePhase.WaveComplete;
             _topBar.Refresh();
-            bool homeVisible = betweenWaves && !_results.Visible && !_suggestion.Visible;
+            bool homeVisible = betweenWaves && !_results.Visible && !_suggestion.Visible && !_area.Visible;
             _home.SetVisible(homeVisible);
             if (homeVisible) _home.Refresh();
             _needs.SetVisible(waveRunning);
             if (waveRunning) _needs.Refresh();
             _resume.Refresh();
             _suggestion.Refresh();
+            _area.Refresh();
         }
     }
 }

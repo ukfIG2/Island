@@ -21,7 +21,7 @@ namespace ResortEmpire.Game
             Game = new GameController(tuning, loaded.Resort, loaded.NextWaveIndex, WaveTable.Default8(), loaded.Wave);
             var island = View.IslandViewBuilder.Build(this, Game);
             Ui.GameUiBuilder.Build(this, Game, island.ResetView, () => island.ViewMoved, StartOver, showMenu);
-            Sound.SoundDirector.Create(transform, Game, DeviceSettings.Current);
+            Sound.SoundDirector.Create(transform, Game, DeviceSettings.Current, () => island.Raining);
         }
 
         void Update() => Game.Tick(Time.deltaTime);

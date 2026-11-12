@@ -26,6 +26,10 @@ namespace ResortEmpire.Game.Sound
         Unlock,
         AreaOffer,
         ResortSummary,
+        // the island around the player
+        Ocean,              // loop: the sea and a light wind, always
+        Rain,               // loop: in the rainy waves
+        Gull,               // now and then
     }
 
     public enum SoundCategory
@@ -87,6 +91,9 @@ namespace ResortEmpire.Game.Sound
                 case SoundCue.Unlock: return new CueInfo(SoundCategory.Effect, 0.70f, minGap: 0.3f);
                 case SoundCue.AreaOffer: return new CueInfo(SoundCategory.Effect, 0.55f, minGap: 1f);
                 case SoundCue.ResortSummary: return new CueInfo(SoundCategory.Effect, 0.65f, minGap: 2f);
+                case SoundCue.Ocean: return new CueInfo(SoundCategory.Atmosphere, 0.30f, loop: true);
+                case SoundCue.Rain: return new CueInfo(SoundCategory.Atmosphere, 0.28f, loop: true);
+                case SoundCue.Gull: return new CueInfo(SoundCategory.Atmosphere, 0.35f, minGap: 8f);
                 default: return new CueInfo(SoundCategory.Effect, 0.5f);
             }
         }

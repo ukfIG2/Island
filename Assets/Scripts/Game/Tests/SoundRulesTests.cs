@@ -83,6 +83,29 @@ namespace ResortEmpire.Game.Tests
         }
 
         [Test]
+        public void TheSeaAndTheRain_AreLoops_ThatAreNeverPlayedOneByOne_AndAGullFollowsTheSoundSwitch()
+        {
+            var (rules, settings) = New();
+            foreach (var loop in new[] { SoundCue.Ocean, SoundCue.Rain })
+            {
+                Assert.IsTrue(SoundCues.Info(loop).Loop, loop + " must loop");
+                Assert.AreEqual(SoundCategory.Atmosphere, SoundCues.Info(loop).Category);
+                Assert.IsFalse(rules.TryPlay(loop, 1f), loop + " is kept running by the director, not played as an effect");
+            }
+            Assert.IsFalse(SoundCues.Info(SoundCue.Gull).Loop);
+            Assert.IsTrue(rules.TryPlay(SoundCue.Gull, 100f));
+            settings.SetSound(false);
+            Assert.IsFalse(rules.TryPlay(SoundCue.Gull, 200f), "with Sound off even the gulls are silent");
+        }
+
+        [Test]
+        public void TheAtmosphereLoops_AreLongEnoughNotToRepeatTooSoon()
+        {
+            Assert.GreaterOrEqual(ProceduralSounds.Make(SoundCue.Ocean).Length, 10 * ProceduralSounds.Rate);
+            Assert.GreaterOrEqual(ProceduralSounds.Make(SoundCue.Rain).Length, 8 * ProceduralSounds.Rate);
+        }
+
+        [Test]
         public void AskingForASoundThroughSfx_WithNothingListening_DoesNothing()
         {
             var before = Sfx.Sink;

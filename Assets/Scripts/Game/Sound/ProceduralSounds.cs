@@ -21,6 +21,10 @@ namespace ResortEmpire.Game.Sound
                 case SoundCue.LineGrowing: samples = LineGrowing(); break;
                 case SoundCue.LineCatchingUp: samples = LineCatchingUp(); break;
                 case SoundCue.SuddenRush: samples = SuddenRush(); break;
+                case SoundCue.BoatShuttle: samples = BoatShuttle(); break;
+                case SoundCue.BoatSpeedboats: samples = BoatSpeedboats(); break;
+                case SoundCue.BoatFerry: samples = BoatFerry(); break;
+                case SoundCue.BoatSeaplane: samples = BoatSeaplane(); break;
                 case SoundCue.WaveStart: samples = WaveStart(); break;
                 case SoundCue.GuestsArrived: samples = GuestsArrived(); break;
                 case SoundCue.ResultOneStar: samples = Result(1, false); break;
@@ -51,6 +55,7 @@ namespace ResortEmpire.Game.Sound
         static readonly float[] Pluck = { 1f, 2f, 3f }, PluckGain = { 1f, 0.35f, 0.12f };
         static readonly float[] Bell = { 1f, 2.76f, 5.40f }, BellGain = { 1f, 0.45f, 0.20f };
         static readonly float[] Gong = { 1f, 2.00f, 2.76f, 4.10f }, GongGain = { 1f, 0.50f, 0.35f, 0.15f };
+        static readonly float[] Horn = { 1f, 2f, 3f, 4f }, HornGain = { 1f, 0.5f, 0.3f, 0.15f };
         static readonly float[] Pad = { 1f, 1.004f, 0.996f, 2f }, PadGain = { 1f, 0.6f, 0.6f, 0.12f };
 
         // --- the sounds ----------------------------------------------------------------------------------------
@@ -90,6 +95,41 @@ namespace ResortEmpire.Game.Sound
             Tone(b, 0f, 0.9f, G5, 0.7f, 0.004f, 4f, Bell, BellGain);
             Tone(b, 0.38f, 1.2f, E5, 0.7f, 0.004f, 3.2f, Bell, BellGain);
             Murmur(b, 0f, 1.5f, 0.18f, 21);
+            return b;
+        }
+
+        // The vessels swell as they come in and fade as they go, so one sound serves both: a little motor and a short
+        // horn for the shuttle, a busy buzz for the speedboats, a deep slow horn for the ferry, a propeller flying past
+        // for the seaplane.
+        static float[] BoatShuttle()
+        {
+            var b = Silence(2.2f);
+            Engine(b, 0f, 2.1f, 70f, 95f, 17f, 0.8f, 41);
+            Tone(b, 1.35f, 0.7f, 311.13f, 0.45f, 0.06f, 1.2f, Horn, HornGain, release: 0.3f);
+            return b;
+        }
+
+        static float[] BoatSpeedboats()
+        {
+            var b = Silence(2.2f);
+            Engine(b, 0f, 2.1f, 95f, 150f, 26f, 1.0f, 42);
+            Engine(b, 0.15f, 1.9f, 110f, 170f, 31f, 0.7f, 43);
+            return b;
+        }
+
+        static float[] BoatFerry()
+        {
+            var b = Silence(2.8f);
+            Engine(b, 0f, 2.7f, 48f, 62f, 9f, 0.6f, 44);
+            Tone(b, 0.9f, 1.6f, 110f, 0.55f, 0.12f, 0.9f, Horn, HornGain, release: 0.5f);
+            Tone(b, 0.9f, 1.6f, 138.59f, 0.40f, 0.12f, 0.9f, Horn, HornGain, release: 0.5f);
+            return b;
+        }
+
+        static float[] BoatSeaplane()
+        {
+            var b = Silence(2.6f);
+            Propeller(b, 0f, 2.5f, 1f, 45);
             return b;
         }
 
@@ -277,6 +317,48 @@ namespace ResortEmpire.Game.Sound
                 yl += low * (noise[i] - yl);
                 float swell = (float)Math.Sin(Math.PI * i / n);
                 b[start + i] += amp * 6f * (yh - yl) * swell * swell;
+            }
+        }
+
+        // A motor heard from a distance, swelling and fading: low noise pulsing at the engine's beat over a low hum.
+        static void Engine(float[] b, float at, float length, float f0, float f1, float beatHz, float amp, uint seed)
+        {
+            int start = (int)(at * Rate), n = (int)(length * Rate);
+            var noise = Noise(n, seed);
+            float a = LowPassStep(420f), y = 0f;
+            double hum = 0, beat = 0;
+            for (int i = 0; i < n && start + i < b.Length; i++)
+            {
+                float f = f0 + (f1 - f0) * i / n;
+                hum += 2 * Math.PI * f / Rate;
+                beat += 2 * Math.PI * beatHz / Rate;
+                y += a * (noise[i] - y);
+                float swell = (float)Math.Sin(Math.PI * i / n);
+                swell *= swell;
+                float pulse = 0.65f + 0.35f * (float)Math.Sin(beat);
+                b[start + i] += amp * swell * pulse * (3.5f * y + 0.5f * (float)Math.Sin(hum));
+            }
+        }
+
+        // A propeller passing by: bright noise beating about 36 times a second, its pitch bending as it flies past.
+        static void Propeller(float[] b, float at, float length, float amp, uint seed)
+        {
+            int start = (int)(at * Rate), n = (int)(length * Rate);
+            var noise = Noise(n, seed);
+            float a = LowPassStep(800f), y = 0f;
+            double beat = 0, hum = 0;
+            for (int i = 0; i < n && start + i < b.Length; i++)
+            {
+                float u = (float)i / n;
+                float beatHz = 46f - 16f * u;                       // the beat slows as the plane passes
+                float f = 190f - 50f * u;
+                beat += 2 * Math.PI * beatHz / Rate;
+                hum += 2 * Math.PI * f / Rate;
+                y += a * (noise[i] - y);
+                float swell = (float)Math.Sin(Math.PI * Math.Pow(u, 0.8));
+                swell *= swell;
+                float pulse = 0.4f + 0.6f * (0.5f + 0.5f * (float)Math.Sin(beat));
+                b[start + i] += amp * swell * pulse * (0.9f * (noise[i] - y) + 0.35f * (float)Math.Sin(hum));
             }
         }
 

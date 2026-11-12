@@ -40,6 +40,7 @@ namespace ResortEmpire.Game.Ui
         WorkerSheetUi _sheet;
         ToastUi _toasts;
         ResultOverlayUi _results;
+        UpgradeSuggestionUi _suggestion;
         ResumeOverlayUi _resume;
         Button _resetView;
         System.Func<bool> _viewMoved;
@@ -62,11 +63,13 @@ namespace ResortEmpire.Game.Ui
             _sheet = new WorkerSheetUi(canvas, game, _toasts);
             _home = new HomeUi(canvas, game, _sheet);
             _needs = new NeedsPanelUi(canvas, game, _sheet);
-            _results = new ResultOverlayUi(canvas, game);
+            _results = new ResultOverlayUi(canvas, game, OnResultClaimed);
+            _suggestion = new UpgradeSuggestionUi(canvas, game);
             _resume = new ResumeOverlayUi(canvas, game);
-            // Draw order, back to front: top bar, home, wave panel, sheet, resume card, toasts, result overlay.
+            // Draw order, back to front: top bar, home, wave panel, sheet, resume card, upgrade suggestion, toasts, result overlay.
             _sheet.Root.transform.SetAsLastSibling();
             _resume.Root.transform.SetAsLastSibling();
+            _suggestion.Root.transform.SetAsLastSibling();
             _toasts.Root.transform.SetAsLastSibling();
             _results.Root.transform.SetAsLastSibling();
 
@@ -135,10 +138,18 @@ namespace ResortEmpire.Game.Ui
             RefreshAll();
         }
 
+        // S4 leads on to S5 (UI handoff): one optional investment, skipped when the wave left nothing to improve and after
+        // the last wave. "Later" in S5 goes back to the island.
+        void OnResultClaimed(WaveResult result)
+        {
+            if (!_game.PrototypeComplete) _suggestion.TryShow(result);
+            RefreshAll();
+        }
+
         // During a wave taps only route workers; between waves they open the action card.
         void OnBuildingTapped(BuildingId building)
         {
-            if (_results.Visible) return;
+            if (_results.Visible || _suggestion.Visible) return;
             if (_game.ActiveWave == null)
             {
                 _sheet.Close();
@@ -196,12 +207,13 @@ namespace ResortEmpire.Game.Ui
             bool betweenWaves = _game.ActiveWave == null;
             bool waveRunning = !betweenWaves && _game.CurrentPhase != WavePhase.WaveComplete;
             _topBar.Refresh();
-            bool homeVisible = betweenWaves && !_results.Visible;
+            bool homeVisible = betweenWaves && !_results.Visible && !_suggestion.Visible;
             _home.SetVisible(homeVisible);
             if (homeVisible) _home.Refresh();
             _needs.SetVisible(waveRunning);
             if (waveRunning) _needs.Refresh();
             _resume.Refresh();
+            _suggestion.Refresh();
         }
     }
 }

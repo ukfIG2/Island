@@ -76,6 +76,7 @@ namespace ResortEmpire.Game.Ui
             if (!AreaOffer.IsArea(building)) return;
             _building = building;
             _root.SetActive(true);
+            Sound.Sfx.Play(Sound.SoundCue.AreaOffer);
             Refresh();
         }
 

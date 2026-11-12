@@ -130,6 +130,21 @@ namespace ResortEmpire.Game.Tests
         }
 
         [Test]
+        public void OutsidePlayMode_TheRealSaveIsNeverWritten_SoATestThatForgetsItsFolderCannotOverwriteAGame()
+        {
+            Assert.IsNull(SaveSystem.PathOverride, "no test may leave a path behind");
+            Assert.IsFalse(SaveSystem.WritesTheRealSave, "EditMode tests must not be able to write the player's save");
+            var game = NewGame();
+            game.StartNextWave();
+            string real = SaveSystem.SavePath;
+            var before = File.Exists(real) ? File.GetLastWriteTimeUtc(real) : (DateTime?)null;
+            for (int i = 0; i < 60; i++) game.Tick(1f);          // six autosave moments
+            game.LeaveApp();
+            var after = File.Exists(real) ? File.GetLastWriteTimeUtc(real) : (DateTime?)null;
+            Assert.AreEqual(before, after, "the real save file was touched by a test");
+        }
+
+        [Test]
         public void ANewGame_StartsBetweenWaves()
         {
             InTempFolder(path =>

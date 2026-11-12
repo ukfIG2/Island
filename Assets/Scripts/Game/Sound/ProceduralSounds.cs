@@ -40,6 +40,9 @@ namespace ResortEmpire.Game.Sound
                 case SoundCue.Unlock: samples = Unlock(); break;
                 case SoundCue.AreaOffer: samples = AreaOffer(); break;
                 case SoundCue.ResortSummary: samples = ResortSummary(); break;
+                case SoundCue.Ocean: samples = Ocean(); break;
+                case SoundCue.Rain: samples = Rain(); break;
+                case SoundCue.Gull: samples = Gull(); break;
                 default: return null;
             }
             return Finish(samples);
@@ -238,7 +241,82 @@ namespace ResortEmpire.Game.Sound
             return b;
         }
 
+        // The sea and a light wind, 16 seconds that repeat without a seam: the swell rises and falls three and five
+        // times in the loop, so its end leads straight into its start.
+        static float[] Ocean()
+        {
+            const int seconds = 16;
+            int n = seconds * Rate, fade = Rate / 2, total = n + fade;
+            var surfNoise = Noise(total, 61);
+            var foamNoise = Noise(total, 62);
+            var windNoise = Noise(total, 63);
+            float surfStep = LowPassStep(700f), foamHigh = LowPassStep(2500f), foamLow = LowPassStep(900f), windStep = LowPassStep(250f);
+            float ys = 0f, yfh = 0f, yfl = 0f, yw = 0f;
+            var raw = new float[total];
+            for (int i = 0; i < total; i++)
+            {
+                double t = i / (double)Rate;
+                float swell = 0.55f + 0.30f * (float)Math.Sin(2 * Math.PI * 3 * t / seconds + 0.4)
+                                    + 0.15f * (float)Math.Sin(2 * Math.PI * 5 * t / seconds + 1.7);
+                float gust = 1f + 0.4f * (float)Math.Sin(2 * Math.PI * 2 * t / seconds + 2.2);
+                ys += surfStep * (surfNoise[i] - ys);
+                yfh += foamHigh * (foamNoise[i] - yfh);
+                yfl += foamLow * (foamNoise[i] - yfl);
+                yw += windStep * (windNoise[i] - yw);
+                raw[i] = 3.2f * ys * swell + 2.2f * (yfh - yfl) * swell * swell + 2.5f * yw * gust * 0.5f;
+            }
+            return SeamlessLoop(raw, n, fade);
+        }
+
+        // Rain: bright noise with a slow, uneven patter, 10 seconds that repeat without a seam.
+        static float[] Rain()
+        {
+            const int seconds = 10;
+            int n = seconds * Rate, fade = Rate / 2, total = n + fade;
+            var noise = Noise(total, 71);
+            var patter = Noise(total, 72);
+            float low = LowPassStep(1200f), patterStep = LowPassStep(2600f), yl = 0f, yp = 0f;
+            var raw = new float[total];
+            for (int i = 0; i < total; i++)
+            {
+                double t = i / (double)Rate;
+                float uneven = 0.85f + 0.15f * (float)Math.Sin(2 * Math.PI * 2 * t / seconds + 0.9);
+                yl += low * (noise[i] - yl);
+                yp += patterStep * (patter[i] - yp);
+                raw[i] = uneven * ((noise[i] - yl) * 0.55f + yp * 0.7f);
+            }
+            return SeamlessLoop(raw, n, fade);
+        }
+
+        // A gull: two short cries, the second falling.
+        static float[] Gull()
+        {
+            var b = Silence(0.65f);
+            Sweep(b, 0f, 0.22f, 1700f, 2400f, 0.8f, fade: 6f, attack: 0.02f);
+            Sweep(b, 0f, 0.22f, 3400f, 4800f, 0.2f, fade: 7f, attack: 0.02f);
+            Sweep(b, 0.27f, 0.32f, 2300f, 1500f, 0.7f, fade: 5f, attack: 0.02f);
+            Sweep(b, 0.27f, 0.32f, 4600f, 3000f, 0.18f, fade: 6f, attack: 0.02f);
+            return b;
+        }
+
         // --- building blocks -----------------------------------------------------------------------------------
+
+        // Makes a loop of n samples from n + fade samples: the extra tail is faded into the start, so the last
+        // sample leads straight into the first (the tail is the very next stretch of the same sound).
+        static float[] SeamlessLoop(float[] raw, int n, int fade)
+        {
+            var o = new float[n];
+            for (int i = 0; i < n; i++)
+            {
+                if (i < fade)
+                {
+                    float w = i / (float)fade;
+                    o[i] = raw[i] * (float)Math.Sqrt(w) + raw[n + i] * (float)Math.Sqrt(1f - w);
+                }
+                else o[i] = raw[i];
+            }
+            return o;
+        }
 
         static float[] Silence(float seconds) => new float[(int)(seconds * Rate)];
 

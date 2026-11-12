@@ -75,6 +75,7 @@ namespace ResortEmpire.Game.Ui
             _value.text = "Resort Value " + s.ResortValue;
             _buildings.text = string.Join("\n", s.Buildings);   // one building per line: a long line broke between a name and its level
             _root.SetActive(true);
+            Sound.Sfx.Play(Sound.SoundCue.ResortSummary);
         }
 
         void Close()

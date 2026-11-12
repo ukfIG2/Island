@@ -64,6 +64,7 @@ namespace ResortEmpire.Game.View
 
         // The camera can be turned and zoomed; the UI offers to bring it back.
         public bool ViewMoved => _camera != null && _camera.Moved;
+        public bool Raining => _light != null && _light.Raining;       // the island's weather, also for the sound of rain
         public void ResetView() => _camera?.ResetView();
 
         void Update()

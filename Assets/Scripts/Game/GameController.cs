@@ -60,6 +60,12 @@ namespace ResortEmpire.Game
         public event Action StateChanged;
         public event Action<string> Toast;
         public event Action<BuildingId> BuildingTapped;
+        public event Action WorkerMoved;                           // a Worker was moved, before or during a wave
+        public event Action<BuildingId> BoostUsed;                 // Speed Up started at a building
+        public event Action AdWatched;                             // the test rewarded video gave Energy
+        public event Action<BuildingId> Upgraded;
+        public event Action<BuildingId> Unlocked;
+        public event Action ResultsClaimed;                        // the result screen was closed with Claim rewards
 
         public GameController(TuningConfig tuning, ResortState resort, int nextWaveIndex, List<WaveDef> waves,
             WaveSnapshot savedWave = null)
@@ -152,6 +158,7 @@ namespace ResortEmpire.Game
             ActiveWave = null;
             Persist();
             StateChanged?.Invoke();
+            ResultsClaimed?.Invoke();
         }
 
         // --- player actions -------------------------------------------------
@@ -165,6 +172,7 @@ namespace ResortEmpire.Game
             if (ActiveWave == null) Persist();
             StateChanged?.Invoke();
             Toast?.Invoke("Worker moved to " + DisplayName(to));
+            WorkerMoved?.Invoke();
             return true;
         }
 
@@ -174,6 +182,7 @@ namespace ResortEmpire.Game
             if (!ActiveWave.UseEnergyBoost(b)) return false;
             StateChanged?.Invoke();
             Toast?.Invoke("Speed Up active at " + DisplayName(b));
+            BoostUsed?.Invoke(b);
             return true;
         }
 
@@ -193,6 +202,7 @@ namespace ResortEmpire.Game
             if (ActiveWave == null) Persist();
             StateChanged?.Invoke();
             Toast?.Invoke("Test ad watched: +" + TestAdEnergy + " Energy");
+            AdWatched?.Invoke();
         }
 
         public bool Upgrade(BuildingId b)
@@ -202,6 +212,7 @@ namespace ResortEmpire.Game
             Persist();
             StateChanged?.Invoke();
             Toast?.Invoke(DisplayName(b) + " upgraded to Lv" + Resort.Get(b).Level);
+            Upgraded?.Invoke(b);
             return true;
         }
 
@@ -212,6 +223,7 @@ namespace ResortEmpire.Game
             Persist();
             StateChanged?.Invoke();
             Toast?.Invoke(DisplayName(b) + " unlocked");
+            Unlocked?.Invoke(b);
             return true;
         }
 

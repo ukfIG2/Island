@@ -32,12 +32,17 @@ namespace ResortEmpire.Game
 
         public static string SavePath => PathOverride ?? Application.persistentDataPath + "/resort_save.json";
 
+        // Outside Play mode (an EditMode test, an editor script) the player's real save is never written: a test that
+        // forgets its temporary folder must not overwrite the player's game. Tests that do save set PathOverride.
+        public static bool WritesTheRealSave => PathOverride == null && Application.isPlaying;
+
         // Removes the save and its backup, so a reset cannot bring the old game back.
         public static bool Delete() => SafeFile.Delete(SavePath);
 
         public static void Save(GameController game)
         {
             if (game == null) return;
+            if (PathOverride == null && !Application.isPlaying) return;   // see WritesTheRealSave
             var resort = game.Resort;
 
             // A running wave is saved as it is. Once it has completed the rewards are already in the resort, so the

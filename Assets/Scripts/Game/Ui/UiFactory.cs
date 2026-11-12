@@ -64,11 +64,21 @@ namespace ResortEmpire.Game.Ui
             new Vector2(0.68f, 0.98f)
         };
 
+        static readonly Vector2[] ArrowShape =
+        {
+            new Vector2(0.06f, 0.40f), new Vector2(0.56f, 0.40f), new Vector2(0.56f, 0.18f),
+            new Vector2(0.95f, 0.50f), new Vector2(0.56f, 0.82f), new Vector2(0.56f, 0.60f),
+            new Vector2(0.06f, 0.60f)
+        };
+
+        static Sprite _arrow;
+
         static readonly Vector2[] AlertShape =
             { new Vector2(0.5f, 0.96f), new Vector2(0.03f, 0.07f), new Vector2(0.97f, 0.07f) };
 
         public static Sprite Star => _star != null ? _star : _star = MakeIcon(InStar);
         public static Sprite Bolt => _bolt != null ? _bolt : _bolt = MakeIcon((x, y) => InPolygon(BoltShape, x, y));
+        public static Sprite Arrow => _arrow != null ? _arrow : _arrow = MakeIcon((x, y) => InPolygon(ArrowShape, x, y));
 
         // Triangle with the exclamation mark cut out of it.
         public static Sprite Alert => _alert != null ? _alert : _alert = MakeIcon((x, y) =>

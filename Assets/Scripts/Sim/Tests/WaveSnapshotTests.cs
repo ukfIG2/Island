@@ -53,7 +53,7 @@ namespace ResortEmpire.Sim.Tests
         sealed class Outcome
         {
             public WaveResult Result;
-            public int Ticks, Coins, Energy, ResortValue, WavesCompleted;
+            public int Ticks, Coins, Energy, ResortValue, WavesCompleted, StarsEarned;
             public bool InWave;
         }
 
@@ -70,7 +70,7 @@ namespace ResortEmpire.Sim.Tests
             return new Outcome
             {
                 Result = sim.Result, Ticks = tick, Coins = resort.Coins, Energy = resort.Energy,
-                ResortValue = resort.ResortValue, WavesCompleted = resort.WavesCompleted, InWave = resort.InWave
+                ResortValue = resort.ResortValue, WavesCompleted = resort.WavesCompleted, StarsEarned = resort.StarsEarned, InWave = resort.InWave
             };
         }
 
@@ -95,7 +95,7 @@ namespace ResortEmpire.Sim.Tests
             var levels = new int[n];
             var hasWorker = new bool[n];
             for (int i = 0; i < n; i++) { ids[i] = r.Buildings[i].Id; levels[i] = r.Buildings[i].Level; hasWorker[i] = r.Buildings[i].HasWorker; }
-            return ResortState.Restore(T, r.Coins, r.Energy, r.ResortValue, r.WavesCompleted, r.Workers, ids, levels, hasWorker);
+            return ResortState.Restore(T, r.Coins, r.Energy, r.ResortValue, r.WavesCompleted, r.Workers, ids, levels, hasWorker, r.StarsEarned);
         }
 
         // A deep copy that passes every number through a function, so a test can make the numbers lossy.
@@ -218,6 +218,7 @@ namespace ResortEmpire.Sim.Tests
                 Assert.AreEqual(a.Energy, b.Energy, "resort energy at " + where);
                 Assert.AreEqual(a.ResortValue, b.ResortValue, "resort value at " + where);
                 Assert.AreEqual(a.WavesCompleted, b.WavesCompleted, "waves completed at " + where);
+                Assert.AreEqual(a.StarsEarned, b.StarsEarned, "stars earned at " + where);
                 Assert.IsFalse(b.InWave, "the resort left the wave at " + where);
             });
             Assert.Greater(restores, 300, "the test should cover many moments");

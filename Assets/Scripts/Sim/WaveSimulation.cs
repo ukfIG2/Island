@@ -533,6 +533,7 @@ namespace ResortEmpire.Sim
             _resort.Coins += r.CoinsEarned;
             _resort.Energy += r.EnergyEarned;
             _resort.ResortValue += r.ResortValueGain;
+            _resort.StarsEarned += r.Stars;
             _resort.WavesCompleted = Math.Max(_resort.WavesCompleted, _wave.Index);
             _resort.InWave = false;
         }

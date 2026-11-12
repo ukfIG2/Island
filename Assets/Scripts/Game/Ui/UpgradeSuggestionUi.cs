@@ -36,9 +36,9 @@ namespace ResortEmpire.Game.Ui
             _root = dim.gameObject;
             UiFactory.Place(_root, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
-            // Card 900 x 640, top down: header 26-60, why 66-110, cause 114-144, offer 164-494, Later from 540 (640 - 32 - 68).
+            // Card 900 x 700, top down: header 26-60, why 66-110, cause 114-144, offer 164-574, Later from 600 (700 - 32 - 68).
             var card = UiFactory.PanelImage(_root.transform, "Card", UiFactory.Panel).transform;
-            UiFactory.PlaceFixed(card.gameObject, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -20f), new Vector2(900f, 640f));
+            UiFactory.PlaceFixed(card.gameObject, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -20f), new Vector2(900f, 700f));
 
             var header = UiFactory.Label(card, "Header", "Invest in your resort", 26, UiFactory.Premium, TextAnchor.MiddleCenter, FontStyle.Bold);
             UiFactory.Place(header.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(30f, -60f), new Vector2(-30f, -26f));
@@ -47,10 +47,11 @@ namespace ResortEmpire.Game.Ui
             _cause = UiFactory.Label(card, "Cause", "", 22, UiFactory.CreamDim, TextAnchor.MiddleCenter);
             UiFactory.Place(_cause.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(30f, -144f), new Vector2(-30f, -114f));
 
-            // The offer, 520 x 330, top-anchored: icon 20-84, title 92-132, subtitle 136-166, details 178-250, cost 262-302, the button or the "missing Coins" chip 24 above the bottom edge.
+            // The offer, 520 x 410, top-anchored: icon 20-84, title 92-132, subtitle 136-166, details 178-250, cost 258-298,
+            // the button or the "missing Coins" chip 310-386 (24 above the bottom edge).
             var offer = UiFactory.PanelImage(card, "Offer", UiFactory.PanelShade);
             offer.raycastTarget = false;
-            UiFactory.PlaceFixed(offer.gameObject, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -164f), new Vector2(520f, 330f));
+            UiFactory.PlaceFixed(offer.gameObject, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -164f), new Vector2(520f, 410f));
             var o = offer.transform;
 
             var arrow = UiFactory.Icon(o, "Icon", UiFactory.Arrow, UiFactory.Premium);
@@ -66,7 +67,7 @@ namespace ResortEmpire.Game.Ui
             _details.horizontalOverflow = HorizontalWrapMode.Wrap;
 
             var cost = UiFactory.Go(o, "Cost");
-            UiFactory.PlaceFixed(cost, new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f), new Vector2(0f, -282f), new Vector2(220f, 40f));
+            UiFactory.PlaceFixed(cost, new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f), new Vector2(0f, -278f), new Vector2(220f, 40f));
             UiFactory.PlaceFixed(UiFactory.Icon(cost.transform, "Coin", UiFactory.Circle, UiFactory.Premium).gameObject,
                 new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), Vector2.zero, new Vector2(28f, 28f));
             _cost = UiFactory.Label(cost.transform, "Coins", "", 26, UiFactory.Cream, TextAnchor.MiddleLeft, FontStyle.Bold);

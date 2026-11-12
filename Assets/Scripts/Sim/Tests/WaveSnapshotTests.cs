@@ -306,8 +306,7 @@ namespace ResortEmpire.Sim.Tests
             Assert.IsNull(WaveSimulation.FromSnapshot(CloneResort(resort), def, T, withPoolGuests));
 
             // A refusal must not change the resort it was given.
-            var untouched = CloneResort(resort);
-            untouched.InWave = false;
+            var untouched = CloneResort(resort);                       // a restored resort starts out of a wave
             Assert.IsNull(WaveSimulation.FromSnapshot(untouched, def, T, wrongWave));
             Assert.IsFalse(untouched.InWave);
         }

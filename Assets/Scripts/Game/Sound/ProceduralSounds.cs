@@ -17,12 +17,179 @@ namespace ResortEmpire.Game.Sound
             switch (cue)
             {
                 case SoundCue.Click: samples = Click(); break;
+                case SoundCue.WorkerMoved: samples = WorkerMoved(); break;
+                case SoundCue.LineGrowing: samples = LineGrowing(); break;
+                case SoundCue.LineCatchingUp: samples = LineCatchingUp(); break;
+                case SoundCue.SuddenRush: samples = SuddenRush(); break;
+                case SoundCue.WaveStart: samples = WaveStart(); break;
+                case SoundCue.GuestsArrived: samples = GuestsArrived(); break;
+                case SoundCue.ResultOneStar: samples = Result(1, false); break;
+                case SoundCue.ResultTwoStars: samples = Result(2, false); break;
+                case SoundCue.ResultThreeStars: samples = Result(3, false); break;
+                case SoundCue.ResultFourStars: samples = Result(4, false); break;
+                case SoundCue.ResultFiveStars: samples = Result(5, false); break;
+                case SoundCue.ResultPerfect: samples = Result(5, true); break;
+                case SoundCue.RewardsClaimed: samples = RewardsClaimed(); break;
+                case SoundCue.SpeedUp: samples = SpeedUp(); break;
+                case SoundCue.EnergyGained: samples = EnergyGained(); break;
+                case SoundCue.Upgrade: samples = Upgrade(); break;
+                case SoundCue.Unlock: samples = Unlock(); break;
+                case SoundCue.AreaOffer: samples = AreaOffer(); break;
+                case SoundCue.ResortSummary: samples = ResortSummary(); break;
                 default: return null;
             }
             return Finish(samples);
         }
 
+        // Notes, in Hz.
+        const float A3 = 220.00f, C4 = 261.63f, D4 = 293.66f, E4 = 329.63f, G4 = 392.00f, B4 = 493.88f;
+        const float C5 = 523.25f, D5 = 587.33f, E5 = 659.25f, G5 = 783.99f, A5 = 880.00f, B5 = 987.77f;
+        const float C6 = 1046.50f, E6 = 1318.51f, G6 = 1567.98f, A6 = 1760.00f, C7 = 2093.00f;
+
+        // The voices: how loud each overtone is next to the note itself.
+        static readonly float[] Warm = { 1f, 2f, 3f }, WarmGain = { 1f, 0.20f, 0.06f };
+        static readonly float[] Pluck = { 1f, 2f, 3f }, PluckGain = { 1f, 0.35f, 0.12f };
+        static readonly float[] Bell = { 1f, 2.76f, 5.40f }, BellGain = { 1f, 0.45f, 0.20f };
+        static readonly float[] Gong = { 1f, 2.00f, 2.76f, 4.10f }, GongGain = { 1f, 0.50f, 0.35f, 0.15f };
+        static readonly float[] Pad = { 1f, 1.004f, 0.996f, 2f }, PadGain = { 1f, 0.6f, 0.6f, 0.12f };
+
         // --- the sounds ----------------------------------------------------------------------------------------
+
+        // A Worker was moved: a soft pop, then two light footsteps.
+        static float[] WorkerMoved()
+        {
+            var b = Silence(0.34f);
+            Sweep(b, 0f, 0.10f, 640f, 380f, 0.8f, fade: 32f, attack: 0.004f);
+            Thud(b, 0.11f, 0.07f, 700f, 5f, 11);
+            Thud(b, 0.23f, 0.07f, 650f, 4f, 12);
+            return b;
+        }
+
+        // A line starts to grow: two soft low notes, falling. A hint, not an alarm.
+        static float[] LineGrowing()
+        {
+            var b = Silence(1.2f);
+            Tone(b, 0f, 0.60f, D4, 0.7f, 0.06f, 4.5f, Warm, WarmGain);
+            Tone(b, 0.30f, 0.85f, A3, 0.7f, 0.06f, 3.6f, Warm, WarmGain);
+            return b;
+        }
+
+        // Help landed and the line is shrinking: two soft notes, rising.
+        static float[] LineCatchingUp()
+        {
+            var b = Silence(1.2f);
+            Tone(b, 0f, 0.55f, E4, 0.7f, 0.01f, 5f, Pluck, PluckGain);
+            Tone(b, 0.20f, 0.90f, B4, 0.7f, 0.01f, 4f, Pluck, PluckGain);
+            return b;
+        }
+
+        // The Sudden rush: a friendly ding-dong over a little crowd, nothing like the line sound.
+        static float[] SuddenRush()
+        {
+            var b = Silence(1.6f);
+            Tone(b, 0f, 0.9f, G5, 0.7f, 0.004f, 4f, Bell, BellGain);
+            Tone(b, 0.38f, 1.2f, E5, 0.7f, 0.004f, 3.2f, Bell, BellGain);
+            Murmur(b, 0f, 1.5f, 0.18f, 21);
+            return b;
+        }
+
+        static float[] WaveStart()
+        {
+            var b = Silence(2.3f);
+            Tone(b, 0f, 2.2f, 196f, 0.8f, 0.01f, 2.0f, Gong, GongGain);
+            Tone(b, 0f, 2.0f, 98f, 0.5f, 0.02f, 2.4f, Warm, WarmGain);
+            return b;
+        }
+
+        // Arrivals have closed: three small bells.
+        static float[] GuestsArrived()
+        {
+            var b = Silence(1.1f);
+            Tone(b, 0f, 0.6f, C6, 0.6f, 0.003f, 6.5f, Bell, BellGain);
+            Tone(b, 0.13f, 0.6f, E6, 0.6f, 0.003f, 6.5f, Bell, BellGain);
+            Tone(b, 0.26f, 0.7f, G6, 0.6f, 0.003f, 6f, Bell, BellGain);
+            return b;
+        }
+
+        // One more note for every star. A single note for one star is plain and quiet, never a "fail" sound;
+        // a Perfect wave adds a warm chord.
+        static float[] Result(int stars, bool perfect)
+        {
+            float[] scale = { C5, D5, E5, G5, A5 };
+            var b = Silence(0.15f * (stars - 1) + (perfect ? 2.4f : 1.1f));
+            for (int k = 0; k < stars; k++) Tone(b, 0.15f * k, 0.95f, scale[k], 0.7f, 0.004f, 5f, Pluck, PluckGain);
+            if (perfect)
+            {
+                float at = 0.15f * stars;
+                foreach (float f in new[] { C5, E5, G5, C6 }) Tone(b, at, 1.7f, f, 0.45f, 0.06f, 1.4f, Pad, PadGain, release: 0.6f);
+            }
+            return b;
+        }
+
+        static float[] RewardsClaimed()
+        {
+            var b = Silence(0.7f);
+            Tone(b, 0f, 0.4f, G6, 0.7f, 0.002f, 9f, Bell, BellGain);
+            Tone(b, 0.08f, 0.55f, C7, 0.7f, 0.002f, 8f, Bell, BellGain);
+            return b;
+        }
+
+        // Speed Up: a rising whoosh with a bright note climbing through it.
+        static float[] SpeedUp()
+        {
+            var b = Silence(0.6f);
+            Whoosh(b, 0f, 0.55f, 400f, 3200f, 0.9f, 31);
+            Sweep(b, 0f, 0.45f, 520f, 1040f, 0.5f, fade: 5f, attack: 0.01f);
+            return b;
+        }
+
+        static float[] EnergyGained()
+        {
+            var b = Silence(0.8f);
+            Tone(b, 0f, 0.45f, B5, 0.7f, 0.002f, 7f, Bell, BellGain);
+            Tone(b, 0.09f, 0.5f, E6, 0.7f, 0.002f, 7f, Bell, BellGain);
+            Tone(b, 0.18f, 0.6f, G6, 0.7f, 0.002f, 6f, Bell, BellGain);
+            return b;
+        }
+
+        // An upgrade: a quick rising chord, then a bell.
+        static float[] Upgrade()
+        {
+            var b = Silence(1.3f);
+            float[] notes = { C5, E5, G5 };
+            for (int k = 0; k < notes.Length; k++) Tone(b, 0.07f * k, 0.5f, notes[k], 0.6f, 0.004f, 6f, Pluck, PluckGain);
+            Tone(b, 0.21f, 1.0f, C6, 0.6f, 0.003f, 4f, Bell, BellGain);
+            return b;
+        }
+
+        // A new building: a longer rising run that settles into a chord.
+        static float[] Unlock()
+        {
+            var b = Silence(2.0f);
+            float[] notes = { C5, E5, G5, C6, E6 };
+            for (int k = 0; k < notes.Length; k++) Tone(b, 0.07f * k, 0.6f, notes[k], 0.55f, 0.004f, 5f, Pluck, PluckGain);
+            foreach (float f in new[] { C5, E5, G5 }) Tone(b, 0.35f, 1.6f, f, 0.4f, 0.08f, 1.5f, Pad, PadGain, release: 0.6f);
+            return b;
+        }
+
+        // A new area is on offer: a handful of small sparkles.
+        static float[] AreaOffer()
+        {
+            var b = Silence(1.1f);
+            float[] at = { 0f, 0.08f, 0.17f, 0.27f, 0.40f };
+            float[] freq = { C6, E6, G6, A6, C7 };
+            for (int k = 0; k < at.Length; k++) Tone(b, at[k], 0.5f, freq[k], 0.5f, 0.002f, 7f, Bell, BellGain);
+            return b;
+        }
+
+        // The Resort summary: a warm, slow chord that swells and settles.
+        static float[] ResortSummary()
+        {
+            var b = Silence(3.6f);
+            foreach (float f in new[] { C4, E4, G4, B4 }) Tone(b, 0f, 3.5f, f, 0.45f, 0.9f, 0.5f, Pad, PadGain, release: 1.2f);
+            Tone(b, 0f, 3.5f, C4 / 2f, 0.4f, 0.9f, 0.5f, Warm, WarmGain, release: 1.2f);
+            return b;
+        }
 
         static float[] Click()
         {
@@ -48,12 +215,84 @@ namespace ResortEmpire.Game.Sound
             }
         }
 
-        // Quick attack, exponential fade, and a short release so a sound never ends on a click.
-        static float Envelope(int i, int n, double t, float attack, float fade)
+        // Quick attack, exponential fade, and a release so a sound never ends on a click.
+        static float Envelope(int i, int n, double t, float attack, float fade, float release = 0.015f)
         {
             float rise = attack > 0f ? Math.Min(1f, (float)t / attack) : 1f;
-            float release = Math.Min(1f, (n - 1 - i) / (0.015f * Rate));
-            return rise * (float)Math.Exp(-fade * t) * release;
+            float fall = Math.Min(1f, (n - 1 - i) / (release * Rate));
+            return rise * (float)Math.Exp(-fade * t) * fall;
+        }
+
+        // A note with overtones: the ratios are the overtones' pitch next to the note, the gains how loud they are.
+        static void Tone(float[] b, float at, float length, float freq, float amp, float attack, float fade,
+            float[] ratios, float[] gains, float release = 0.015f)
+        {
+            int start = (int)(at * Rate), n = (int)(length * Rate);
+            for (int i = 0; i < n && start + i < b.Length; i++)
+            {
+                double t = i / (double)Rate;
+                float s = 0f;
+                for (int p = 0; p < ratios.Length; p++) s += gains[p] * (float)Math.Sin(2 * Math.PI * freq * ratios[p] * t);
+                b[start + i] += amp * Envelope(i, n, t, attack, fade, release) * s;
+            }
+        }
+
+        // Noise that cannot change from one making to the next.
+        static float[] Noise(int n, uint seed)
+        {
+            var b = new float[n];
+            uint x = seed * 2654435761u + 1u;
+            for (int i = 0; i < n; i++)
+            {
+                x ^= x << 13; x ^= x >> 17; x ^= x << 5;
+                b[i] = (x / (float)uint.MaxValue) * 2f - 1f;
+            }
+            return b;
+        }
+
+        static float LowPassStep(float cutoff) => 1f - (float)Math.Exp(-2.0 * Math.PI * cutoff / Rate);
+
+        // A soft footstep: low-passed noise with a quick fade.
+        static void Thud(float[] b, float at, float length, float cutoff, float amp, uint seed)
+        {
+            int start = (int)(at * Rate), n = (int)(length * Rate);
+            var noise = Noise(n, seed);
+            float a = LowPassStep(cutoff), y = 0f;
+            for (int i = 0; i < n && start + i < b.Length; i++)
+            {
+                y += a * (noise[i] - y);
+                b[start + i] += amp * y * Envelope(i, n, i / (double)Rate, 0.002f, 55f);
+            }
+        }
+
+        // A little crowd: noise between about 300 and 900 Hz that swells and settles.
+        static void Murmur(float[] b, float at, float length, float amp, uint seed)
+        {
+            int start = (int)(at * Rate), n = (int)(length * Rate);
+            var noise = Noise(n, seed);
+            float high = LowPassStep(900f), low = LowPassStep(300f), yh = 0f, yl = 0f;
+            for (int i = 0; i < n && start + i < b.Length; i++)
+            {
+                yh += high * (noise[i] - yh);
+                yl += low * (noise[i] - yl);
+                float swell = (float)Math.Sin(Math.PI * i / n);
+                b[start + i] += amp * 6f * (yh - yl) * swell * swell;
+            }
+        }
+
+        // Noise that brightens: a low-pass whose cutoff climbs from one pitch to another.
+        static void Whoosh(float[] b, float at, float length, float from, float to, float amp, uint seed)
+        {
+            int start = (int)(at * Rate), n = (int)(length * Rate);
+            var noise = Noise(n, seed);
+            float y = 0f;
+            for (int i = 0; i < n && start + i < b.Length; i++)
+            {
+                float cutoff = from + (to - from) * i / n;
+                y += LowPassStep(cutoff) * (noise[i] - y);
+                float swell = (float)Math.Sin(Math.PI * i / n);
+                b[start + i] += amp * 3f * y * swell * swell;
+            }
         }
 
         // Scales the sound so its loudest point is Peak. A sound of silence stays silent.

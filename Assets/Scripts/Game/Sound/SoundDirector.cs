@@ -13,6 +13,7 @@ namespace ResortEmpire.Game.Sound
         AppSettings _settings;
         SoundRules _rules;
         SoundBank _bank;
+        SoundWatcher _watcher;
         AudioSource[] _voices;
         int _next;
         bool _soundWasOn;
@@ -21,18 +22,19 @@ namespace ResortEmpire.Game.Sound
         // The last few cues that sounded, newest last. Only for checking the sound in Play mode.
         public IReadOnlyCollection<SoundCue> Recent => _recent;
 
-        public static SoundDirector Create(Transform parent, AppSettings settings)
+        public static SoundDirector Create(Transform parent, GameController game, AppSettings settings)
         {
             var go = new GameObject("Sound");
             go.transform.SetParent(parent, false);
             var director = go.AddComponent<SoundDirector>();
-            director.Init(settings);
+            director.Init(game, settings);
             return director;
         }
 
-        void Init(AppSettings settings)
+        void Init(GameController game, AppSettings settings)
         {
             _settings = settings;
+            _watcher = new SoundWatcher(game, Play);
             _rules = new SoundRules(settings);
             _bank = new SoundBank();
             _voices = new AudioSource[VoiceCount];
@@ -79,6 +81,7 @@ namespace ResortEmpire.Game.Sound
 
         void Update()
         {
+            _watcher.Poll();
             // Turning Sound off silences what is sounding right now, not only what comes next.
             bool soundOn = _settings.SoundOn;
             if (_soundWasOn && !soundOn) foreach (var voice in _voices) voice.Stop();
@@ -90,6 +93,7 @@ namespace ResortEmpire.Game.Sound
 
         void OnDestroy()
         {
+            _watcher?.Dispose();
             if (Sfx.Sink == (ISoundSink)this) Sfx.Sink = null;
         }
     }

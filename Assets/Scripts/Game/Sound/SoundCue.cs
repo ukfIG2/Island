@@ -4,7 +4,26 @@ namespace ResortEmpire.Game.Sound
     // can be swapped without touching the code that asks for it.
     public enum SoundCue
     {
+        // the interface
         Click,
+        // Workers
+        WorkerMoved,
+        // the lines at the buildings
+        LineGrowing,        // a line starts to grow: gentle, once per change
+        LineCatchingUp,     // help landed and the line is shrinking
+        SuddenRush,
+        // the flow of a wave
+        WaveStart,
+        GuestsArrived,      // arrivals have closed; the wave runs on until the last line is empty
+        ResultOneStar, ResultTwoStars, ResultThreeStars, ResultFourStars, ResultFiveStars, ResultPerfect,
+        // Coins, Energy and growth
+        RewardsClaimed,
+        SpeedUp,
+        EnergyGained,
+        Upgrade,
+        Unlock,
+        AreaOffer,
+        ResortSummary,
     }
 
     public enum SoundCategory
@@ -42,6 +61,26 @@ namespace ResortEmpire.Game.Sound
             switch (cue)
             {
                 case SoundCue.Click: return new CueInfo(SoundCategory.Effect, 0.40f, minGap: 0.05f);
+                case SoundCue.WorkerMoved: return new CueInfo(SoundCategory.Effect, 0.70f, minGap: 0.10f);
+                // The two line signals share a group, so a line that flickers never stacks them into a nag.
+                case SoundCue.LineGrowing: return new CueInfo(SoundCategory.Effect, 0.55f, minGap: 6f, group: 1, groupGap: 2.5f);
+                case SoundCue.LineCatchingUp: return new CueInfo(SoundCategory.Effect, 0.55f, minGap: 4f, group: 1, groupGap: 2.5f);
+                case SoundCue.SuddenRush: return new CueInfo(SoundCategory.Effect, 0.70f, minGap: 5f);
+                case SoundCue.WaveStart: return new CueInfo(SoundCategory.Effect, 0.65f, minGap: 2f);
+                case SoundCue.GuestsArrived: return new CueInfo(SoundCategory.Effect, 0.50f, minGap: 2f);
+                case SoundCue.ResultOneStar:
+                case SoundCue.ResultTwoStars:
+                case SoundCue.ResultThreeStars:
+                case SoundCue.ResultFourStars:
+                case SoundCue.ResultFiveStars:
+                case SoundCue.ResultPerfect: return new CueInfo(SoundCategory.Effect, 0.65f, minGap: 1f);
+                case SoundCue.RewardsClaimed: return new CueInfo(SoundCategory.Effect, 0.60f, minGap: 0.2f);
+                case SoundCue.SpeedUp: return new CueInfo(SoundCategory.Effect, 0.55f, minGap: 0.3f);
+                case SoundCue.EnergyGained: return new CueInfo(SoundCategory.Effect, 0.55f, minGap: 0.3f);
+                case SoundCue.Upgrade: return new CueInfo(SoundCategory.Effect, 0.65f, minGap: 0.3f);
+                case SoundCue.Unlock: return new CueInfo(SoundCategory.Effect, 0.70f, minGap: 0.3f);
+                case SoundCue.AreaOffer: return new CueInfo(SoundCategory.Effect, 0.55f, minGap: 1f);
+                case SoundCue.ResortSummary: return new CueInfo(SoundCategory.Effect, 0.65f, minGap: 2f);
                 default: return new CueInfo(SoundCategory.Effect, 0.5f);
             }
         }

@@ -12,19 +12,27 @@ namespace ResortEmpire.Game.Tests
     // real game and read the cues the watcher asks for.
     public class SoundWatcherTests
     {
-        // Playing a wave saves the game; each test saves into its own temporary folder, never into the player's real save.
-        static void InTempFolder(Action body)
+        // Playing a wave saves the game about every 10 seconds, so every test here saves into its own temporary
+        // folder, never into the player's real save.
+        string _dir;
+
+        [SetUp]
+        public void SaveIntoATemporaryFolder()
         {
-            string dir = Path.Combine(Path.GetTempPath(), "island-sound-" + Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(dir);
-            SaveSystem.PathOverride = Path.Combine(dir, "resort_save.json");
-            try { body(); }
-            finally
-            {
-                SaveSystem.PathOverride = null;
-                Directory.Delete(dir, true);
-            }
+            _dir = Path.Combine(Path.GetTempPath(), "island-sound-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(_dir);
+            SaveSystem.PathOverride = Path.Combine(_dir, "resort_save.json");
         }
+
+        [TearDown]
+        public void DropTheTemporaryFolder()
+        {
+            SaveSystem.PathOverride = null;
+            if (Directory.Exists(_dir)) Directory.Delete(_dir, true);
+        }
+
+        // The fixture already saves into a temporary folder; this keeps the tests that look at the files readable.
+        static void InTempFolder(Action body) => body();
 
         sealed class Heard
         {

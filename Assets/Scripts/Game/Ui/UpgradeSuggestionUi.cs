@@ -67,7 +67,7 @@ namespace ResortEmpire.Game.Ui
             _details.horizontalOverflow = HorizontalWrapMode.Wrap;
 
             var cost = UiFactory.Go(o, "Cost");
-            UiFactory.PlaceFixed(cost, new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f), new Vector2(0f, -278f), new Vector2(220f, 40f));
+            UiFactory.PlaceFixed(cost, new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f), new Vector2(0f, -278f), new Vector2(120f, 40f));
             UiFactory.PlaceFixed(UiFactory.Icon(cost.transform, "Coin", UiFactory.Circle, UiFactory.Premium).gameObject,
                 new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), Vector2.zero, new Vector2(28f, 28f));
             _cost = UiFactory.Label(cost.transform, "Coins", "", 26, UiFactory.Cream, TextAnchor.MiddleLeft, FontStyle.Bold);

@@ -39,7 +39,7 @@ namespace ResortEmpire.Game.Ui
             _stars = Line(card, "Stars", UiFactory.Star, UiFactory.Premium, -175f);
             _value = Line(card, "Value", UiFactory.Circle, UiFactory.Recovering, -231f);
 
-            _buildings = UiFactory.Label(card, "Buildings", "", 26, UiFactory.Cream, TextAnchor.UpperCenter);
+            _buildings = UiFactory.Label(card, "Buildings", "", 24, UiFactory.Cream, TextAnchor.UpperCenter);
             UiFactory.Place(_buildings.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(60f, -430f), new Vector2(-60f, -270f));
             _buildings.horizontalOverflow = HorizontalWrapMode.Wrap;
 
@@ -70,7 +70,7 @@ namespace ResortEmpire.Game.Ui
             _title.text = s.WavesCleared + "/" + s.TotalWaves + " waves cleared";
             _stars.text = s.Stars + " of " + s.MaxStars + " stars earned";
             _value.text = "Resort Value " + s.ResortValue;
-            _buildings.text = string.Join("   ·   ", s.Buildings);
+            _buildings.text = string.Join("\n", s.Buildings);   // one building per line: a long line broke between a name and its level
             _root.SetActive(true);
         }
 

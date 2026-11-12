@@ -10,6 +10,7 @@ namespace ResortEmpire.Game.Ui
     public sealed class UpgradeSuggestionUi
     {
         readonly GameController _game;
+        readonly System.Action _closed;
         readonly GameObject _root;
         readonly Text _why;
         readonly Text _cause;
@@ -25,9 +26,11 @@ namespace ResortEmpire.Game.Ui
         public GameObject Root => _root;
         public bool Visible => _root.activeSelf;
 
-        public UpgradeSuggestionUi(Transform canvas, GameController game)
+        // 'closed' is told when the card goes away, bought or skipped, so the flow can move on to the next screen.
+        public UpgradeSuggestionUi(Transform canvas, GameController game, System.Action closed = null)
         {
             _game = game;
+            _closed = closed;
             var dim = UiFactory.Go(canvas, "UpgradeSuggestion").AddComponent<Image>();
             dim.color = new Color(0f, 0f, 0f, 0.45f); // plain square dim; blocks taps behind it
             _root = dim.gameObject;
@@ -123,6 +126,10 @@ namespace ResortEmpire.Game.Ui
             if (_advice != null && _game.Upgrade(_advice.Building)) Close();
         }
 
-        void Close() => _root.SetActive(false);
+        void Close()
+        {
+            _root.SetActive(false);
+            _closed?.Invoke();
+        }
     }
 }

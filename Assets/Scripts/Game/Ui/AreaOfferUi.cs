@@ -33,7 +33,7 @@ namespace ResortEmpire.Game.Ui
             _root = dim.gameObject;
             UiFactory.Place(_root, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
-            // Card 960 x 620, top down: header 28-62, title 72-140, adds 146-186, body 200-330, price 352-396;
+            // Card 960 x 620, top down: header 28-62, title 72-140, adds 146-186, body 200-310, price 322-366;
             // from the bottom edge: Later 24-92, the BUILD button or the state chip 120-210.
             var card = UiFactory.PanelImage(_root.transform, "Card", UiFactory.Panel).transform;
             UiFactory.PlaceFixed(card.gameObject, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0f, -10f), new Vector2(960f, 620f));
@@ -45,11 +45,11 @@ namespace ResortEmpire.Game.Ui
             _adds = UiFactory.Label(card, "Adds", "", 28, UiFactory.Recovering, TextAnchor.MiddleCenter, FontStyle.Bold);
             UiFactory.Place(_adds.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(30f, -186f), new Vector2(-30f, -146f));
             _body = UiFactory.Label(card, "Body", "", 26, UiFactory.Cream, TextAnchor.UpperCenter);
-            UiFactory.Place(_body.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(70f, -330f), new Vector2(-70f, -200f));
+            UiFactory.Place(_body.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(70f, -310f), new Vector2(-70f, -200f));
             _body.horizontalOverflow = HorizontalWrapMode.Wrap;
 
             _costRow = UiFactory.Go(card, "Price");
-            UiFactory.PlaceFixed(_costRow, new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f), new Vector2(0f, -374f), new Vector2(260f, 44f));
+            UiFactory.PlaceFixed(_costRow, new Vector2(0.5f, 1f), new Vector2(0.5f, 0.5f), new Vector2(0f, -344f), new Vector2(260f, 44f));
             UiFactory.PlaceFixed(UiFactory.Icon(_costRow.transform, "Coin", UiFactory.Circle, UiFactory.Premium).gameObject,
                 new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), Vector2.zero, new Vector2(32f, 32f));
             _cost = UiFactory.Label(_costRow.transform, "Coins", "", 32, UiFactory.Cream, TextAnchor.MiddleLeft, FontStyle.Bold);

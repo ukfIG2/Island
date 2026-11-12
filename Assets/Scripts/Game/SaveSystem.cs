@@ -21,6 +21,7 @@ namespace ResortEmpire.Game
             public int[] ids;        // parallel building arrays
             public int[] levels;
             public bool[] hasWorker;
+            public int starsEarned;      // stars of all finished waves, for the finale summary
             public long savedAtUnix;     // real time of the last save
             public bool hasWave;         // a wave was running; its snapshot is in 'wave'
             public WaveSnapshot wave;
@@ -55,6 +56,7 @@ namespace ResortEmpire.Game
                 energy = resort.Energy,
                 resortValue = resort.ResortValue,
                 wavesCompleted = resort.WavesCompleted,
+                starsEarned = resort.StarsEarned,
                 nextWaveIndex = nextWave,
                 savedAtUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
                 hasWave = wave != null,
@@ -121,7 +123,7 @@ namespace ResortEmpire.Game
                 }
 
                 var resort = ResortState.Restore(tuning, data.coins, data.energy, data.resortValue,
-                    data.wavesCompleted, data.workers, ids, data.levels, data.hasWorker);
+                    data.wavesCompleted, data.workers, ids, data.levels, data.hasWorker, data.starsEarned);
                 return new LoadedGame
                 {
                     Resort = resort,

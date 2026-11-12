@@ -22,6 +22,7 @@ namespace ResortEmpire.Sim
         public int Energy;
         public int ResortValue;
         public int WavesCompleted;
+        public int StarsEarned;                   // the stars of every finished wave added up, for the finale summary
         public bool InWave { get; internal set; } // set by WaveSimulation
 
         ResortState(TuningConfig t) { _t = t; }
@@ -120,7 +121,7 @@ namespace ResortEmpire.Sim
         // system loads through it. Purely constructive — no costs, no gameplay rules; the caller is
         // responsible for handing in a consistent snapshot.
         public static ResortState Restore(TuningConfig t, int coins, int energy, int resortValue,
-            int wavesCompleted, int workers, BuildingId[] ids, int[] levels, bool[] hasWorker)
+            int wavesCompleted, int workers, BuildingId[] ids, int[] levels, bool[] hasWorker, int starsEarned = 0)
         {
             var s = new ResortState(t);
             for (int i = 0; i < ids.Length; i++)
@@ -130,6 +131,7 @@ namespace ResortEmpire.Sim
             s.Energy = energy;
             s.ResortValue = resortValue;
             s.WavesCompleted = wavesCompleted;
+            s.StarsEarned = starsEarned;
             return s;
         }
 

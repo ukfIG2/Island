@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using ResortEmpire.Sim;
 using UnityEngine;
 
@@ -26,12 +25,8 @@ namespace ResortEmpire.Game
 
         public static string SavePath => Application.persistentDataPath + "/resort_save.json";
 
-        public static bool Delete()
-        {
-            if (!File.Exists(SavePath)) return false;
-            File.Delete(SavePath);
-            return true;
-        }
+        // Removes the save and its backup, so a reset cannot bring the old game back.
+        public static bool Delete() => SafeFile.Delete(SavePath);
 
         public static void Save(GameController game)
         {
@@ -56,40 +51,56 @@ namespace ResortEmpire.Game
                 data.levels[i] = resort.Buildings[i].Level;
                 data.hasWorker[i] = resort.Buildings[i].HasWorker;
             }
-            try { File.WriteAllText(SavePath, JsonUtility.ToJson(data)); }
+            try { SafeFile.Write(SavePath, JsonUtility.ToJson(data)); }
             catch (Exception e) { Debug.LogWarning("Resort save failed: " + e.Message); }
         }
 
-        // Any unreadable or inconsistent file falls back to a fresh game rather than throwing.
+        // The save, or its backup if the save was cut short, or a fresh game: never an exception.
         public static (ResortState resort, int nextWaveIndex) LoadOrNew(TuningConfig tuning)
         {
             try
             {
-                if (!File.Exists(SavePath)) return (ResortState.NewGame(tuning), 1);
-                var data = JsonUtility.FromJson<SaveData>(File.ReadAllText(SavePath));
+                string text = SafeFile.ReadBest(SavePath, t => TryRestore(t, tuning, out _, out _));
+                if (text != null && TryRestore(text, tuning, out var resort, out int next)) return (resort, next);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("Resort load failed, starting a new game: " + e.Message);
+            }
+            return (ResortState.NewGame(tuning), 1);
+        }
+
+        // False for any unreadable or inconsistent text.
+        static bool TryRestore(string text, TuningConfig tuning, out ResortState resort, out int nextWaveIndex)
+        {
+            resort = null;
+            nextWaveIndex = 1;
+            try
+            {
+                var data = JsonUtility.FromJson<SaveData>(text);
                 if (data == null || data.ids == null || data.levels == null || data.hasWorker == null
                     || data.ids.Length == 0
                     || data.ids.Length != data.levels.Length
                     || data.ids.Length != data.hasWorker.Length)
-                    return (ResortState.NewGame(tuning), 1);
+                    return false;
 
                 var ids = new BuildingId[data.ids.Length];
                 for (int i = 0; i < ids.Length; i++)
                 {
                     if (!Enum.IsDefined(typeof(BuildingId), data.ids[i])
                         || data.levels[i] < 1 || data.levels[i] > tuning.CapacityPerLevel.Length)
-                        return (ResortState.NewGame(tuning), 1);
+                        return false;
                     ids[i] = (BuildingId)data.ids[i];
                 }
 
-                var resort = ResortState.Restore(tuning, data.coins, data.energy, data.resortValue,
+                resort = ResortState.Restore(tuning, data.coins, data.energy, data.resortValue,
                     data.wavesCompleted, data.workers, ids, data.levels, data.hasWorker);
-                return (resort, Mathf.Clamp(data.nextWaveIndex, 1, 8));
+                nextWaveIndex = Mathf.Clamp(data.nextWaveIndex, 1, 8);
+                return true;
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                Debug.LogWarning("Resort load failed, starting a new game: " + e.Message);
-                return (ResortState.NewGame(tuning), 1);
+                return false;
             }
         }
     }

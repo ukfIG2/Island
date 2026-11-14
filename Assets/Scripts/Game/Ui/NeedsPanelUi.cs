@@ -108,11 +108,11 @@ namespace ResortEmpire.Game.Ui
 
         void OnPause() => _game.SetPaused(!_game.IsPaused);
 
-        // Dev convenience only; the sim steps in fixed slices either way.
+        // Game speed x1 / x2 / x4; the sim steps in the same fixed slices at any speed, so results never change.
         void OnSpeed()
         {
-            _game.SimSpeed = _game.SimSpeed < 2f ? 4f : 1f;
-            _speedLabel.text = _game.SimSpeed < 2f ? "1x" : "4x";
+            _game.CycleSpeed();
+            _speedLabel.text = GameController.SpeedLabel(_game.SimSpeed);
         }
 
         static string CauseMessage(BuildingId building, QueueCause cause)
@@ -200,7 +200,7 @@ namespace ResortEmpire.Game.Ui
             // Arrivals have stopped; the wave itself runs on until every line is empty (WR3).
             _arrivedChip.SetActive(sim.ArrivalsClosed);
             _pauseLabel.text = _game.IsPaused ? "Resume" : "Pause";
-            _speedLabel.text = _game.SimSpeed < 2f ? "1x" : "4x";
+            _speedLabel.text = GameController.SpeedLabel(_game.SimSpeed);
         }
     }
 }

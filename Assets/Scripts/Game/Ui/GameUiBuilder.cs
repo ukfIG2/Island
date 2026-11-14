@@ -40,6 +40,7 @@ namespace ResortEmpire.Game.Ui
         WorkerSheetUi _sheet;
         ToastUi _toasts;
         ResultOverlayUi _results;
+        ResumeOverlayUi _resume;
         Button _resetView;
         System.Func<bool> _viewMoved;
         NeedStatus[] _lastStatus;
@@ -62,12 +63,15 @@ namespace ResortEmpire.Game.Ui
             _home = new HomeUi(canvas, game, _sheet);
             _needs = new NeedsPanelUi(canvas, game, _sheet);
             _results = new ResultOverlayUi(canvas, game);
-            // Draw order, back to front: top bar, home, wave panel, sheet, toasts, result overlay.
+            _resume = new ResumeOverlayUi(canvas, game);
+            // Draw order, back to front: top bar, home, wave panel, sheet, resume card, toasts, result overlay.
             _sheet.Root.transform.SetAsLastSibling();
+            _resume.Root.transform.SetAsLastSibling();
             _toasts.Root.transform.SetAsLastSibling();
             _results.Root.transform.SetAsLastSibling();
 
             _lastStatus = new NeedStatus[System.Enum.GetValues(typeof(NeedId)).Length];
+            RememberStatuses();   // a wave restored from a save is already under way: no "line is long" toast for it
 
             _game.StateChanged += OnStateChanged;
             _game.WaveStarted += OnWaveStarted;
@@ -108,11 +112,17 @@ namespace ResortEmpire.Game.Ui
             RefreshAll();
         }
 
-        void OnWaveStarted()
+        void RememberStatuses()
         {
             var sim = _game.ActiveWave;
+            if (sim == null) return;
             foreach (NeedId need in System.Enum.GetValues(typeof(NeedId)))
                 _lastStatus[(int)need] = sim.StatusOf(need);
+        }
+
+        void OnWaveStarted()
+        {
+            RememberStatuses();
             _home.CloseCard();
             _sheet.Close();
             RefreshAll();
@@ -191,6 +201,7 @@ namespace ResortEmpire.Game.Ui
             if (homeVisible) _home.Refresh();
             _needs.SetVisible(waveRunning);
             if (waveRunning) _needs.Refresh();
+            _resume.Refresh();
         }
     }
 }

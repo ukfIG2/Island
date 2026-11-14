@@ -116,8 +116,13 @@ namespace ResortEmpire.Game.View
         void TrackNewWave(WaveSimulation sim)
         {
             _trackedSim = sim;
-            System.Array.Clear(_lastArrived, 0, _lastArrived.Length);
-            System.Array.Clear(_lastServed, 0, _lastServed.Length);
+            // Count from where the wave stands: a wave restored from a save is already under way, and the guests that
+            // arrived before must stand in their lines, not walk in from the boat again. A new wave starts at zero.
+            foreach (NeedId need in System.Enum.GetValues(typeof(NeedId)))
+            {
+                _lastArrived[(int)need] = sim != null ? sim.ArrivedUnits(need) : 0;
+                _lastServed[(int)need] = sim != null ? sim.ServedUnits(need) : 0;
+            }
             _guests.ClearArrivals();
         }
 

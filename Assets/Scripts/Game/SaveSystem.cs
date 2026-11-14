@@ -74,26 +74,34 @@ namespace ResortEmpire.Game
             catch (Exception e) { Debug.LogWarning("Resort save failed: " + e.Message); }
         }
 
+        // What a save gives back: the resort, which wave comes next, and the wave that was running (or null).
+        public sealed class LoadedGame
+        {
+            public ResortState Resort;
+            public int NextWaveIndex;
+            public WaveSnapshot Wave;       // the wave that was running when the game was saved, otherwise null
+            public long SavedAtUnix;        // real time of that save; 0 for a new game or a version-1 save
+        }
+
         // The save, or its backup if the save was cut short, or a fresh game: never an exception.
-        public static (ResortState resort, int nextWaveIndex) LoadOrNew(TuningConfig tuning)
+        public static LoadedGame LoadOrNew(TuningConfig tuning)
         {
             try
             {
-                string text = SafeFile.ReadBest(SavePath, t => TryRestore(t, tuning, out _, out _));
-                if (text != null && TryRestore(text, tuning, out var resort, out int next)) return (resort, next);
+                string text = SafeFile.ReadBest(SavePath, t => TryRestore(t, tuning) != null);
+                var loaded = text != null ? TryRestore(text, tuning) : null;
+                if (loaded != null) return loaded;
             }
             catch (Exception e)
             {
                 Debug.LogWarning("Resort load failed, starting a new game: " + e.Message);
             }
-            return (ResortState.NewGame(tuning), 1);
+            return new LoadedGame { Resort = ResortState.NewGame(tuning), NextWaveIndex = 1 };
         }
 
-        // False for any unreadable or inconsistent text.
-        static bool TryRestore(string text, TuningConfig tuning, out ResortState resort, out int nextWaveIndex)
+        // Null for any unreadable or inconsistent text.
+        static LoadedGame TryRestore(string text, TuningConfig tuning)
         {
-            resort = null;
-            nextWaveIndex = 1;
             try
             {
                 var data = JsonUtility.FromJson<SaveData>(text);
@@ -101,25 +109,30 @@ namespace ResortEmpire.Game
                     || data.ids.Length == 0
                     || data.ids.Length != data.levels.Length
                     || data.ids.Length != data.hasWorker.Length)
-                    return false;
+                    return null;
 
                 var ids = new BuildingId[data.ids.Length];
                 for (int i = 0; i < ids.Length; i++)
                 {
                     if (!Enum.IsDefined(typeof(BuildingId), data.ids[i])
                         || data.levels[i] < 1 || data.levels[i] > tuning.CapacityPerLevel.Length)
-                        return false;
+                        return null;
                     ids[i] = (BuildingId)data.ids[i];
                 }
 
-                resort = ResortState.Restore(tuning, data.coins, data.energy, data.resortValue,
+                var resort = ResortState.Restore(tuning, data.coins, data.energy, data.resortValue,
                     data.wavesCompleted, data.workers, ids, data.levels, data.hasWorker);
-                nextWaveIndex = Mathf.Clamp(data.nextWaveIndex, 1, 8);
-                return true;
+                return new LoadedGame
+                {
+                    Resort = resort,
+                    NextWaveIndex = Mathf.Clamp(data.nextWaveIndex, 1, 8),
+                    Wave = data.hasWave ? data.wave : null,   // GameController checks that it fits before using it
+                    SavedAtUnix = data.savedAtUnix
+                };
             }
             catch (Exception)
             {
-                return false;
+                return null;
             }
         }
     }

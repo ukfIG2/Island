@@ -4,14 +4,14 @@ using UnityEngine;
 
 namespace ResortEmpire.Game
 {
-    // Between-waves snapshots only. A wave in progress is never saved — in-memory pause covers
-    // backgrounding, and killing the app mid-wave restores the pre-wave state by design.
+    // The save file: the resort, which wave comes next, and (CAM-53) the wave in progress, so the game can be left at
+    // any moment. The time of the last save is kept for the comeback gift.
     public static class SaveSystem
     {
         [Serializable]
         class SaveData
         {
-            public int version = 1;
+            public int version = 2;      // 1: between waves only; 2: adds the time of the save and a wave in progress
             public int coins;
             public int energy;
             public int resortValue;
@@ -21,17 +21,33 @@ namespace ResortEmpire.Game
             public int[] ids;        // parallel building arrays
             public int[] levels;
             public bool[] hasWorker;
+            public long savedAtUnix;     // real time of the last save
+            public bool hasWave;         // a wave was running; its snapshot is in 'wave'
+            public WaveSnapshot wave;
         }
 
-        public static string SavePath => Application.persistentDataPath + "/resort_save.json";
+        // Tests point this at a temporary file so they never touch the player's real save.
+        public static string PathOverride { get; set; }
+
+        public static string SavePath => PathOverride ?? Application.persistentDataPath + "/resort_save.json";
 
         // Removes the save and its backup, so a reset cannot bring the old game back.
         public static bool Delete() => SafeFile.Delete(SavePath);
 
         public static void Save(GameController game)
         {
-            if (game == null || game.Resort.InWave) return;
+            if (game == null) return;
             var resort = game.Resort;
+
+            // A running wave is saved as it is. Once it has completed the rewards are already in the resort, so the
+            // save continues with the next wave and nothing is paid twice.
+            int nextWave = game.NextWaveIndex;
+            WaveSnapshot wave = null;
+            if (game.ActiveWave != null)
+            {
+                wave = game.ActiveWave.ToSnapshot();   // null once the wave is complete
+                if (game.ActiveWave.Phase == WavePhase.WaveComplete) nextWave = Math.Min(nextWave + 1, game.Waves.Count);
+            }
             int n = resort.Buildings.Count;
             var data = new SaveData
             {
@@ -39,7 +55,10 @@ namespace ResortEmpire.Game
                 energy = resort.Energy,
                 resortValue = resort.ResortValue,
                 wavesCompleted = resort.WavesCompleted,
-                nextWaveIndex = game.NextWaveIndex,
+                nextWaveIndex = nextWave,
+                savedAtUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                hasWave = wave != null,
+                wave = wave,
                 workers = resort.Workers,
                 ids = new int[n],
                 levels = new int[n],

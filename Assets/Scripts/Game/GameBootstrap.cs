@@ -20,9 +20,12 @@ namespace ResortEmpire.Game
         void Update() => Game.Tick(Time.deltaTime);
 
         // Leaving the app pauses a running wave and saves it. A phone sends Pause when the app goes to the background;
-        // a computer sends Focus. Both can arrive, which only saves twice.
+        // a computer build sends Focus. Both can arrive, which only saves twice. In the editor, Focus also fires when
+        // the Game view merely loses focus (a click in the Hierarchy), so there only Pause and Quit count.
         void OnApplicationPause(bool paused) { if (paused && Game != null) Game.LeaveApp(); }
+#if !UNITY_EDITOR
         void OnApplicationFocus(bool focused) { if (!focused && Game != null) Game.LeaveApp(); }
+#endif
         void OnApplicationQuit() { if (Game != null) Game.LeaveApp(); }
     }
 }

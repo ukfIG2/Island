@@ -87,6 +87,7 @@ namespace ResortEmpire.Sim
             // A new building arrives WITH a new worker already assigned, keeping the pool at buildings-1.
             _buildings.Add(new BuildingState { Id = b, Level = 1, HasWorker = true });
             Workers++;
+            ResortValue += _t.ResortValuePerUnlock; // only ever grows
             return true;
         }
 
@@ -99,6 +100,7 @@ namespace ResortEmpire.Sim
             if (Coins < cost) return false;
             Coins -= cost;
             s.Level++;                // capacity only; service speed never changes with level
+            ResortValue += _t.ResortValuePerUpgrade; // only ever grows
             return true;
         }
 

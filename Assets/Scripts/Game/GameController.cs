@@ -21,7 +21,18 @@ namespace ResortEmpire.Game
         public WaveSimulation ActiveWave { get; private set; }     // null between waves
         public int NextWaveIndex { get; private set; }             // 1-based
         public bool PrototypeComplete { get; private set; }        // wave 8 result claimed
+
+        // Game speed. x1 is the pace the designer's numbers are made for; x2 and x4 run the same game faster, for a short
+        // demo or a confident player. The result of a wave never depends on it. It is not saved: every launch starts at x1.
+        public static readonly float[] SpeedSteps = { 1f, 2f, 4f };
         public float SimSpeed { get; set; } = 1f;
+        public static string SpeedLabel(float speed) => (int)speed + "x";
+
+        public void CycleSpeed()
+        {
+            int at = Array.IndexOf(SpeedSteps, SimSpeed);   // -1 for a speed that is no step: back to x1
+            SimSpeed = SpeedSteps[(at + 1) % SpeedSteps.Length];
+        }
 
         public WavePhase CurrentPhase => ActiveWave != null ? ActiveWave.Phase : WavePhase.AwaitingWave;
         public bool IsPaused => ActiveWave != null && ActiveWave.IsPaused;

@@ -10,7 +10,11 @@ namespace ResortEmpire.Game
     {
         readonly List<WaveDef> _waves;
         float _accum;
+        float _sinceSave;
         bool _waveCompletedFired;
+
+        // Real seconds between saves while a wave runs, so a killed app loses at most this much (CAM-110).
+        public const float AutosaveIntervalSeconds = 10f;
 
         public ResortState Resort { get; }
         public TuningConfig Tuning { get; }
@@ -30,13 +34,30 @@ namespace ResortEmpire.Game
         public event Action<string> Toast;
         public event Action<BuildingId> BuildingTapped;
 
-        public GameController(TuningConfig tuning, ResortState resort, int nextWaveIndex, List<WaveDef> waves)
+        public GameController(TuningConfig tuning, ResortState resort, int nextWaveIndex, List<WaveDef> waves,
+            WaveSnapshot savedWave = null)
         {
             Tuning = tuning;
             Resort = resort;
             _waves = waves;
             NextWaveIndex = Math.Min(Math.Max(nextWaveIndex, 1), waves.Count);
             PrototypeComplete = resort.WavesCompleted >= waves[waves.Count - 1].Index;
+            if (savedWave != null) RestoreWave(savedWave);
+        }
+
+        // Brings back the wave that was running when the game was saved (CAM-111). It comes back paused, so the
+        // player resumes it when ready. A snapshot that does not fit is ignored: the game then starts between waves.
+        bool RestoreWave(WaveSnapshot saved)
+        {
+            if (PrototypeComplete) return false;
+            var wave = WaveSimulation.FromSnapshot(Resort, _waves[NextWaveIndex - 1], Tuning, saved);
+            if (wave == null) return false;
+            wave.IsPaused = true;
+            ActiveWave = wave;
+            _accum = 0f;
+            _sinceSave = 0f;
+            _waveCompletedFired = false;
+            return true;
         }
 
         public void StartNextWave()
@@ -44,6 +65,7 @@ namespace ResortEmpire.Game
             if (ActiveWave != null || PrototypeComplete) return;
             ActiveWave = new WaveSimulation(Resort, _waves[NextWaveIndex - 1], Tuning);
             _accum = 0f;
+            _sinceSave = 0f;
             _waveCompletedFired = false;
             ActiveWave.StartWave();
             WaveStarted?.Invoke();
@@ -67,6 +89,24 @@ namespace ResortEmpire.Game
                 StateChanged?.Invoke();             // rewards just landed on ResortState
                 WaveCompleted?.Invoke(ActiveWave.Result);
             }
+
+            if (ActiveWave != null && ActiveWave.Phase != WavePhase.WaveComplete)
+            {
+                _sinceSave += unscaledDt;                // real time, whatever the game speed
+                if (_sinceSave >= AutosaveIntervalSeconds)
+                {
+                    _sinceSave = 0f;
+                    SaveSystem.Save(this);
+                }
+            }
+        }
+
+        // The app goes to the background or closes: a running wave pauses (nothing runs while the player is away)
+        // and the exact moment is saved.
+        public void LeaveApp()
+        {
+            if (ActiveWave != null && ActiveWave.Phase != WavePhase.WaveComplete) SetPaused(true);
+            SaveSystem.Save(this);
         }
 
         public void ContinueAfterResults()

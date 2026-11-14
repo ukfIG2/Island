@@ -34,13 +34,30 @@ namespace ResortEmpire.Game
         public event Action<string> Toast;
         public event Action<BuildingId> BuildingTapped;
 
-        public GameController(TuningConfig tuning, ResortState resort, int nextWaveIndex, List<WaveDef> waves)
+        public GameController(TuningConfig tuning, ResortState resort, int nextWaveIndex, List<WaveDef> waves,
+            WaveSnapshot savedWave = null)
         {
             Tuning = tuning;
             Resort = resort;
             _waves = waves;
             NextWaveIndex = Math.Min(Math.Max(nextWaveIndex, 1), waves.Count);
             PrototypeComplete = resort.WavesCompleted >= waves[waves.Count - 1].Index;
+            if (savedWave != null) RestoreWave(savedWave);
+        }
+
+        // Brings back the wave that was running when the game was saved (CAM-111). It comes back paused, so the
+        // player resumes it when ready. A snapshot that does not fit is ignored: the game then starts between waves.
+        bool RestoreWave(WaveSnapshot saved)
+        {
+            if (PrototypeComplete) return false;
+            var wave = WaveSimulation.FromSnapshot(Resort, _waves[NextWaveIndex - 1], Tuning, saved);
+            if (wave == null) return false;
+            wave.IsPaused = true;
+            ActiveWave = wave;
+            _accum = 0f;
+            _sinceSave = 0f;
+            _waveCompletedFired = false;
+            return true;
         }
 
         public void StartNextWave()

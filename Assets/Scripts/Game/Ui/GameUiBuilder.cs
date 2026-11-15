@@ -11,9 +11,9 @@ namespace ResortEmpire.Game.Ui
     public static class GameUiBuilder
     {
         // resetView brings the island camera back to its starting view; viewMoved says whether it has left it;
-        // startOver throws the game away and begins again (Reset progress).
+        // startOver throws the game away and begins again (Reset progress); showMenu opens the main menu at once (app start).
         public static void Build(GameBootstrap host, GameController game, System.Action resetView,
-            System.Func<bool> viewMoved, System.Action startOver)
+            System.Func<bool> viewMoved, System.Action startOver, bool showMenu)
         {
             var canvasGo = new GameObject("GameUi", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvasGo.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -25,7 +25,7 @@ namespace ResortEmpire.Game.Ui
             if (Object.FindFirstObjectByType<EventSystem>() == null)
                 new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
 
-            canvasGo.AddComponent<GameUiDriver>().Init(game, resetView, viewMoved, startOver);
+            canvasGo.AddComponent<GameUiDriver>().Init(game, resetView, viewMoved, startOver, showMenu);
         }
     }
 
@@ -53,7 +53,7 @@ namespace ResortEmpire.Game.Ui
         NeedStatus[] _lastStatus;
         float _sinceRefresh;
 
-        public void Init(GameController game, System.Action resetView, System.Func<bool> viewMoved, System.Action startOver)
+        public void Init(GameController game, System.Action resetView, System.Func<bool> viewMoved, System.Action startOver, bool showMenu)
         {
             _game = game;
             _viewMoved = viewMoved;
@@ -89,7 +89,8 @@ namespace ResortEmpire.Game.Ui
             _finale.Root.transform.SetAsLastSibling();
             _toasts.Root.transform.SetAsLastSibling();
             _results.Root.transform.SetAsLastSibling();
-            _shell.BringToFront();                                   // menu, settings and confirm cover everything
+            _shell.BringToFront();                                   // menus, settings and confirm cover everything
+            if (showMenu) _shell.OpenMainMenu();
 
             _lastStatus = new NeedStatus[System.Enum.GetValues(typeof(NeedId)).Length];
             RememberStatuses();   // a wave restored from a save is already under way: no "line is long" toast for it

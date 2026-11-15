@@ -122,7 +122,8 @@ namespace ResortEmpire.Sim.Tests
                 {
                     need = l.need, demand = l.demand, pending = pending, nextSpawn = l.nextSpawn, queue = units(l.queue), seated = units(l.seated),
                     served = l.served, waitSum = f(l.waitSum), contributionSum = f(l.contributionSum), status = l.status, prevQueue = l.prevQueue,
-                    nonDecreasingSeconds = f(l.nonDecreasingSeconds), bottleneckSeconds = f(l.bottleneckSeconds), helpGrace = f(l.helpGrace)
+                    nonDecreasingSeconds = f(l.nonDecreasingSeconds), bottleneckSeconds = f(l.bottleneckSeconds),
+                    unstaffedBottleneckSeconds = f(l.unstaffedBottleneckSeconds), helpGrace = f(l.helpGrace)
                 };
             }
             for (int i = 0; i < s.boosts.Length; i++)
@@ -212,6 +213,7 @@ namespace ResortEmpire.Sim.Tests
                 Assert.AreEqual(a.Result.CoinsEarned, b.Result.CoinsEarned, "coins earned at " + where);
                 Assert.AreEqual(a.Result.EnergyEarned, b.Result.EnergyEarned, "energy earned at " + where);
                 Assert.AreEqual(a.Result.WorstNeed, b.Result.WorstNeed, "worst need at " + where);
+                Assert.AreEqual(a.Result.WorstNeedCause, b.Result.WorstNeedCause, "cause of the worst need at " + where);
                 Assert.AreEqual(a.Coins, b.Coins, "resort coins at " + where);
                 Assert.AreEqual(a.Energy, b.Energy, "resort energy at " + where);
                 Assert.AreEqual(a.ResortValue, b.ResortValue, "resort value at " + where);

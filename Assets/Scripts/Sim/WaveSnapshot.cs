@@ -29,6 +29,7 @@ namespace ResortEmpire.Sim
         public int prevQueue;
         public float nonDecreasingSeconds;
         public float bottleneckSeconds;
+        public float unstaffedBottleneckSeconds;   // part of bottleneckSeconds with no Worker on the building
         public float helpGrace;
     }
 

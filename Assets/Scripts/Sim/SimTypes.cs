@@ -45,6 +45,14 @@ namespace ResortEmpire.Sim
         TooFewSeats     // the building is staffed and full: only more seats fix it
     }
 
+    // CAM-38: why the worst line of a finished wave grew, for the result screen.
+    public enum BottleneckCause
+    {
+        None,
+        Staffing,       // its building stood empty for most of the trouble: a Worker would have fixed it
+        Capacity        // it was staffed but too small for the crowd: more seats would have
+    }
+
     public static class BuildingNeeds
     {
         // Build doc §4.5: Reception = hotel block -> Rooms; Bungalows = premium ocean huts -> OceanView.

@@ -110,7 +110,7 @@ namespace ResortEmpire.Sim.Tests
             var c = new WaveSnapshot
             {
                 version = s.version, waveIndex = s.waveIndex, phase = s.phase, timeInWave = f(s.timeInWave),
-                incomingElapsed = f(s.incomingElapsed), rushTriggered = s.rushTriggered,
+                incomingElapsed = f(s.incomingElapsed), rushTriggered = s.rushTriggered, rushNeed = s.rushNeed,
                 lanes = new LaneSnapshot[s.lanes.Length], boosts = new BoostSnapshot[s.boosts.Length]
             };
             for (int i = 0; i < s.lanes.Length; i++)
@@ -136,7 +136,7 @@ namespace ResortEmpire.Sim.Tests
         static string Fingerprint(WaveSnapshot s)
         {
             var sb = new StringBuilder();
-            sb.Append(s.waveIndex).Append('|').Append(s.phase).Append('|').Append(s.timeInWave.ToString("R", CultureInfo.InvariantCulture)).Append('|').Append(s.rushTriggered);
+            sb.Append(s.waveIndex).Append('|').Append(s.phase).Append('|').Append(s.timeInWave.ToString("R", CultureInfo.InvariantCulture)).Append('|').Append(s.rushTriggered).Append('|').Append(s.rushNeed);
             foreach (var l in s.lanes)
             {
                 sb.Append('#').Append(l.demand).Append(',').Append(l.nextSpawn).Append(',').Append(l.served).Append(',').Append(l.status);
@@ -239,6 +239,26 @@ namespace ResortEmpire.Sim.Tests
         }
 
         [Test]
+        public void RoundTrip_KeepsTheNeedTheSuddenRushLandedOn()
+        {
+            var def = WaveTable.Default8()[1];            // wave 2 has the Sudden rush at 45 s
+            var resort = MakeResort(2, 0);                // the Beach Bar has no Worker: the rush lands on Drinks
+            var sim = new WaveSimulation(resort, def, T);
+            sim.StartWave();
+            while (sim.TimeInWave < T.RushTimeSeconds - 1f) sim.Tick(Dt);
+            var before = WaveSimulation.FromSnapshot(CloneResort(resort), def, T, Copy(sim.ToSnapshot(), v => v));
+            Assert.IsFalse(before.RushFired, "not yet fired");
+            Assert.IsNull(before.RushNeed);
+
+            while (sim.TimeInWave < T.RushTimeSeconds + 1f) sim.Tick(Dt);
+            Assert.IsTrue(sim.RushFired);
+            var after = WaveSimulation.FromSnapshot(CloneResort(resort), def, T, Copy(sim.ToSnapshot(), v => v));
+            Assert.NotNull(after);
+            Assert.IsTrue(after.RushFired, "the rush is remembered, so the prompt can come back");
+            Assert.AreEqual(sim.RushNeed, after.RushNeed);
+        }
+
+        [Test]
         public void ToSnapshot_IsNullBeforeTheWaveStartsAndAfterItEnds()
         {
             var resort = MakeResort(1, 0);
@@ -299,6 +319,12 @@ namespace ResortEmpire.Sim.Tests
 
             var missingBoosts = fresh(); missingBoosts.boosts = null;
             Assert.IsNull(WaveSimulation.FromSnapshot(CloneResort(resort), def, T, missingBoosts));
+
+            var unknownRushNeed = fresh(); unknownRushNeed.rushTriggered = true; unknownRushNeed.rushNeed = 99;
+            Assert.IsNull(WaveSimulation.FromSnapshot(CloneResort(resort), def, T, unknownRushNeed));
+
+            var rushWithoutTrigger = fresh(); rushWithoutTrigger.rushTriggered = false; rushWithoutTrigger.rushNeed = (int)NeedId.Drinks;
+            Assert.IsNull(WaveSimulation.FromSnapshot(CloneResort(resort), def, T, rushWithoutTrigger));
 
             // A wave that has no Pool cannot come back with guests for the Pool: locked needs never spawn (WR9).
             var withPoolGuests = fresh();

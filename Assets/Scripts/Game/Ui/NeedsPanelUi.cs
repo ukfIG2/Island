@@ -30,6 +30,9 @@ namespace ResortEmpire.Game.Ui
         readonly Text _pauseLabel;
         readonly Text _speedLabel;
 
+        // How far down the panel the open need rows reach; the Sudden-rush prompt sits below them (CAM-48).
+        public float RowsBottom { get; private set; }
+
         public NeedsPanelUi(Transform canvas, GameController game, WorkerSheetUi sheet)
         {
             _game = game;
@@ -208,6 +211,7 @@ namespace ResortEmpire.Game.Ui
                     messageCount++;
                 }
             }
+            RowsBottom = 52f + shown * 92f - 8f;
             for (int i = messageCount; i < _messages.Length; i++)
             {
                 _messages[i].text = "";

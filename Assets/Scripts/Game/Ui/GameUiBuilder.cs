@@ -44,6 +44,8 @@ namespace ResortEmpire.Game.Ui
         AreaOfferUi _area;
         FinaleUi _finale;
         ResumeOverlayUi _resume;
+        RushPromptUi _rush;
+        bool _rushHandled;                 // the prompt is offered once per wave
         Button _resetView;
         System.Func<bool> _viewMoved;
         NeedStatus[] _lastStatus;
@@ -70,7 +72,9 @@ namespace ResortEmpire.Game.Ui
             _area = new AreaOfferUi(canvas, game);
             _finale = new FinaleUi(canvas, game);
             _resume = new ResumeOverlayUi(canvas, game);
-            // Draw order, back to front: top bar, home, wave panel, sheet, resume card, upgrade suggestion, area offer, toasts, result overlay.
+            _rush = new RushPromptUi(canvas, game, _sheet);
+            // Draw order, back to front: top bar, home, wave panel, rush prompt, sheet, resume card, upgrade suggestion, area offer, toasts, result overlay.
+            _rush.Root.transform.SetAsLastSibling();
             _sheet.Root.transform.SetAsLastSibling();
             _resume.Root.transform.SetAsLastSibling();
             _suggestion.Root.transform.SetAsLastSibling();
@@ -81,6 +85,7 @@ namespace ResortEmpire.Game.Ui
 
             _lastStatus = new NeedStatus[System.Enum.GetValues(typeof(NeedId)).Length];
             RememberStatuses();   // a wave restored from a save is already under way: no "line is long" toast for it
+            _rushHandled = _game.ActiveWave != null && _game.ActiveWave.RushFired;   // ...and no stale rush prompt either
 
             _game.StateChanged += OnStateChanged;
             _game.WaveStarted += OnWaveStarted;
@@ -104,12 +109,14 @@ namespace ResortEmpire.Game.Ui
         {
             if (_game == null) return;
             _toasts.Tick(Time.deltaTime);
+            _rush.Tick(Time.deltaTime);
             bool moved = _viewMoved();
             if (_resetView.gameObject.activeSelf != moved) _resetView.gameObject.SetActive(moved);
             _sinceRefresh += Time.deltaTime;
             if (_sinceRefresh < RefreshInterval) return;
             _sinceRefresh = 0f;
             WatchStatusShifts();
+            WatchRush();
             RefreshAll();
         }
 
@@ -132,6 +139,8 @@ namespace ResortEmpire.Game.Ui
         void OnWaveStarted()
         {
             RememberStatuses();
+            _rushHandled = false;
+            _rush.Hide();
             _home.CloseCard();
             _sheet.Close();
             RefreshAll();
@@ -139,6 +148,7 @@ namespace ResortEmpire.Game.Ui
 
         void OnWaveCompleted(WaveResult result)
         {
+            _rush.Hide();
             _sheet.Close();
             _results.Show(result);
             RefreshAll();
@@ -218,6 +228,15 @@ namespace ResortEmpire.Game.Ui
             }
         }
 
+        // The Sudden rush (CAM-48) is not forecast: the prompt appears when the sim reports it, once per wave.
+        void WatchRush()
+        {
+            var sim = _game.ActiveWave;
+            if (sim == null || _rushHandled || !sim.RushFired || sim.Phase == WavePhase.WaveComplete) return;
+            _rushHandled = true;
+            _rush.Show(UiFactory.BuildingFor(sim.RushNeed.Value), _needs.RowsBottom);
+        }
+
         static string GuestQuote(NeedId need)
         {
             switch (need)
@@ -241,6 +260,7 @@ namespace ResortEmpire.Game.Ui
             _needs.SetVisible(waveRunning);
             if (waveRunning) _needs.Refresh();
             _resume.Refresh();
+            _rush.Refresh();
             _suggestion.Refresh();
             _area.Refresh();
         }

@@ -183,6 +183,26 @@ namespace ResortEmpire.Game.Tests
         }
 
         [Test]
+        public void ASavedWave_RemembersWhereTheSuddenRushLanded()
+        {
+            InTempFolder(path =>
+            {
+                var tuning = TuningConfig.Default;
+                var original = new GameController(tuning, ResortState.NewGame(tuning), 2, WaveTable.Default8());   // wave 2 has the rush
+                original.StartNextWave();
+                for (int i = 0; i < 600 && !original.ActiveWave.RushFired; i++) original.Tick(0.5f);
+                Assert.IsTrue(original.ActiveWave.RushFired, "the rush should have landed by now");
+                original.LeaveApp();
+
+                var returned = Reopen();
+
+                Assert.NotNull(returned.ActiveWave);
+                Assert.IsTrue(returned.ActiveWave.RushFired, "a wave that comes back must not offer the rush prompt again");
+                Assert.AreEqual(original.ActiveWave.RushNeed, returned.ActiveWave.RushNeed);
+            });
+        }
+
+        [Test]
         public void AWaveThatDoesNotFit_IsIgnored_AndTheGameStartsBetweenWaves()
         {
             InTempFolder(path =>

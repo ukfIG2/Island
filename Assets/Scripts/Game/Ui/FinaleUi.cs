@@ -4,8 +4,9 @@ using UnityEngine.UI;
 
 namespace ResortEmpire.Game.Ui
 {
-    // The Resort summary after the last wave: an ending, not a score screen. It shows the waves cleared, the stars
-    // earned, the Resort Value and the resort as it stands, and it never frames anything as a failure.
+    // The Resort summary after the eighth wave: a milestone, not a score screen. It shows the waves cleared, the stars
+    // earned, the Resort Value and the resort as it stands, and it never frames anything as a failure. The waves go
+    // on after it (CAM-28), so its one button is Keep playing.
     public sealed class FinaleUi
     {
         readonly GameController _game;
@@ -14,13 +15,15 @@ namespace ResortEmpire.Game.Ui
         readonly Text _stars;
         readonly Text _value;
         readonly Text _buildings;
+        readonly System.Action _closed;
 
         public GameObject Root => _root;
         public bool Visible => _root.activeSelf;
 
-        public FinaleUi(Transform canvas, GameController game)
+        public FinaleUi(Transform canvas, GameController game, System.Action closed)
         {
             _game = game;
+            _closed = closed;
             var dim = UiFactory.Go(canvas, "Finale").AddComponent<Image>();
             dim.color = new Color(0f, 0f, 0f, 0.55f); // plain square dim; blocks taps behind it
             _root = dim.gameObject;
@@ -43,10 +46,10 @@ namespace ResortEmpire.Game.Ui
             UiFactory.Place(_buildings.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(60f, -430f), new Vector2(-60f, -270f));
             _buildings.horizontalOverflow = HorizontalWrapMode.Wrap;
 
-            var thanks = UiFactory.Label(card, "Thanks", "Your resort is complete. Thank you for playing!", 28, UiFactory.Cream, TextAnchor.MiddleCenter, FontStyle.Bold);
+            var thanks = UiFactory.Label(card, "Thanks", "Your resort is complete. The waves go on.", 28, UiFactory.Cream, TextAnchor.MiddleCenter, FontStyle.Bold);
             UiFactory.Place(thanks.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(40f, -490f), new Vector2(-40f, -446f));
 
-            var back = UiFactory.TextButton(card, "Back", "BACK TO ISLAND", 34, UiFactory.Cta, UiFactory.Cream, Close);
+            var back = UiFactory.TextButton(card, "KeepPlaying", "KEEP PLAYING", 34, UiFactory.Cta, UiFactory.Cream, Close);
             UiFactory.PlaceFixed(back.gameObject, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 34f), new Vector2(420f, 96f));
 
             _root.SetActive(false);
@@ -77,6 +80,7 @@ namespace ResortEmpire.Game.Ui
         void Close()
         {
             _root.SetActive(false);
+            _closed?.Invoke();
         }
     }
 }

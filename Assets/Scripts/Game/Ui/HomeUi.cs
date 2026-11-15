@@ -23,7 +23,6 @@ namespace ResortEmpire.Game.Ui
         readonly Text _forecastTitle;
         readonly ForecastRow[] _rows;
         readonly GameObject _banner;
-        readonly Text _complete;
 
         readonly GameObject _card;
         readonly Text _cardTitle;
@@ -78,11 +77,6 @@ namespace ResortEmpire.Game.Ui
             UiFactory.PlaceFixed(_banner, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -132f), new Vector2(580f, 52f));
             var bannerText = UiFactory.Label(_banner.transform, "Text", "New area available — tap the site", 24, UiFactory.Cream, TextAnchor.MiddleCenter);
             UiFactory.Place(bannerText.gameObject, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
-
-            _complete = UiFactory.Label(_root.transform, "PrototypeComplete", "Prototype complete — thanks for playing!", 32, UiFactory.Cream, TextAnchor.MiddleCenter, FontStyle.Bold);
-            UiFactory.PlaceFixed(_complete.gameObject, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 200f), new Vector2(1000f, 44f));
-            var outline = _complete.gameObject.AddComponent<Outline>();
-            outline.effectColor = new Color(0f, 0f, 0f, 0.45f);
 
             // Building action card: one at a time, bottom right, X to close.
             var cardImg = UiFactory.PanelImage(_root.transform, "ActionCard", UiFactory.Panel);
@@ -155,20 +149,16 @@ namespace ResortEmpire.Game.Ui
 
         public void Refresh()
         {
-            var wave = _game.NextWaveDef;
-            _start.gameObject.SetActive(wave != null);
-            if (wave != null) _startLabel.text = "START WAVE " + wave.Index;
-            _complete.gameObject.SetActive(wave == null);
+            var wave = _game.NextWaveDef;               // the waves go on past wave 8, so there is always a next one
+            _startLabel.text = "START WAVE " + wave.Index;
             RefreshForecast(wave);
             _banner.SetActive(UnlockWaiting());
             RefreshCard();
         }
 
-        // The forecast shows the scripted demand only; a Sudden rush is never announced.
+        // The forecast shows the demand of the wave only; a Sudden rush is never announced.
         void RefreshForecast(WaveDef wave)
         {
-            _forecastRect.gameObject.SetActive(wave != null);
-            if (wave == null) return;
             _forecastTitle.text = "Next wave " + wave.Index;
             int shown = 0;
             foreach (var row in _rows)

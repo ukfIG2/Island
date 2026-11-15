@@ -46,5 +46,69 @@ namespace ResortEmpire.Sim.Tests
                 Assert.IsFalse(table[w].IsDebut && table[w].HasSuddenRush, "the rush never falls in a debut wave");
             }
         }
+
+        // CAM-28: after wave 8 the waves are generated from wave 8, so the game can go on for as long as the player likes.
+        [Test]
+        public void WaveFor_GivesTheScriptedTableForWavesOneToEight()
+        {
+            var table = WaveTable.Default8();
+            for (int w = 1; w <= 8; w++)
+            {
+                var wave = WaveTable.WaveFor(w);
+                Assert.AreEqual(w, wave.Index);
+                Assert.AreEqual(table[w - 1].HasSuddenRush, wave.HasSuddenRush, "rush in wave " + w);
+                Assert.AreEqual(table[w - 1].IsDebut, wave.IsDebut, "debut flag of wave " + w);
+                CollectionAssert.AreEquivalent(table[w - 1].Demand, wave.Demand, "demand of wave " + w);
+            }
+        }
+
+        [Test]
+        public void EndlessWaves_GrowEveryNeedBySixPercentOverWaveEight_AndBringNoNewNeed()
+        {
+            var t = TuningConfig.Default;
+            var last = WaveTable.Default8()[7];
+            for (int index = 9; index <= 40; index++)
+            {
+                var wave = WaveTable.WaveFor(index, t);
+                Assert.AreEqual(index, wave.Index);
+                Assert.IsFalse(wave.IsDebut, "generated waves never debut");
+                CollectionAssert.AreEquivalent(last.Demand.Keys, wave.Demand.Keys, "no new need in wave " + index);
+                foreach (var pair in last.Demand)
+                {
+                    int expected = (int)System.Math.Round(pair.Value * System.Math.Pow(1.06, index - 8),
+                        System.MidpointRounding.AwayFromZero);
+                    Assert.AreEqual(expected, wave.Demand[pair.Key], "wave " + index + ", " + pair.Key);
+                }
+            }
+            Assert.AreEqual(33, WaveTable.WaveFor(9, t).Demand[NeedId.Rooms], "31 x 1.06, rounded");
+            Assert.AreEqual(37, WaveTable.WaveFor(9, t).Demand[NeedId.Drinks], "35 x 1.06, rounded");
+        }
+
+        [Test]
+        public void EndlessWaves_NeverShrink_AndEveryThirdOneCarriesTheSuddenRush()
+        {
+            var t = TuningConfig.Default;
+            int previousTotal = 0;
+            for (int index = 8; index <= 60; index++)
+            {
+                var wave = WaveTable.WaveFor(index, t);
+                int total = 0;
+                foreach (var units in wave.Demand.Values) total += units;
+                Assert.GreaterOrEqual(total, previousTotal, "wave " + index + " is never smaller than the one before");
+                previousTotal = total;
+                if (index > 8) Assert.AreEqual(index % 3 == 0, wave.HasSuddenRush, "rush in wave " + index);
+            }
+        }
+
+        [Test]
+        public void EndlessWaves_AreTheSameEveryTimeTheyAreAskedFor()
+        {
+            var t = TuningConfig.Default;
+            var a = WaveTable.WaveFor(17, t);
+            var b = WaveTable.WaveFor(17, t);
+            Assert.AreNotSame(a, b, "a fresh wave each time, so nobody can change the table by accident");
+            CollectionAssert.AreEquivalent(a.Demand, b.Demand);
+            Assert.Throws<System.ArgumentOutOfRangeException>(() => WaveTable.WaveFor(0));
+        }
     }
 }

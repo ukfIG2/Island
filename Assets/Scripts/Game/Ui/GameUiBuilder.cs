@@ -48,6 +48,7 @@ namespace ResortEmpire.Game.Ui
         AppShellUi _shell;
         RushPromptUi _rush;
         bool _rushHandled;                 // the prompt is offered once per wave
+        WaveResult _finaleResult;          // the eighth wave's result, kept while the Resort summary is open
         Button _resetView;
         System.Func<bool> _viewMoved;
         NeedStatus[] _lastStatus;
@@ -76,7 +77,7 @@ namespace ResortEmpire.Game.Ui
             _results = new ResultOverlayUi(canvas, game, OnResultClaimed);
             _suggestion = new UpgradeSuggestionUi(canvas, game, OnSuggestionClosed);
             _area = new AreaOfferUi(canvas, game);
-            _finale = new FinaleUi(canvas, game);
+            _finale = new FinaleUi(canvas, game, OnFinaleClosed);
             _resume = new ResumeOverlayUi(canvas, game);
             _rush = new RushPromptUi(canvas, game, _sheet);
             _shell = new AppShellUi(canvas, game, DeviceSettings.Current, startOver);
@@ -163,13 +164,25 @@ namespace ResortEmpire.Game.Ui
             RefreshAll();
         }
 
-        // S4 leads on to S5 (UI handoff): one optional investment, skipped when the wave left nothing to improve and after
-        // the last wave. Then S9 follows when the wave just finished made a new area available; skipped, that area waits
-        // at its construction site. "Later" on either card goes back to the island.
+        // S4 leads on to S5 (UI handoff): one optional investment, skipped when the wave left nothing to improve. Then S9
+        // follows when the wave just finished made a new area available; skipped, that area waits at its construction
+        // site. "Later" on either card goes back to the island. After wave 8 the Resort summary comes first, and its
+        // Keep playing button leads on the same way (CAM-28: the waves go on).
         void OnResultClaimed(WaveResult result)
         {
-            if (_game.PrototypeComplete) _finale.Show();               // after wave 8: the Resort summary, an ending
+            if (result.WaveIndex == _game.Waves.Count)
+            {
+                _finaleResult = result;
+                _finale.Show();
+            }
             else if (!_suggestion.TryShow(result)) ShowDueArea();
+            RefreshAll();
+        }
+
+        void OnFinaleClosed()
+        {
+            if (_finaleResult == null || !_suggestion.TryShow(_finaleResult)) ShowDueArea();
+            _finaleResult = null;
             RefreshAll();
         }
 

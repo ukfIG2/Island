@@ -29,6 +29,7 @@ namespace ResortEmpire.Sim
             public int PrevQueue;
             public float NonDecreasingSeconds;
             public float BottleneckSeconds;
+            public float UnstaffedBottleneckSeconds;          // part of BottleneckSeconds with no Worker on the building
             public float HelpGrace;                           // AC2: no return to Bottleneck while > 0
         }
 
@@ -85,12 +86,7 @@ namespace ResortEmpire.Sim
             }
         }
 
-        static BuildingId BuildingFor(NeedId need)
-        {
-            foreach (BuildingId b in Enum.GetValues(typeof(BuildingId)))
-                if (BuildingNeeds.Serves(b) == need) return b;
-            return BuildingId.Reception;
-        }
+        static BuildingId BuildingFor(NeedId need) => BuildingNeeds.BuildingFor(need);
 
         public void StartWave()
         {
@@ -241,6 +237,7 @@ namespace ResortEmpire.Sim
                     prevQueue = lane.PrevQueue,
                     nonDecreasingSeconds = lane.NonDecreasingSeconds,
                     bottleneckSeconds = lane.BottleneckSeconds,
+                    unstaffedBottleneckSeconds = lane.UnstaffedBottleneckSeconds,
                     helpGrace = lane.HelpGrace
                 };
             }
@@ -290,6 +287,7 @@ namespace ResortEmpire.Sim
                 lane.PrevQueue = ls.prevQueue;
                 lane.NonDecreasingSeconds = ls.nonDecreasingSeconds;
                 lane.BottleneckSeconds = ls.bottleneckSeconds;
+                lane.UnstaffedBottleneckSeconds = ls.unstaffedBottleneckSeconds;
                 lane.HelpGrace = ls.helpGrace;
             }
             foreach (var b in snap.boosts)
@@ -329,7 +327,7 @@ namespace ResortEmpire.Sim
                 if (ls == null || ls.need != (int)needs[i] || ls.pending == null || ls.queue == null || ls.seated == null) return false;
                 if (ls.demand < 0 || ls.served < 0 || ls.prevQueue < 0 || ls.nextSpawn < 0 || ls.nextSpawn > ls.pending.Length) return false;
                 if (!Enum.IsDefined(typeof(NeedStatus), ls.status)) return false;
-                if (!Ok(ls.waitSum) || !Ok(ls.contributionSum) || !Ok(ls.nonDecreasingSeconds) || !Ok(ls.bottleneckSeconds) || !Ok(ls.helpGrace)) return false;
+                if (!Ok(ls.waitSum) || !Ok(ls.contributionSum) || !Ok(ls.nonDecreasingSeconds) || !Ok(ls.bottleneckSeconds) || !Ok(ls.unstaffedBottleneckSeconds) || !Ok(ls.helpGrace)) return false;
                 foreach (float f in ls.pending) if (!Ok(f)) return false;
                 foreach (var u in ls.queue) if (u == null || !Ok(u.spawn) || !Ok(u.wait) || !Ok(u.progress)) return false;
                 foreach (var u in ls.seated) if (u == null || !Ok(u.spawn) || !Ok(u.wait) || !Ok(u.progress)) return false;
@@ -446,7 +444,11 @@ namespace ResortEmpire.Sim
                         break;
                 }
 
-                if (lane.Status == NeedStatus.Bottleneck) lane.BottleneckSeconds += dt;
+                if (lane.Status == NeedStatus.Bottleneck)
+                {
+                    lane.BottleneckSeconds += dt;
+                    if (!lane.Building.HasWorker) lane.UnstaffedBottleneckSeconds += dt;
+                }
                 lane.PrevQueue = q;
             }
         }
@@ -508,6 +510,10 @@ namespace ResortEmpire.Sim
                 {
                     worstSeconds = lane.BottleneckSeconds;
                     r.WorstNeed = lane.Need;
+                    // Empty for more than half of its trouble: a staffing problem; otherwise too small for the crowd.
+                    r.WorstNeedCause = lane.UnstaffedBottleneckSeconds * 2f > lane.BottleneckSeconds
+                        ? BottleneckCause.Staffing
+                        : BottleneckCause.Capacity;
                 }
             }
 

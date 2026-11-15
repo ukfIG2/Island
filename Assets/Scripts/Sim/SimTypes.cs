@@ -45,6 +45,14 @@ namespace ResortEmpire.Sim
         TooFewSeats     // the building is staffed and full: only more seats fix it
     }
 
+    // CAM-38: why the worst line of a finished wave grew, for the result screen.
+    public enum BottleneckCause
+    {
+        None,
+        Staffing,       // its building stood empty for most of the trouble: a Worker would have fixed it
+        Capacity        // it was staffed but too small for the crowd: more seats would have
+    }
+
     public static class BuildingNeeds
     {
         // Build doc §4.5: Reception = hotel block -> Rooms; Bungalows = premium ocean huts -> OceanView.
@@ -58,6 +66,19 @@ namespace ResortEmpire.Sim
                 case BuildingId.Pool: return NeedId.Relax;
                 case BuildingId.Bungalows: return NeedId.OceanView;
                 default: return NeedId.Rooms;
+            }
+        }
+
+        // The wave building that serves a need (the inverse of Serves).
+        public static BuildingId BuildingFor(NeedId need)
+        {
+            switch (need)
+            {
+                case NeedId.Rooms: return BuildingId.Reception;
+                case NeedId.Food: return BuildingId.Restaurant;
+                case NeedId.Drinks: return BuildingId.BeachBar;
+                case NeedId.Relax: return BuildingId.Pool;
+                default: return BuildingId.Bungalows;
             }
         }
     }

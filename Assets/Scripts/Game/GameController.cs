@@ -12,6 +12,7 @@ namespace ResortEmpire.Game
         float _accum;
         float _sinceSave;
         bool _waveCompletedFired;
+        bool _retired;
 
         // Real seconds between saves while a wave runs, so a killed app loses at most this much (CAM-110).
         public const float AutosaveIntervalSeconds = 10f;
@@ -82,9 +83,18 @@ namespace ResortEmpire.Game
             WaveStarted?.Invoke();
         }
 
+        // "Reset progress" (CAM-51): this game is thrown away. Nothing runs or saves after this, so the old resort can
+        // never be written over the empty save while the scene reloads.
+        public void Retire() => _retired = true;
+
+        void Persist()
+        {
+            if (!_retired) SaveSystem.Save(this);
+        }
+
         public void Tick(float unscaledDt)
         {
-            if (ActiveWave == null) return;
+            if (ActiveWave == null || _retired) return;
             if (ActiveWave.IsPaused) { _accum = 0f; return; } // paused time never banks up
 
             _accum += unscaledDt * SimSpeed;
@@ -107,7 +117,7 @@ namespace ResortEmpire.Game
                 if (_sinceSave >= AutosaveIntervalSeconds)
                 {
                     _sinceSave = 0f;
-                    SaveSystem.Save(this);
+                    Persist();
                 }
             }
         }
@@ -117,7 +127,7 @@ namespace ResortEmpire.Game
         public void LeaveApp()
         {
             if (ActiveWave != null && ActiveWave.Phase != WavePhase.WaveComplete) SetPaused(true);
-            SaveSystem.Save(this);
+            Persist();
         }
 
         public void ContinueAfterResults()
@@ -126,7 +136,7 @@ namespace ResortEmpire.Game
             if (NextWaveIndex >= _waves.Count) PrototypeComplete = true; // wave 8 result just claimed
             NextWaveIndex = Math.Min(NextWaveIndex + 1, _waves.Count);
             ActiveWave = null;
-            SaveSystem.Save(this);
+            Persist();
             StateChanged?.Invoke();
         }
 
@@ -138,7 +148,7 @@ namespace ResortEmpire.Game
             bool inWave = ActiveWave != null && ActiveWave.Phase != WavePhase.WaveComplete;
             bool ok = inWave ? ActiveWave.MoveWorker(from, to) : Resort.MoveWorker(from, to);
             if (!ok) return false;
-            if (ActiveWave == null) SaveSystem.Save(this);
+            if (ActiveWave == null) Persist();
             StateChanged?.Invoke();
             Toast?.Invoke("Worker moved to " + DisplayName(to));
             return true;
@@ -166,7 +176,7 @@ namespace ResortEmpire.Game
         public void WatchTestAd()
         {
             Resort.Energy += TestAdEnergy;
-            if (ActiveWave == null) SaveSystem.Save(this);
+            if (ActiveWave == null) Persist();
             StateChanged?.Invoke();
             Toast?.Invoke("Test ad watched: +" + TestAdEnergy + " Energy");
         }
@@ -175,7 +185,7 @@ namespace ResortEmpire.Game
         {
             if (ActiveWave != null) return false; // upgrades exist only between waves (WR6)
             if (!Resort.Upgrade(b)) return false;
-            SaveSystem.Save(this);
+            Persist();
             StateChanged?.Invoke();
             Toast?.Invoke(DisplayName(b) + " upgraded to Lv" + Resort.Get(b).Level);
             return true;
@@ -185,7 +195,7 @@ namespace ResortEmpire.Game
         {
             if (ActiveWave != null) return false; // unlocks exist only between waves (WR6)
             if (!Resort.Unlock(b)) return false;
-            SaveSystem.Save(this);
+            Persist();
             StateChanged?.Invoke();
             Toast?.Invoke(DisplayName(b) + " unlocked");
             return true;

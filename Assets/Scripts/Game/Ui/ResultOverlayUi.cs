@@ -124,14 +124,12 @@ namespace ResortEmpire.Game.Ui
             _wentWell.text = ResultText.WentWell(result, _game.Tuning.PatienceGraceSeconds);
             _improve.text = ResultText.NeedsImprovement(result);
 
-            // The last wave still needs a way back, or the overlay would never close and the
-            // prototype would never be marked complete.
-            bool last = result.WaveIndex >= _game.Waves[_game.Waves.Count - 1].Index;
-            _leaving.text = last ? "Prototype complete — thanks for playing!" : ResultText.LeavingLine(result.Stars);
+            // The last scripted wave says so; the Resort summary follows it and the waves go on after that (CAM-28).
+            bool last = result.WaveIndex == _game.Waves.Count;
+            _leaving.text = last ? "All eight waves are done. Well played!" : ResultText.LeavingLine(result.Stars);
             _leaving.fontSize = last ? 28 : 22;
             _leaving.fontStyle = last ? FontStyle.Bold : FontStyle.Italic;
             _leaving.color = last ? UiFactory.Cream : UiFactory.CreamDim;
-            UiFactory.ButtonLabel(_claim).text = last ? "BACK TO ISLAND" : "CLAIM REWARDS";
         }
 
         void OnClaim()

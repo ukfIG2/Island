@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace ResortEmpire.Game.Ui
 {
-    // The app shell: pause menu, settings and the start-over confirmation, and which screen "Back" returns to.
+    // The app shell: main menu, pause menu, settings and the start-over confirmation, and which screen "Back" returns to.
     // Opening the menu during a wave pauses it; Resume lifts only a pause the shell itself set, so a wave the player
     // had already paused stays paused.
     public sealed class AppShellUi
@@ -14,19 +14,21 @@ namespace ResortEmpire.Game.Ui
 
         readonly GameController _game;
         readonly Action _startOver;
+        readonly MainMenuUi _main;
         readonly PauseMenuUi _pause;
         readonly SettingsUi _settings;
         readonly ConfirmDialogUi _confirm;
         Action _settingsBack;
         bool _pausedWave;
 
-        public bool IsOpen => _pause.Visible || _settings.Visible || _confirm.Visible;
+        public bool IsOpen => _main.Visible || _pause.Visible || _settings.Visible || _confirm.Visible;
 
         public AppShellUi(Transform canvas, GameController game, AppSettings settings, Action startOver)
         {
             _game = game;
             _startOver = startOver;
-            _pause = new PauseMenuUi(canvas, CloseAll, () => OpenSettings(ShowPause));
+            _main = new MainMenuUi(canvas, CloseAll, () => AskStartOver(ShowMain), () => OpenSettings(ShowMain));
+            _pause = new PauseMenuUi(canvas, CloseAll, () => OpenSettings(ShowPause), ShowMain);
             _settings = new SettingsUi(canvas, settings, () => _settingsBack?.Invoke(), () => AskStartOver(ShowSettings));
             _confirm = new ConfirmDialogUi(canvas);
         }
@@ -34,10 +36,15 @@ namespace ResortEmpire.Game.Ui
         // Above everything else on the canvas.
         public void BringToFront()
         {
+            _main.Root.transform.SetAsLastSibling();
             _pause.Root.transform.SetAsLastSibling();
             _settings.Root.transform.SetAsLastSibling();
             _confirm.Root.transform.SetAsLastSibling();
         }
+
+        // The app opens on this; PLAY / CONTINUE just closes it, so a wave that came back from a save still waits on its own
+        // Resume card underneath.
+        public void OpenMainMenu() => ShowMain();
 
         public void OpenPauseMenu()
         {
@@ -51,6 +58,12 @@ namespace ResortEmpire.Game.Ui
         }
 
         bool WaveRunning => _game.ActiveWave != null && _game.CurrentPhase != WavePhase.WaveComplete;
+
+        void ShowMain()
+        {
+            HideAll();
+            _main.Show(_game.HasProgress);
+        }
 
         void ShowPause()
         {
@@ -88,6 +101,7 @@ namespace ResortEmpire.Game.Ui
 
         void HideAll()
         {
+            _main.Hide();
             _pause.Hide();
             _settings.Hide();
             _confirm.Hide();

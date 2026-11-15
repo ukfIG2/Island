@@ -51,6 +51,8 @@ namespace ResortEmpire.Sim
         public bool IsPaused { get; set; }
         public float TimeInWave { get; private set; } // seconds inside WaveActive, pause-frozen
         public WaveResult Result { get; private set; }
+        public NeedId? RushNeed { get; private set; }   // the need the Sudden rush landed on; null until it fires
+        public bool RushFired => RushNeed != null;      // true from the trigger tick on; pause-frozen with the clock
 
         public WaveSimulation(ResortState resort, WaveDef wave, TuningConfig tuning)
         {
@@ -220,6 +222,7 @@ namespace ResortEmpire.Sim
                 timeInWave = TimeInWave,
                 incomingElapsed = _incomingElapsed,
                 rushTriggered = _rushTriggered,
+                rushNeed = RushNeed == null ? -1 : (int)RushNeed.Value,
                 lanes = new LaneSnapshot[_lanes.Length]
             };
             for (int i = 0; i < _lanes.Length; i++)
@@ -271,6 +274,7 @@ namespace ResortEmpire.Sim
             sim.TimeInWave = snap.timeInWave;
             sim._incomingElapsed = snap.incomingElapsed;
             sim._rushTriggered = snap.rushTriggered;
+            sim.RushNeed = snap.rushNeed < 0 ? (NeedId?)null : (NeedId)snap.rushNeed;
             for (int i = 0; i < sim._lanes.Length; i++)
             {
                 var lane = sim._lanes[i];
@@ -321,6 +325,7 @@ namespace ResortEmpire.Sim
             var phase = (WavePhase)snap.phase;
             if (phase != WavePhase.WaveIncoming && phase != WavePhase.WaveActive && phase != WavePhase.WaveResolving) return false;
             if (!Ok(snap.timeInWave) || !Ok(snap.incomingElapsed)) return false;
+            if (snap.rushNeed != -1 && (!Enum.IsDefined(typeof(NeedId), snap.rushNeed) || !snap.rushTriggered)) return false;
 
             var needs = (NeedId[])Enum.GetValues(typeof(NeedId));
             if (snap.lanes == null || snap.lanes.Length != needs.Length) return false;
@@ -359,6 +364,7 @@ namespace ResortEmpire.Sim
             for (int j = 0; j < _t.RushUnits; j++)
                 target.Pending.Add(_t.RushTimeSeconds + j * _t.RushDurationSeconds / _t.RushUnits);
             target.Pending.Sort();                      // rush times never precede already-spawned ones
+            RushNeed = target.Need;
         }
 
         void SpawnDue()

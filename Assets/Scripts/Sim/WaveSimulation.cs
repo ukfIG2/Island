@@ -175,6 +175,9 @@ namespace ResortEmpire.Sim
 
         public float BoostRemaining(BuildingId b) => _boosts[b].Remaining;
 
+        // True once this building has used its Speed Up allowance in this wave.
+        public bool BoostSpent(BuildingId b) => _boosts[b].Used >= _t.MaxBoostsPerBuildingPerWave;
+
         // --- per-need queries -----------------------------------------------
 
         public int DemandTotal(NeedId n) => _lanes[(int)n].Demand;

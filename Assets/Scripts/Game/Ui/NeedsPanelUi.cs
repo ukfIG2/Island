@@ -65,7 +65,7 @@ namespace ResortEmpire.Game.Ui
                 UiFactory.PlaceFixed(UiFactory.Icon(boost.transform, "Bolt", UiFactory.Bolt, UiFactory.Panel).gameObject,
                     new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(8f, 0f), new Vector2(22f, 22f));
                 UiFactory.Place(UiFactory.ButtonLabel(boost).gameObject, Vector2.zero, Vector2.one, new Vector2(24f, 0f), Vector2.zero);
-                boost.onClick.AddListener(() => _game.Boost(UiFactory.BuildingFor(need)));
+                boost.onClick.AddListener(() => OnBoost(UiFactory.BuildingFor(need)));
                 var bar = new BarWidget(bg.transform, "QueueBar", new Color(0f, 0f, 0f, 0.35f));
                 UiFactory.Place(bar.Root, Vector2.zero, new Vector2(1f, 0f), new Vector2(44f, 14f), new Vector2(-170f, 30f));
                 var status = UiFactory.Label(bg.transform, "Status", "", 20, UiFactory.Neutral, TextAnchor.MiddleRight);
@@ -107,6 +107,16 @@ namespace ResortEmpire.Game.Ui
         }
 
         void OnPause() => _game.SetPaused(!_game.IsPaused);
+
+        // Short enough for the Speed Up button; "test" says it is a stand-in for the rewarded video.
+        public static string TestAdLabel(GameController game) => "Test ad +" + game.TestAdEnergy;
+
+        // Speed Up where Energy is there, the video where it is short.
+        void OnBoost(BuildingId building)
+        {
+            if (_game.CanOfferTestAd(building)) _game.WatchTestAd();
+            else _game.Boost(building);
+        }
 
         // Game speed x1 / x2 / x4; the sim steps in the same fixed slices at any speed, so results never change.
         void OnSpeed()
@@ -169,6 +179,13 @@ namespace ResortEmpire.Game.Ui
                     row.Boost.gameObject.SetActive(true);
                     row.Boost.interactable = true;
                     row.BoostLabel.text = "Speed Up " + _game.Tuning.EnergyBoostCost;
+                }
+                else if (overloaded && _game.CanOfferTestAd(building))
+                {
+                    // Energy is short: the same spot offers the rewarded video (a test stub); it never blocks the wave.
+                    row.Boost.gameObject.SetActive(true);
+                    row.Boost.interactable = true;
+                    row.BoostLabel.text = TestAdLabel(_game);
                 }
                 else row.Boost.gameObject.SetActive(false);
 

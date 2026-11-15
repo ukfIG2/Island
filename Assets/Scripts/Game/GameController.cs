@@ -153,6 +153,24 @@ namespace ResortEmpire.Game
             return true;
         }
 
+        // Energy sources (CAM-74): finished waves pay it out; an optional rewarded video, a test stub for now, adds more.
+        // The video is offered only where Speed Up would be offered but the Energy is short, so Energy is never a gate:
+        // the wave goes on either way, and watching never pauses it.
+        public int TestAdEnergy => Tuning.EnergyBoostCost;                       // one Speed Up's worth
+
+        public bool CanOfferTestAd(BuildingId b)
+            => ActiveWave != null && ActiveWave.Phase != WavePhase.WaveComplete && !ActiveWave.IsPaused
+               && Resort.IsUnlocked(b) && !ActiveWave.BoostSpent(b) && ActiveWave.BoostRemaining(b) <= 0f
+               && Resort.Energy < Tuning.EnergyBoostCost;
+
+        public void WatchTestAd()
+        {
+            Resort.Energy += TestAdEnergy;
+            if (ActiveWave == null) SaveSystem.Save(this);
+            StateChanged?.Invoke();
+            Toast?.Invoke("Test ad watched: +" + TestAdEnergy + " Energy");
+        }
+
         public bool Upgrade(BuildingId b)
         {
             if (ActiveWave != null) return false; // upgrades exist only between waves (WR6)

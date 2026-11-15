@@ -187,6 +187,15 @@ namespace ResortEmpire.Game.Ui
             return rt;
         }
 
+        // A full-screen dim that blocks taps and camera drags behind it.
+        public static Image Overlay(Transform parent, string name, Color dim)
+        {
+            var img = Go(parent, name).AddComponent<Image>();
+            img.color = dim;
+            Place(img.gameObject, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            return img;
+        }
+
         public static Image PanelImage(Transform parent, string name, Color color)
         {
             var img = Go(parent, name).AddComponent<Image>();

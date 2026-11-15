@@ -86,12 +86,7 @@ namespace ResortEmpire.Sim
             }
         }
 
-        static BuildingId BuildingFor(NeedId need)
-        {
-            foreach (BuildingId b in Enum.GetValues(typeof(BuildingId)))
-                if (BuildingNeeds.Serves(b) == need) return b;
-            return BuildingId.Reception;
-        }
+        static BuildingId BuildingFor(NeedId need) => BuildingNeeds.BuildingFor(need);
 
         public void StartWave()
         {

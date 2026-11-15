@@ -10,9 +10,10 @@ namespace ResortEmpire.Game.Ui
     // toasts and the result overlay. A small driver keeps the visible widgets refreshed.
     public static class GameUiBuilder
     {
-        // resetView brings the island camera back to its starting view; viewMoved says whether it has left it.
+        // resetView brings the island camera back to its starting view; viewMoved says whether it has left it;
+        // startOver throws the game away and begins again (Reset progress).
         public static void Build(GameBootstrap host, GameController game, System.Action resetView,
-            System.Func<bool> viewMoved)
+            System.Func<bool> viewMoved, System.Action startOver)
         {
             var canvasGo = new GameObject("GameUi", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvasGo.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -24,7 +25,7 @@ namespace ResortEmpire.Game.Ui
             if (Object.FindFirstObjectByType<EventSystem>() == null)
                 new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
 
-            canvasGo.AddComponent<GameUiDriver>().Init(game, resetView, viewMoved);
+            canvasGo.AddComponent<GameUiDriver>().Init(game, resetView, viewMoved, startOver);
         }
     }
 
@@ -44,6 +45,7 @@ namespace ResortEmpire.Game.Ui
         AreaOfferUi _area;
         FinaleUi _finale;
         ResumeOverlayUi _resume;
+        AppShellUi _shell;
         RushPromptUi _rush;
         bool _rushHandled;                 // the prompt is offered once per wave
         Button _resetView;
@@ -51,16 +53,20 @@ namespace ResortEmpire.Game.Ui
         NeedStatus[] _lastStatus;
         float _sinceRefresh;
 
-        public void Init(GameController game, System.Action resetView, System.Func<bool> viewMoved)
+        public void Init(GameController game, System.Action resetView, System.Func<bool> viewMoved, System.Action startOver)
         {
             _game = game;
             _viewMoved = viewMoved;
             var canvas = transform;
             _topBar = new TopBarUi(canvas, game);
+            // The menu (pause, settings, start over) is always one tap away, under the top bar on the left.
+            var menu = UiFactory.TextButton(canvas, "Menu", "Menu", 22, UiFactory.Panel, UiFactory.Cream, () => _shell.OpenPauseMenu());
+            UiFactory.PlaceFixed(menu.gameObject, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(20f, -96f),
+                new Vector2(130f, 52f));
             // Shown only once the player has turned or zoomed the island.
             _resetView = UiFactory.TextButton(canvas, "ResetView", "Reset view", 22, UiFactory.Panel, UiFactory.Cream,
                 () => resetView());
-            UiFactory.PlaceFixed(_resetView.gameObject, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(20f, -96f),
+            UiFactory.PlaceFixed(_resetView.gameObject, new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(162f, -96f),
                 new Vector2(170f, 52f));
             _resetView.gameObject.SetActive(false);
             _toasts = new ToastUi(canvas);
@@ -73,7 +79,8 @@ namespace ResortEmpire.Game.Ui
             _finale = new FinaleUi(canvas, game);
             _resume = new ResumeOverlayUi(canvas, game);
             _rush = new RushPromptUi(canvas, game, _sheet);
-            // Draw order, back to front: top bar, home, wave panel, rush prompt, sheet, resume card, upgrade suggestion, area offer, toasts, result overlay.
+            _shell = new AppShellUi(canvas, game, DeviceSettings.Current, startOver);
+            // Draw order, back to front: top bar, home, wave panel, rush prompt, sheet, resume card, upgrade suggestion, area offer, toasts, result overlay, app shell.
             _rush.Root.transform.SetAsLastSibling();
             _sheet.Root.transform.SetAsLastSibling();
             _resume.Root.transform.SetAsLastSibling();
@@ -82,6 +89,7 @@ namespace ResortEmpire.Game.Ui
             _finale.Root.transform.SetAsLastSibling();
             _toasts.Root.transform.SetAsLastSibling();
             _results.Root.transform.SetAsLastSibling();
+            _shell.BringToFront();                                   // menu, settings and confirm cover everything
 
             _lastStatus = new NeedStatus[System.Enum.GetValues(typeof(NeedId)).Length];
             RememberStatuses();   // a wave restored from a save is already under way: no "line is long" toast for it
@@ -259,7 +267,7 @@ namespace ResortEmpire.Game.Ui
             if (homeVisible) _home.Refresh();
             _needs.SetVisible(waveRunning);
             if (waveRunning) _needs.Refresh();
-            _resume.Refresh();
+            _resume.Refresh(_shell.IsOpen);
             _rush.Refresh();
             _suggestion.Refresh();
             _area.Refresh();

@@ -23,6 +23,9 @@ namespace ResortEmpire.Game
         public int NextWaveIndex { get; private set; }             // 1-based
         public bool PrototypeComplete { get; private set; }        // wave 8 result claimed
 
+        // A resort that is under way: the main menu says CONTINUE for it and PLAY for a new one (CAM-50).
+        public bool HasProgress => ActiveWave != null || NextWaveIndex > 1 || Resort.WavesCompleted > 0;
+
         // Game speed. x1 is the pace the designer's numbers are made for; x2 and x4 run the same game faster, for a short
         // demo or a confident player. The result of a wave never depends on it. It is not saved: every launch starts at x1.
         public static readonly float[] SpeedSteps = { 1f, 2f, 4f };

@@ -7,15 +7,20 @@ namespace ResortEmpire.Game
     // Scene entry point: builds the whole game procedurally — no prefabs, no hand-edited scene content.
     public sealed class GameBootstrap : MonoBehaviour
     {
+        // After Reset progress / New Game the fresh resort opens straight on the island, not on the main menu again.
+        static bool _skipMenuOnce;
+
         public GameController Game { get; private set; }
 
         void Awake()
         {
+            bool showMenu = !_skipMenuOnce;
+            _skipMenuOnce = false;
             var tuning = TuningConfig.Default;
             var loaded = SaveSystem.LoadOrNew(tuning);
             Game = new GameController(tuning, loaded.Resort, loaded.NextWaveIndex, WaveTable.Default8(), loaded.Wave);
             var island = View.IslandViewBuilder.Build(this, Game);
-            Ui.GameUiBuilder.Build(this, Game, island.ResetView, () => island.ViewMoved, StartOver);
+            Ui.GameUiBuilder.Build(this, Game, island.ResetView, () => island.ViewMoved, StartOver, showMenu);
         }
 
         void Update() => Game.Tick(Time.deltaTime);
@@ -26,6 +31,7 @@ namespace ResortEmpire.Game
         {
             Game.Retire();
             SaveSystem.Delete();
+            _skipMenuOnce = true;
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 

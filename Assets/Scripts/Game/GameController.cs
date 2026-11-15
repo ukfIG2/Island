@@ -9,6 +9,7 @@ namespace ResortEmpire.Game
     public sealed class GameController
     {
         readonly List<WaveDef> _waves;
+        WaveDef _cachedWave;                       // the UI asks for the next wave several times a second
         float _accum;
         float _sinceSave;
         bool _waveCompletedFired;
@@ -20,8 +21,11 @@ namespace ResortEmpire.Game
         public ResortState Resort { get; }
         public TuningConfig Tuning { get; }
         public WaveSimulation ActiveWave { get; private set; }     // null between waves
-        public int NextWaveIndex { get; private set; }             // 1-based
-        public bool PrototypeComplete { get; private set; }        // wave 8 result claimed
+        public int NextWaveIndex { get; private set; }             // 1-based; goes on past wave 8 (endless waves, CAM-28)
+
+        // The eight scripted waves are cleared. The game does not end there: the waves go on, so this only says that the
+        // Resort summary has been earned.
+        public bool CampaignComplete => Resort.WavesCompleted >= _waves.Count;
 
         // A resort that is under way: the main menu says CONTINUE for it and PLAY for a new one (CAM-50).
         public bool HasProgress => ActiveWave != null || NextWaveIndex > 1 || Resort.WavesCompleted > 0;
@@ -40,8 +44,16 @@ namespace ResortEmpire.Game
 
         public WavePhase CurrentPhase => ActiveWave != null ? ActiveWave.Phase : WavePhase.AwaitingWave;
         public bool IsPaused => ActiveWave != null && ActiveWave.IsPaused;
-        public IReadOnlyList<WaveDef> Waves => _waves;
-        public WaveDef NextWaveDef => PrototypeComplete ? null : _waves[NextWaveIndex - 1];
+        public IReadOnlyList<WaveDef> Waves => _waves;       // the eight scripted waves
+        public WaveDef NextWaveDef => WaveFor(NextWaveIndex);
+
+        // Any wave: the scripted ones, then waves generated from wave 8 (see WaveTable.WaveFor).
+        public WaveDef WaveFor(int index)
+        {
+            if (index <= _waves.Count) return _waves[Math.Max(index, 1) - 1];
+            if (_cachedWave == null || _cachedWave.Index != index) _cachedWave = WaveTable.WaveFor(index, Tuning);
+            return _cachedWave;
+        }
 
         public event Action WaveStarted;
         public event Action<WaveResult> WaveCompleted;             // fired exactly once per wave
@@ -55,8 +67,9 @@ namespace ResortEmpire.Game
             Tuning = tuning;
             Resort = resort;
             _waves = waves;
-            NextWaveIndex = Math.Min(Math.Max(nextWaveIndex, 1), waves.Count);
-            PrototypeComplete = resort.WavesCompleted >= waves[waves.Count - 1].Index;
+            NextWaveIndex = Math.Max(nextWaveIndex, 1);
+            // A save made before the waves went on stored 8 after wave 8; the next wave follows the last one cleared.
+            if (resort.WavesCompleted >= waves.Count) NextWaveIndex = Math.Max(NextWaveIndex, resort.WavesCompleted + 1);
             if (savedWave != null) RestoreWave(savedWave);
         }
 
@@ -64,8 +77,7 @@ namespace ResortEmpire.Game
         // player resumes it when ready. A snapshot that does not fit is ignored: the game then starts between waves.
         bool RestoreWave(WaveSnapshot saved)
         {
-            if (PrototypeComplete) return false;
-            var wave = WaveSimulation.FromSnapshot(Resort, _waves[NextWaveIndex - 1], Tuning, saved);
+            var wave = WaveSimulation.FromSnapshot(Resort, NextWaveDef, Tuning, saved);
             if (wave == null) return false;
             wave.IsPaused = true;
             ActiveWave = wave;
@@ -77,8 +89,8 @@ namespace ResortEmpire.Game
 
         public void StartNextWave()
         {
-            if (ActiveWave != null || PrototypeComplete) return;
-            ActiveWave = new WaveSimulation(Resort, _waves[NextWaveIndex - 1], Tuning);
+            if (ActiveWave != null) return;
+            ActiveWave = new WaveSimulation(Resort, NextWaveDef, Tuning);
             _accum = 0f;
             _sinceSave = 0f;
             _waveCompletedFired = false;
@@ -136,8 +148,7 @@ namespace ResortEmpire.Game
         public void ContinueAfterResults()
         {
             if (ActiveWave == null || ActiveWave.Phase != WavePhase.WaveComplete) return;
-            if (NextWaveIndex >= _waves.Count) PrototypeComplete = true; // wave 8 result just claimed
-            NextWaveIndex = Math.Min(NextWaveIndex + 1, _waves.Count);
+            NextWaveIndex++;
             ActiveWave = null;
             Persist();
             StateChanged?.Invoke();

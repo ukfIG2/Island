@@ -47,7 +47,7 @@ namespace ResortEmpire.Game
             if (game.ActiveWave != null)
             {
                 wave = game.ActiveWave.ToSnapshot();   // null once the wave is complete
-                if (game.ActiveWave.Phase == WavePhase.WaveComplete) nextWave = Math.Min(nextWave + 1, game.Waves.Count);
+                if (game.ActiveWave.Phase == WavePhase.WaveComplete) nextWave++;
             }
             int n = resort.Buildings.Count;
             var data = new SaveData
@@ -127,7 +127,7 @@ namespace ResortEmpire.Game
                 return new LoadedGame
                 {
                     Resort = resort,
-                    NextWaveIndex = Mathf.Clamp(data.nextWaveIndex, 1, 8),
+                    NextWaveIndex = Mathf.Max(data.nextWaveIndex, 1),   // the waves go on past wave 8
                     Wave = data.hasWave ? data.wave : null,   // GameController checks that it fits before using it
                     SavedAtUnix = data.savedAtUnix
                 };

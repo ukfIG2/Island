@@ -521,6 +521,30 @@ namespace ResortEmpire.Sim.Tests
         }
 
         [Test]
+        public void Rush_NamesTheBuildingItLandedOn_OnlyOnceItHasFired()
+        {
+            var t = TuningConfig.Default;
+            var wave = WaveTable.Default8()[1];
+            var sim = new WaveSimulation(ResortState.NewGame(t), wave, t);   // Beach Bar has no Worker
+            sim.StartWave();
+            Assert.IsFalse(sim.RushFired);
+            Assert.IsNull(sim.RushNeed);
+            int guard = TickGuard;
+            while (sim.TimeInWave < t.RushTimeSeconds - 1f && guard-- > 0) sim.Tick(Dt);
+            Assert.IsFalse(sim.RushFired, "the rush is not forecast and has not happened yet");
+            while (sim.TimeInWave < t.RushTimeSeconds + 1f && guard-- > 0) sim.Tick(Dt);
+            Assert.IsTrue(sim.RushFired);
+            Assert.AreEqual(NeedId.Drinks, sim.RushNeed);
+
+            // a wave without a rush never reports one
+            var calm = new WaveSimulation(ResortState.NewGame(t), WaveTable.Default8()[0], t);
+            calm.StartWave();
+            RunToComplete(calm);
+            Assert.IsFalse(calm.RushFired);
+            Assert.IsNull(calm.RushNeed);
+        }
+
+        [Test]
         public void Rewards_AppliedOnce()
         {
             var t = TuningConfig.Default;

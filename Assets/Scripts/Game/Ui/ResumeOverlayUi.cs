@@ -38,9 +38,10 @@ namespace ResortEmpire.Game.Ui
             _root.SetActive(false);
         }
 
-        public void Refresh()
+        // hidden: a menu is open over the island, which has its own Resume; this card waits behind it.
+        public void Refresh(bool hidden = false)
         {
-            bool waiting = _game.IsPaused && _game.CurrentPhase != WavePhase.WaveComplete;
+            bool waiting = !hidden && _game.IsPaused && _game.CurrentPhase != WavePhase.WaveComplete;
             if (_root.activeSelf != waiting) _root.SetActive(waiting);
         }
 

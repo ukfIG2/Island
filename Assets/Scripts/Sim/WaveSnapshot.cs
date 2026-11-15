@@ -52,6 +52,7 @@ namespace ResortEmpire.Sim
         public float timeInWave;
         public float incomingElapsed;
         public bool rushTriggered;
+        public int rushNeed = -1;             // NeedId the Sudden rush landed on, -1 when it has not (or found no target)
         public LaneSnapshot[] lanes;          // one per NeedId, in order
         public BoostSnapshot[] boosts;        // one per BuildingId, in order
     }

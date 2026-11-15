@@ -50,6 +50,9 @@ namespace ResortEmpire.Sim
         public int RushUnits = 6;
         public float RushDurationSeconds = 10f;
 
+        public double EndlessGrowthPerWave = 1.06;    // P10: every need x 1.06 per wave after wave 8, rounded
+        public int EndlessRushEveryNthWave = 3;       // P10: generated waves 9, 12, 15, ... carry a Sudden rush
+
         public int StartingCoins = 0;
         public int StartingEnergy = 3;
 

@@ -68,5 +68,18 @@ namespace ResortEmpire.Sim
                 default: return NeedId.Rooms;
             }
         }
+
+        // The wave building that serves a need (the inverse of Serves).
+        public static BuildingId BuildingFor(NeedId need)
+        {
+            switch (need)
+            {
+                case NeedId.Rooms: return BuildingId.Reception;
+                case NeedId.Food: return BuildingId.Restaurant;
+                case NeedId.Drinks: return BuildingId.BeachBar;
+                case NeedId.Relax: return BuildingId.Pool;
+                default: return BuildingId.Bungalows;
+            }
+        }
     }
 }

@@ -40,6 +40,9 @@ namespace ResortEmpire.Game.View
         Vector3[] _beachSpots;
 
         WaveSimulation _trackedSim;
+        WaveSimulation _homeFrom;                                   // the wave whose guests have been sent home
+        readonly List<Homecoming.Departure> _homecoming = new List<Homecoming.Departure>();
+        float _homecomingClock;
         readonly int[] _lastArrived = new int[System.Enum.GetValues(typeof(NeedId)).Length];
         readonly int[] _lastServed = new int[System.Enum.GetValues(typeof(NeedId)).Length];
         int _servedSequence;
@@ -89,6 +92,7 @@ namespace ResortEmpire.Game.View
 
             float animDt = sim != null && sim.IsPaused ? 0f : Time.deltaTime * _game.SimSpeed;
             if (sim != null) ReconcileGuests(sim);
+            SendGuestsHome(sim, animDt);
             foreach (var lift in _paths.Lifts) lift.Tick(animDt);
             _guests.Tick(animDt);
             _workers.Sync(_game.Resort, animDt);
@@ -104,9 +108,37 @@ namespace ResortEmpire.Game.View
                     status, showStatus, time);
             }
 
-            // The wave's vessels wait at the beach for as long as the wave lasts, Wave Complete included (CAM-142).
-            bool atBeach = Homecoming.VesselWaits(sim?.Phase);
-            _boats.Tick(_game.NextWaveIndex, atBeach, animDt, Time.time);
+            // The wave's vessels wait at the beach for as long as the wave lasts, Wave Complete included (CAM-142), and
+            // after it until the guests going home have boarded (CAM-143).
+            bool boarding = _homecoming.Count > 0 || _guests.Departing > 0;
+            bool atBeach = Homecoming.VesselWaits(sim?.Phase, boarding);
+            _boats.Tick(_game.NextWaveIndex, atBeach, boarding, animDt, Time.time);
+        }
+
+        // CAM-143: at Wave Complete the guests walk back from the buildings and board; the impatient ones first.
+        void SendGuestsHome(WaveSimulation sim, float dt)
+        {
+            if (sim != null && sim.Phase == WavePhase.WaveComplete && sim.Result != null && _homeFrom != sim)
+            {
+                _homeFrom = sim;
+                var needs = new List<NeedId>();
+                foreach (var view in _views)
+                    if (_game.Resort.IsUnlocked(view.Id)) needs.Add(view.Need);
+                _homecoming.Clear();
+                _homecoming.AddRange(Homecoming.Plan(sim.Result.Stars, sim.Result.Perfect, needs));
+                _homecomingClock = 0f;
+            }
+            if (_homecoming.Count == 0) return;
+            _homecomingClock += dt;
+            for (int i = 0; i < _homecoming.Count; i++)
+            {
+                var leaving = _homecoming[i];
+                if (leaving.Delay > _homecomingClock) continue;
+                var view = _byNeed[leaving.Need];
+                _guests.SpawnDeparture(leaving.Need, _paths.Route(PlaceName(leaving.Need), "beach"), view.EntranceWorld,
+                    WalkStart, leaving.Impatient ? Homecoming.ImpatientPace : 1f);
+                _homecoming.RemoveAt(i--);
+            }
         }
 
         void Tap(Vector2 screen)

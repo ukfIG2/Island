@@ -16,6 +16,7 @@ namespace ResortEmpire.Game.Ui
 
         readonly GameController _game;
         readonly WorkerSheetUi _sheet;
+        readonly System.Action<BuildingId> _openArea;
         readonly GameObject _root;
         readonly Button _start;
         readonly Text _startLabel;
@@ -36,10 +37,12 @@ namespace ResortEmpire.Game.Ui
         readonly Text _workerLabel;
         BuildingId? _cardBuilding;
 
-        public HomeUi(Transform canvas, GameController game, WorkerSheetUi sheet)
+        // openArea shows the area offer (S9) for an area that can be built.
+        public HomeUi(Transform canvas, GameController game, WorkerSheetUi sheet, System.Action<BuildingId> openArea)
         {
             _game = game;
             _sheet = sheet;
+            _openArea = openArea;
             _root = UiFactory.Go(canvas, "Home");
             UiFactory.Place(_root, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
 
@@ -73,10 +76,15 @@ namespace ResortEmpire.Game.Ui
                 _rows[i] = new ForecastRow { Need = needs[i], Rect = rect, Count = count };
             }
 
-            _banner = UiFactory.PanelImage(_root.transform, "UnlockBanner", UiFactory.Panel).gameObject;
+            // CAM-129: the banner is a button too; it opens the offer of the area that waits. Same place, same text.
+            var bannerImage = UiFactory.PanelImage(_root.transform, "UnlockBanner", UiFactory.Panel);
+            _banner = bannerImage.gameObject;
             UiFactory.PlaceFixed(_banner, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -132f), new Vector2(580f, 52f));
             var bannerText = UiFactory.Label(_banner.transform, "Text", "New area available — tap the site", 24, UiFactory.Cream, TextAnchor.MiddleCenter);
             UiFactory.Place(bannerText.gameObject, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            var bannerButton = _banner.AddComponent<Button>();
+            bannerButton.targetGraphic = bannerImage;
+            bannerButton.onClick.AddListener(OnBanner);
 
             // Building action card: one at a time, bottom right, X to close.
             var cardImg = UiFactory.PanelImage(_root.transform, "ActionCard", UiFactory.Panel);
@@ -108,6 +116,15 @@ namespace ResortEmpire.Game.Ui
             _workerLabel = UiFactory.ButtonLabel(_worker);
 
             _card.SetActive(false);
+        }
+
+        void OnBanner()
+        {
+            var area = AreaOffer.Waiting(_game.Resort, _game.Tuning);
+            if (area == null) return;
+            Sound.Sfx.Play(Sound.SoundCue.Click);
+            CloseCard();
+            _openArea?.Invoke(area.Value);
         }
 
         void OnUpgrade()
@@ -152,7 +169,7 @@ namespace ResortEmpire.Game.Ui
             var wave = _game.NextWaveDef;               // the waves go on past wave 8, so there is always a next one
             _startLabel.text = "START WAVE " + wave.Index;
             RefreshForecast(wave);
-            _banner.SetActive(UnlockWaiting());
+            _banner.SetActive(AreaOffer.Waiting(_game.Resort, _game.Tuning) != null);
             RefreshCard();
         }
 
@@ -172,14 +189,6 @@ namespace ResortEmpire.Game.Ui
                 shown++;
             }
             _forecastRect.sizeDelta = new Vector2(380f, 112f + shown * 44f);
-        }
-
-        bool UnlockWaiting()
-        {
-            var r = _game.Resort;
-            var t = _game.Tuning;
-            if (!r.IsUnlocked(BuildingId.Pool) && r.WavesCompleted >= t.PoolEligibleAfterWave) return true;
-            return !r.IsUnlocked(BuildingId.Bungalows) && r.WavesCompleted >= t.BungalowsEligibleAfterWave;
         }
 
         void RefreshCard()

@@ -56,5 +56,14 @@ namespace ResortEmpire.Game
             if (!resort.IsUnlocked(BuildingId.Bungalows) && resort.WavesCompleted == t.BungalowsEligibleAfterWave) return BuildingId.Bungalows;
             return null;
         }
+
+        // CAM-129: the area the "New area available" banner opens: the first one whose wave is done and that is not
+        // built yet, the Pool before the Bungalows. Null when no area is waiting.
+        public static BuildingId? Waiting(ResortState resort, TuningConfig t)
+        {
+            if (!resort.IsUnlocked(BuildingId.Pool) && resort.WavesCompleted >= t.PoolEligibleAfterWave) return BuildingId.Pool;
+            if (!resort.IsUnlocked(BuildingId.Bungalows) && resort.WavesCompleted >= t.BungalowsEligibleAfterWave) return BuildingId.Bungalows;
+            return null;
+        }
     }
 }

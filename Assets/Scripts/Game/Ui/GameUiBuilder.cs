@@ -72,7 +72,7 @@ namespace ResortEmpire.Game.Ui
             _resetView.gameObject.SetActive(false);
             _toasts = new ToastUi(canvas);
             _sheet = new WorkerSheetUi(canvas, game, _toasts);
-            _home = new HomeUi(canvas, game, _sheet);
+            _home = new HomeUi(canvas, game, _sheet, OpenArea);
             _needs = new NeedsPanelUi(canvas, game, _sheet);
             _results = new ResultOverlayUi(canvas, game, OnResultClaimed);
             _suggestion = new UpgradeSuggestionUi(canvas, game, OnSuggestionClosed);
@@ -198,6 +198,18 @@ namespace ResortEmpire.Game.Ui
             if (due.HasValue) _area.Show(due.Value);
         }
 
+        // The area offer (S9) on demand: from the construction site and from the "New area available" banner (CAM-129).
+        // Between waves only; never over another card.
+        void OpenArea(BuildingId building)
+        {
+            if (_game.ActiveWave != null) return;
+            if (_results.Visible || _suggestion.Visible || _area.Visible || _finale.Visible) return;
+            _sheet.Close();
+            _home.CloseCard();
+            _area.Show(building);
+            RefreshAll();
+        }
+
         // During a wave taps only route workers; between waves they open the action card.
         void OnBuildingTapped(BuildingId building)
         {
@@ -209,8 +221,7 @@ namespace ResortEmpire.Game.Ui
                 var offer = AreaOffer.For(_game.Resort, _game.Tuning, _game.Waves, building);
                 if (offer != null && (offer.State == AreaState.Available || offer.State == AreaState.NotAffordable))
                 {
-                    _home.CloseCard();
-                    _area.Show(building);
+                    OpenArea(building);
                     return;
                 }
                 _home.OpenCard(building);

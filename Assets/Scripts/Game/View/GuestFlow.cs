@@ -20,7 +20,6 @@ namespace ResortEmpire.Game.View
             public Transform Body;
             public Renderer Renderer;
             public readonly RouteWalk Walk = new RouteWalk();
-            public float Offset;
             public NeedId Need;
             public bool Leisure;
         }
@@ -52,12 +51,12 @@ namespace ResortEmpire.Game.View
 
         // The figure's centre is half its height above the walking surface.
         float HalfHeight => GuestScale.y * _scale;
+        float BodyWidth => GuestScale.x * _scale;
 
         // from and to are the figure's centre at the start and the end; the route between lies on the ground.
-        public void SpawnArrival(NeedId need, IslandPaths.Route route, Vector3 from, Vector3 to, int sequence)
+        public void SpawnArrival(NeedId need, IslandPaths.Route route, Vector3 from, Vector3 to)
         {
-            var w = Take(need, route, from, to);
-            w.Offset = ((sequence % 5) - 2) * 0.012f;
+            Take(need, route, from, to);
             _inTransit[(int)need]++;
         }
 
@@ -65,7 +64,6 @@ namespace ResortEmpire.Game.View
         {
             var w = Take(need, route, from, to);
             w.Leisure = true;
-            w.Offset = 0.015f;
         }
 
         public void Tick(float dt)
@@ -76,9 +74,9 @@ namespace ResortEmpire.Game.View
                 var pos = w.Walk.Advance(WalkSpeed * dt);
                 if (!w.Walk.Waiting && w.Walk.Walked < w.Walk.Length)
                 {
-                    // A small sideways offset keeps a crowd from walking in single file; a bounce for each step.
-                    var ahead = w.Walk.Ahead(0.05f) - pos;
-                    pos += new Vector3(-ahead.z, 0f, ahead.x).normalized * w.Offset;
+                    // Each guest keeps to its own side of the path (CAM-140); a bounce for each step.
+                    var side = GuestSpacing.Side(w.Walk.Ahead(0.05f) - pos);
+                    pos += side * GuestSpacing.SideOffset(BodyWidth, w.Walk.Walked, w.Walk.Length);
                     pos.y += Mathf.Abs(Mathf.Sin(w.Walk.Walked * 12f)) * 0.06f * _scale;
                 }
                 w.Body.position = pos + Vector3.up * HalfHeight;

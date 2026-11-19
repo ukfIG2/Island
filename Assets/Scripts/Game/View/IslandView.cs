@@ -104,9 +104,8 @@ namespace ResortEmpire.Game.View
                     status, showStatus, time);
             }
 
-            // The wave's vessels wait at the beach while its guests arrive.
-            bool atBeach = sim != null &&
-                           (sim.Phase == WavePhase.WaveIncoming || (sim.Phase == WavePhase.WaveActive && !sim.ArrivalsClosed));
+            // The wave's vessels wait at the beach for as long as the wave lasts, Wave Complete included (CAM-142).
+            bool atBeach = Homecoming.VesselWaits(sim?.Phase);
             _boats.Tick(_game.NextWaveIndex, atBeach, animDt, Time.time);
         }
 

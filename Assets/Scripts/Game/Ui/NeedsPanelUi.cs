@@ -22,7 +22,6 @@ namespace ResortEmpire.Game.Ui
         const float QueueBarFullUnits = 12f;
         const float RowHeight = 92f;              // three lines: name and count, Worker and status, queue bar
         const float RowSpacing = 100f;
-        static readonly Color WorkerHere = new Color(0.62f, 0.86f, 0.66f);   // the green of "What went well" on the result card
 
         readonly GameController _game;
         readonly GameObject _root;
@@ -178,7 +177,7 @@ namespace ResortEmpire.Game.Ui
                 // Where the Worker stands is always in view: a staffed building runs at full speed, an empty one slowly.
                 bool staffed = _game.Resort.Get(building).HasWorker;
                 row.Worker.text = staffed ? "Worker here" : "No Worker";
-                row.Worker.color = staffed ? WorkerHere : UiFactory.Cream;
+                row.Worker.color = staffed ? UiFactory.WorkerHere : UiFactory.Cream;
                 row.Worker.fontStyle = staffed ? FontStyle.Normal : FontStyle.Bold;
 
                 // Speed Up is offered only where a building is overloaded — an offer, never a gate (build doc §5.3.9).

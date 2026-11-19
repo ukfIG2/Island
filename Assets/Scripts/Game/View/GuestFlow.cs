@@ -12,6 +12,8 @@ namespace ResortEmpire.Game.View
     {
         const float WalkSpeed = 0.9f;   // island units per second; the web's guests walk 0.23–0.65
         const float LeisureStaySeconds = 4.5f;
+        // A guest held up this long walks on anyway, so no tangle at a crossing can hold anyone for good.
+        const float MaxWaitSeconds = 8f;
 
         static readonly Vector3 GuestScale = new Vector3(0.28f, 0.32f, 0.28f);
 
@@ -22,6 +24,10 @@ namespace ResortEmpire.Game.View
             public readonly RouteWalk Walk = new RouteWalk();
             public NeedId Need;
             public bool Leisure;
+            public int Order;           // when it set off, for the gap behind the guest ahead (CAM-141)
+            public Vector3 Ground;      // where it stood after the last step, on the walking surface
+            public Vector3 Heading;     // the way it walked then
+            public float HeldUp;        // seconds it has stood behind another guest on the way
         }
 
         readonly Transform _parent;
@@ -29,6 +35,8 @@ namespace ResortEmpire.Game.View
         readonly List<Walker> _active = new List<Walker>();
         readonly Stack<Walker> _pool = new Stack<Walker>();
         readonly int[] _inTransit = new int[System.Enum.GetValues(typeof(NeedId)).Length];
+        readonly List<GuestSpacing.Walker> _snapshot = new List<GuestSpacing.Walker>();
+        int _order;
 
         public GuestFlow(Transform parent, float scale)
         {
@@ -68,18 +76,43 @@ namespace ResortEmpire.Game.View
 
         public void Tick(float dt)
         {
+            // Where everyone stood after the last step: each walker keeps its gap behind those that set off earlier.
+            _snapshot.Clear();
+            foreach (var w in _active)
+                _snapshot.Add(new GuestSpacing.Walker
+                {
+                    At = w.Ground, Heading = w.Heading, Order = w.Order, OnThePath = !w.Walk.Arrived
+                });
+
             for (int i = _active.Count - 1; i >= 0; i--)
             {
                 var w = _active[i];
-                var pos = w.Walk.Advance(WalkSpeed * dt);
-                if (!w.Walk.Waiting && w.Walk.Walked < w.Walk.Length)
+                float step = WalkSpeed * dt;
+                float pace = GuestSpacing.Pace(w.Ground, w.Heading, w.Order, _snapshot, BodyWidth, step, out float room); // CAM-141
+                if (pace < 0.01f && w.Walk.Walked > 0f && !w.Walk.Waiting)
                 {
-                    // Each guest keeps to its own side of the path (CAM-140); a bounce for each step.
-                    var side = GuestSpacing.Side(w.Walk.Ahead(0.05f) - pos);
-                    pos += side * GuestSpacing.SideOffset(BodyWidth, w.Walk.Walked, w.Walk.Length);
-                    pos.y += Mathf.Abs(Mathf.Sin(w.Walk.Walked * 12f)) * 0.06f * _scale;
+                    w.HeldUp += dt;
+                    if (w.HeldUp > MaxWaitSeconds)
+                    {
+                        pace = 1f;
+                        room = float.MaxValue;
+                    }
                 }
+                else w.HeldUp = 0f;
+                var pos = w.Walk.Advance(Mathf.Min(step * pace, room));
+                w.Heading = w.Walk.Ahead(0.05f) - pos;
+                bool walking = !w.Walk.Waiting && w.Walk.Walked < w.Walk.Length;
+                // Each guest keeps to its own side of the path (CAM-140).
+                if (walking)
+                    pos += GuestSpacing.PathSide(w.Walk.Ahead(-GuestSpacing.SideWindow), w.Walk.Ahead(GuestSpacing.SideWindow))
+                           * GuestSpacing.SideOffset(BodyWidth, w.Walk.Walked, w.Walk.Length);
+                w.Ground = pos;
+                // A bounce for each step, settling while the guest waits behind another.
+                if (walking) pos.y += Mathf.Abs(Mathf.Sin(w.Walk.Walked * 12f)) * 0.06f * _scale * Mathf.Clamp01(pace * 4f);
                 w.Body.position = pos + Vector3.up * HalfHeight;
+                // Guests who set off from the same spot together appear one by one, as the one ahead makes room.
+                bool shown = w.Walk.Walked > 0f || w.Walk.Waiting;
+                if (w.Body.gameObject.activeSelf != shown) w.Body.gameObject.SetActive(shown);
 
                 if (!w.Leisure)
                 {
@@ -103,10 +136,7 @@ namespace ResortEmpire.Game.View
         {
             Walker w;
             if (_pool.Count > 0)
-            {
                 w = _pool.Pop();
-                w.Body.gameObject.SetActive(true);
-            }
             else
             {
                 var go = ViewKit.Prim(PrimitiveType.Capsule, "Guest", _parent, Vector3.zero, GuestScale,
@@ -118,6 +148,11 @@ namespace ResortEmpire.Game.View
             w.Renderer.sharedMaterial = ViewKit.Mat(UiFactory.NeedColor(need));
             w.Body.localScale = GuestScale * _scale;
             w.Body.position = from;
+            w.Ground = from - up;
+            w.Heading = w.Walk.Ahead(0.05f) - w.Walk.Ahead(0f);
+            w.Order = ++_order;
+            w.HeldUp = 0f;
+            w.Body.gameObject.SetActive(false);   // shown by Tick once it steps off its spot
             w.Need = need;
             w.Leisure = false;
             _active.Add(w);

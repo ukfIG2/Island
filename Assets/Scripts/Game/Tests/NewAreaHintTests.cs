@@ -13,17 +13,27 @@ namespace ResortEmpire.Game.Tests
     public class NewAreaHintTests
     {
         GameObject _canvas;
+        string _dir;
         readonly List<BuildingId> _opened = new List<BuildingId>();
 
         [SetUp]
         public void SetUp()
         {
+            // Nothing here should save, but if anything does, it goes into a temporary folder, never the real save.
+            _dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "island-areahint-" + System.Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(_dir);
+            SaveSystem.PathOverride = System.IO.Path.Combine(_dir, "resort_save.json");
             _canvas = new GameObject("TestCanvas", typeof(RectTransform));
             _opened.Clear();
         }
 
         [TearDown]
-        public void TearDown() => Object.DestroyImmediate(_canvas);
+        public void TearDown()
+        {
+            Object.DestroyImmediate(_canvas);
+            SaveSystem.PathOverride = null;
+            System.IO.Directory.Delete(_dir, true);
+        }
 
         static GameController Game(int wavesCompleted, int coins)
         {
@@ -64,6 +74,53 @@ namespace ResortEmpire.Game.Tests
         {
             Home(Game(2, 5000));
             Assert.IsNull(Visible("UnlockBanner"));
+        }
+
+        // CAM-130
+        [Test]
+        public void TheSite_IsLabelledWithTheAreaAndItsPrice_WhetherOrNotTheCoinsAreThere()
+        {
+            var game = Game(3, 100);
+            var home = Home(game);
+            Assert.IsTrue(home.SiteLabelShown(BuildingId.Pool, out string text), "Coins still missing: the label shows");
+            Assert.AreEqual("Build Pool · 1,200", text);
+            Assert.IsFalse(home.SiteLabelShown(BuildingId.Bungalows, out _), "the Bungalows are still locked");
+
+            game.Resort.Coins += 5000;
+            home.Refresh();
+            Assert.IsTrue(home.SiteLabelShown(BuildingId.Pool, out text), "affordable: the label stays");
+            Assert.AreEqual("Build Pool · 1,200", text);
+        }
+
+        [Test]
+        public void TheSiteLabel_OpensTheOffer_AndGoesAwayOnceTheAreaIsBuilt()
+        {
+            var game = Game(3, 5000);
+            var home = Home(game);
+            Visible("SiteLabelPool").onClick.Invoke();
+            CollectionAssert.AreEqual(new[] { BuildingId.Pool }, _opened);
+
+            Assert.IsTrue(game.Resort.Unlock(BuildingId.Pool));
+            home.Refresh();
+            Assert.IsFalse(home.SiteLabelShown(BuildingId.Pool, out _), "built: no label");
+            Assert.IsNull(Visible("UnlockBanner"), "and no banner");
+        }
+
+        [Test]
+        public void NoSiteLabel_WhileTheAreaIsLocked()
+        {
+            var home = Home(Game(2, 5000));
+            Assert.IsFalse(home.SiteLabelShown(BuildingId.Pool, out _));
+            Assert.IsNull(Visible("SiteLabelPool"));
+        }
+
+        [Test]
+        public void NoSiteLabel_DuringAWave()
+        {
+            var home = Home(Game(3, 5000));
+            Assert.IsNotNull(Visible("SiteLabelPool"), "between waves the label shows");
+            home.SetVisible(false);                                   // what the island screen does when a wave starts
+            Assert.IsNull(Visible("SiteLabelPool"), "during a wave nothing changes on the island");
         }
     }
 }

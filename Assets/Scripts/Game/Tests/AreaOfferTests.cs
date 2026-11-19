@@ -91,5 +91,20 @@ namespace ResortEmpire.Game.Tests
             Assert.IsTrue(resort.Unlock(BuildingId.Bungalows));
             Assert.IsNull(AreaOffer.Waiting(resort, T), "everything built");
         }
+
+        // CAM-130: the construction site names the area and its price while it can be built, and nothing otherwise.
+        [Test]
+        public void TheSiteLabel_NamesTheAreaAndItsPrice_OnlyWhileItCanBeBuilt()
+        {
+            Assert.AreEqual("Build Pool · 1,200", AreaOffer.For(Resort(3, 5000), T, Waves, BuildingId.Pool).SiteLabel);
+            Assert.AreEqual("Build Pool · 1,200", AreaOffer.For(Resort(3, 100), T, Waves, BuildingId.Pool).SiteLabel,
+                "also while Coins are missing");
+            Assert.AreEqual("Build Bungalows · 2,500", AreaOffer.For(Resort(6, 0), T, Waves, BuildingId.Bungalows).SiteLabel);
+
+            Assert.IsNull(AreaOffer.For(Resort(2, 5000), T, Waves, BuildingId.Pool).SiteLabel, "locked: no label");
+            var resort = Resort(3, 5000);
+            Assert.IsTrue(resort.Unlock(BuildingId.Pool));
+            Assert.IsNull(AreaOffer.For(resort, T, Waves, BuildingId.Pool).SiteLabel, "built: no label");
+        }
     }
 }

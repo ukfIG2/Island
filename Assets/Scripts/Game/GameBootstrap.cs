@@ -20,7 +20,7 @@ namespace ResortEmpire.Game
             var loaded = SaveSystem.LoadOrNew(tuning);
             Game = new GameController(tuning, loaded.Resort, loaded.NextWaveIndex, WaveTable.Default8(), loaded.Wave);
             var island = View.IslandViewBuilder.Build(this, Game);
-            Ui.GameUiBuilder.Build(this, Game, island.ResetView, () => island.ViewMoved, StartOver, showMenu);
+            Ui.GameUiBuilder.Build(this, Game, island.ResetView, () => island.ViewMoved, island.SitePoint, StartOver, showMenu);
             Sound.SoundDirector.Create(transform, Game, DeviceSettings.Current, () => island.Raining);
         }
 

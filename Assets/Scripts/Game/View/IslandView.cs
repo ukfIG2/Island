@@ -67,6 +67,14 @@ namespace ResortEmpire.Game.View
         public bool Raining => _light != null && _light.Raining;       // the island's weather, also for the sound of rain
         public void ResetView() => _camera?.ResetView();
 
+        // CAM-130: where a construction site's label hangs in the world; null for a building the island does not have.
+        public Vector3? SitePoint(BuildingId id)
+        {
+            foreach (var view in _views)
+                if (view.Id == id) return view.SiteLabelWorld;
+            return null;
+        }
+
         void Update()
         {
             if (_game == null) return;

@@ -11,9 +11,10 @@ namespace ResortEmpire.Game.Ui
     public static class GameUiBuilder
     {
         // resetView brings the island camera back to its starting view; viewMoved says whether it has left it;
+        // sitePoint gives where a construction site's label hangs in the world (CAM-130);
         // startOver throws the game away and begins again (Reset progress); showMenu opens the main menu at once (app start).
         public static void Build(GameBootstrap host, GameController game, System.Action resetView,
-            System.Func<bool> viewMoved, System.Action startOver, bool showMenu)
+            System.Func<bool> viewMoved, System.Func<BuildingId, Vector3?> sitePoint, System.Action startOver, bool showMenu)
         {
             var canvasGo = new GameObject("GameUi", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             canvasGo.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
@@ -25,7 +26,7 @@ namespace ResortEmpire.Game.Ui
             if (Object.FindFirstObjectByType<EventSystem>() == null)
                 new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
 
-            canvasGo.AddComponent<GameUiDriver>().Init(game, resetView, viewMoved, startOver, showMenu);
+            canvasGo.AddComponent<GameUiDriver>().Init(game, resetView, viewMoved, sitePoint, startOver, showMenu);
         }
     }
 
@@ -54,7 +55,8 @@ namespace ResortEmpire.Game.Ui
         NeedStatus[] _lastStatus;
         float _sinceRefresh;
 
-        public void Init(GameController game, System.Action resetView, System.Func<bool> viewMoved, System.Action startOver, bool showMenu)
+        public void Init(GameController game, System.Action resetView, System.Func<bool> viewMoved,
+            System.Func<BuildingId, Vector3?> sitePoint, System.Action startOver, bool showMenu)
         {
             _game = game;
             _viewMoved = viewMoved;
@@ -72,7 +74,7 @@ namespace ResortEmpire.Game.Ui
             _resetView.gameObject.SetActive(false);
             _toasts = new ToastUi(canvas);
             _sheet = new WorkerSheetUi(canvas, game, _toasts);
-            _home = new HomeUi(canvas, game, _sheet, OpenArea);
+            _home = new HomeUi(canvas, game, _sheet, OpenArea, sitePoint);
             _needs = new NeedsPanelUi(canvas, game, _sheet);
             _results = new ResultOverlayUi(canvas, game, OnResultClaimed);
             _suggestion = new UpgradeSuggestionUi(canvas, game, OnSuggestionClosed);
@@ -122,6 +124,7 @@ namespace ResortEmpire.Game.Ui
             _rush.Tick(Time.deltaTime);
             bool moved = _viewMoved();
             if (_resetView.gameObject.activeSelf != moved) _resetView.gameObject.SetActive(moved);
+            _home.TrackSites();                                     // the site labels follow the camera every frame
             _sinceRefresh += Time.deltaTime;
             if (_sinceRefresh < RefreshInterval) return;
             _sinceRefresh = 0f;

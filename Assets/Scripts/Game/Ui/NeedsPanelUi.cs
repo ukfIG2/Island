@@ -121,12 +121,7 @@ namespace ResortEmpire.Game.Ui
         // Short enough for the Speed Up button; "test" says it is a stand-in for the rewarded video.
         public static string TestAdLabel(GameController game) => "Test ad +" + game.TestAdEnergy;
 
-        // Speed Up where Energy is there, the video where it is short.
-        void OnBoost(BuildingId building)
-        {
-            if (_game.CanOfferTestAd(building)) _game.WatchTestAd();
-            else _game.Boost(building);
-        }
+        void OnBoost(BuildingId building) => SpeedUpOffer.Use(_game, building);
 
         // Game speed x1 / x2 / x4; the sim steps in the same fixed slices at any speed, so results never change.
         void OnSpeed()
@@ -180,30 +175,14 @@ namespace ResortEmpire.Game.Ui
                 row.Worker.color = staffed ? UiFactory.WorkerHere : UiFactory.Cream;
                 row.Worker.fontStyle = staffed ? FontStyle.Normal : FontStyle.Bold;
 
-                // Speed Up is offered only where a building is overloaded — an offer, never a gate (build doc §5.3.9).
-                // A running boost shows as a word, not a countdown.
-                bool boosting = sim.BoostRemaining(building) > 0f;
-                bool overloaded = status == NeedStatus.Bottleneck || status == NeedStatus.Recovering;
-                if (boosting)
+                // Speed Up where the building is overloaded (SpeedUpOffer, shared with the building window).
+                string boostLabel = SpeedUpOffer.Label(_game, building, out bool canBoost);
+                row.Boost.gameObject.SetActive(boostLabel != null);
+                if (boostLabel != null)
                 {
-                    row.Boost.gameObject.SetActive(true);
-                    row.Boost.interactable = false;
-                    row.BoostLabel.text = "Speeding up";
+                    row.Boost.interactable = canBoost;
+                    row.BoostLabel.text = boostLabel;
                 }
-                else if (overloaded && sim.CanBoost(building))
-                {
-                    row.Boost.gameObject.SetActive(true);
-                    row.Boost.interactable = true;
-                    row.BoostLabel.text = "Speed Up " + _game.Tuning.EnergyBoostCost;
-                }
-                else if (overloaded && _game.CanOfferTestAd(building))
-                {
-                    // Energy is short: the same spot offers the rewarded video (a test stub); it never blocks the wave.
-                    row.Boost.gameObject.SetActive(true);
-                    row.Boost.interactable = true;
-                    row.BoostLabel.text = TestAdLabel(_game);
-                }
-                else row.Boost.gameObject.SetActive(false);
 
                 // Warnings follow the queue and name what it needs (CAM-31): a Worker or more seats.
                 // Recovering reads as the positive signal it is.

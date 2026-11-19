@@ -7,12 +7,21 @@ namespace ResortEmpire.Game.Ui
     // CAM-133: a window for one building during a wave, so the player can look before deciding to move a Worker. It
     // sits on the left, clear of the wave panel, and the wave keeps running underneath. It shows the Worker, the seats
     // in use, the guests in line, the status word and a calm phrase when guests wait long; no satisfaction number.
+    // CAM-139: its buttons move a Worker (here, or from here to the building that stands empty) through the Worker
+    // sheet, and offer Speed Up where the wave panel offers it.
     public sealed class BuildingWindowUi
     {
         const float Width = 440f;
-        const float Height = 330f;
+        const float HeightWithSpeedUp = 446f;
+        const float HeightWithoutSpeedUp = 378f;
 
         readonly GameController _game;
+        readonly WorkerSheetUi _sheet;
+        readonly RectTransform _rect;
+        readonly Button _move;
+        readonly Text _moveLabel;
+        readonly Button _speedUp;
+        readonly Text _speedUpLabel;
         readonly GameObject _root;
         readonly Text _title;
         readonly Text _serves;
@@ -27,12 +36,16 @@ namespace ResortEmpire.Game.Ui
         public bool IsOpen => _root.activeSelf;
         public BuildingId? Building => _building;
 
-        public BuildingWindowUi(Transform canvas, GameController game)
+        // sheet: the Worker sheet the Move button opens; null leaves the button out (tests of the content alone).
+        public BuildingWindowUi(Transform canvas, GameController game, WorkerSheetUi sheet = null)
         {
             _game = game;
+            _sheet = sheet;
             var panel = UiFactory.PanelImage(canvas, "BuildingWindow", UiFactory.Panel);
             _root = panel.gameObject;
-            UiFactory.PlaceFixed(_root, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(20f, 40f), new Vector2(Width, Height));
+            // Hangs from its top edge, so the buttons stay put when Speed Up comes and goes.
+            _rect = UiFactory.PlaceFixed(_root, new Vector2(0f, 0.5f), new Vector2(0f, 1f), new Vector2(20f, 260f),
+                new Vector2(Width, HeightWithSpeedUp));
             var card = panel.transform;
 
             _title = UiFactory.Label(card, "Title", "", 30, UiFactory.Cream, TextAnchor.MiddleLeft, FontStyle.Bold);
@@ -46,9 +59,46 @@ namespace ResortEmpire.Game.Ui
             _waiting = Line(card, "Waiting", 3, 24, UiFactory.Cream);
             _status = Line(card, "Status", 4, 24, UiFactory.Neutral);
             _status.fontStyle = FontStyle.Bold;
-            _longWait = Line(card, "LongWait", 5, 22, UiFactory.Warning);
+            _longWait = Line(card, "LongWait", 5, 22, UiFactory.Recovering);   // calm amber, readable on the panel
+
+            _move = UiFactory.TextButton(card, "MoveWorker", "", 26, UiFactory.PanelLight, UiFactory.Cream, OnMove);
+            UiFactory.Place(_move.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(24f, -364f), new Vector2(-24f, -304f));
+            _moveLabel = UiFactory.ButtonLabel(_move);
+            _speedUp = UiFactory.TextButton(card, "SpeedUp", "", 26, UiFactory.Recovering, UiFactory.Panel, OnSpeedUp);
+            UiFactory.Place(_speedUp.gameObject, new Vector2(0f, 1f), Vector2.one, new Vector2(24f, -432f), new Vector2(-24f, -372f));
+            UiFactory.PlaceFixed(UiFactory.Icon(_speedUp.transform, "Bolt", UiFactory.Bolt, UiFactory.Panel).gameObject,
+                new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(14f, 0f), new Vector2(26f, 26f));
+            _speedUpLabel = UiFactory.ButtonLabel(_speedUp);
 
             _root.SetActive(false);
+        }
+
+        // With nobody here, a Worker is brought here. With a Worker here, it is offered to the building that stands
+        // empty: the sheet asks there and lists this building as one to take from. The move itself stays free and
+        // instant (WR5); the window closes so the sheet has the screen.
+        BuildingId? MoveTarget()
+        {
+            if (_building == null) return null;
+            var state = _game.Resort.Get(_building.Value);
+            if (state == null) return null;
+            if (!state.HasWorker) return _building.Value;
+            foreach (var b in _game.Resort.Buildings)
+                if (!b.HasWorker) return b.Id;
+            return null;
+        }
+
+        void OnMove()
+        {
+            var target = MoveTarget();
+            if (target == null || _sheet == null) return;
+            Close();
+            _sheet.Open(target.Value);
+        }
+
+        void OnSpeedUp()
+        {
+            if (_building != null) SpeedUpOffer.Use(_game, _building.Value);
+            Refresh();
         }
 
         // Text lines under the title, 38 px apart.
@@ -100,6 +150,20 @@ namespace ResortEmpire.Game.Ui
             _status.text = UiFactory.StatusWord(status);
             _status.color = UiFactory.StatusColor(status);
             _longWait.text = BuildingWindowText.LongWait(sim.LongestWait(need), t) ?? "";
+
+            var target = MoveTarget();
+            bool canMove = _sheet != null && target != null;
+            _move.gameObject.SetActive(canMove);
+            if (canMove) _moveLabel.text = state.HasWorker ? "Move this Worker" : "Move a Worker here";
+
+            string speedUp = SpeedUpOffer.Label(_game, b, out bool canPress);
+            _speedUp.gameObject.SetActive(speedUp != null);
+            if (speedUp != null)
+            {
+                _speedUp.interactable = canPress;
+                _speedUpLabel.text = speedUp;
+            }
+            _rect.sizeDelta = new Vector2(Width, speedUp != null ? HeightWithSpeedUp : HeightWithoutSpeedUp);
         }
     }
 }

@@ -114,6 +114,68 @@ namespace ResortEmpire.Game.Tests
             }
         }
 
+        // CAM-139
+        Button Visible(string name) =>
+            _canvas.GetComponentsInChildren<Button>(false).SingleOrDefault(b => b.name == name);
+
+        WorkerSheetUi Sheet(GameController game) =>
+            new WorkerSheetUi(_canvas.transform, game, new ToastUi(_canvas.transform));
+
+        [Test]
+        public void AtABuildingWithNobodyThere_MoveBringsAWorkerHere()
+        {
+            var game = Wave2();
+            var sheet = Sheet(game);
+            var window = new BuildingWindowUi(_canvas.transform, game, sheet);
+            window.Open(BuildingId.BeachBar);
+            var move = Visible("MoveWorker");
+            Assert.AreEqual("Move a Worker here", move.GetComponentInChildren<Text>().text);
+
+            move.onClick.Invoke();
+            Assert.IsFalse(window.IsOpen, "the window makes room for the sheet");
+            Assert.IsTrue(sheet.IsOpen);
+            Assert.AreEqual("Send worker to Beach Bar?", _canvas.transform.Find("WorkerSheet/Title").GetComponent<Text>().text);
+        }
+
+        [Test]
+        public void AtABuildingWithAWorker_MoveOffersItToTheBuildingThatStandsEmpty()
+        {
+            var game = Wave2();
+            var sheet = Sheet(game);
+            var window = new BuildingWindowUi(_canvas.transform, game, sheet);
+            window.Open(BuildingId.Reception);
+            var move = Visible("MoveWorker");
+            Assert.AreEqual("Move this Worker", move.GetComponentInChildren<Text>().text);
+
+            move.onClick.Invoke();
+            Assert.IsTrue(sheet.IsOpen);
+            Assert.AreEqual("Send worker to Beach Bar?", _canvas.transform.Find("WorkerSheet/Title").GetComponent<Text>().text);
+            Assert.IsNotNull(Visible("FromReception"), "and this building is one to take it from");
+        }
+
+        [Test]
+        public void SpeedUp_IsOfferedWhereTheLineGrows_AndShowsAsAWordWhileItRuns()
+        {
+            var game = Wave2();
+            var window = new BuildingWindowUi(_canvas.transform, game, Sheet(game));
+            window.Open(BuildingId.Reception);
+            Assert.IsNull(Visible("SpeedUp"), "a calm building is offered nothing");
+
+            RunUntil(game, () => game.ActiveWave.StatusOf(NeedId.Drinks) == NeedStatus.Bottleneck);
+            window.Open(BuildingId.BeachBar);
+            var speedUp = Visible("SpeedUp");
+            Assert.IsNotNull(speedUp, "the Drinks line grows: Speed Up is offered");
+            Assert.AreEqual("Speed Up " + game.Tuning.EnergyBoostCost, speedUp.GetComponentInChildren<Text>().text);
+            int energy = game.Resort.Energy;
+
+            speedUp.onClick.Invoke();
+            Assert.Greater(game.ActiveWave.BoostRemaining(BuildingId.BeachBar), 0f);
+            Assert.AreEqual(energy - game.Tuning.EnergyBoostCost, game.Resort.Energy);
+            speedUp = Visible("SpeedUp");
+            Assert.AreEqual("Speeding up", speedUp.GetComponentInChildren<Text>().text);
+            Assert.IsFalse(speedUp.interactable, "a running boost is a word, not a button");
+        }
+
         [Test]
         public void TheWindow_ClosesWhenTheWaveIsOver()
         {

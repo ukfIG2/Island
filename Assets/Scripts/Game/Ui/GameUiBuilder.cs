@@ -39,6 +39,7 @@ namespace ResortEmpire.Game.Ui
         TopBarUi _topBar;
         HomeUi _home;
         NeedsPanelUi _needs;
+        BuildingWindowUi _window;
         WorkerSheetUi _sheet;
         ToastUi _toasts;
         ResultOverlayUi _results;
@@ -76,6 +77,7 @@ namespace ResortEmpire.Game.Ui
             _sheet = new WorkerSheetUi(canvas, game, _toasts);
             _home = new HomeUi(canvas, game, _sheet, OpenArea, sitePoint);
             _needs = new NeedsPanelUi(canvas, game, _sheet);
+            _window = new BuildingWindowUi(canvas, game, _sheet);   // under the sheet, which it opens
             _results = new ResultOverlayUi(canvas, game, OnResultClaimed);
             _suggestion = new UpgradeSuggestionUi(canvas, game, OnSuggestionClosed);
             _area = new AreaOfferUi(canvas, game);
@@ -156,6 +158,7 @@ namespace ResortEmpire.Game.Ui
             _rush.Hide();
             _home.CloseCard();
             _sheet.Close();
+            _window.Close();
             RefreshAll();
         }
 
@@ -163,6 +166,7 @@ namespace ResortEmpire.Game.Ui
         {
             _rush.Hide();
             _sheet.Close();
+            _window.Close();
             _results.Show(result);
             RefreshAll();
         }
@@ -213,7 +217,8 @@ namespace ResortEmpire.Game.Ui
             RefreshAll();
         }
 
-        // During a wave taps only route workers; between waves they open the action card.
+        // Between waves a tap opens the action card (or the area offer at a construction site). During a wave it opens
+        // the building window (CAM-139), which shows how the building is doing and offers the Worker move from there.
         void OnBuildingTapped(BuildingId building)
         {
             if (_results.Visible || _suggestion.Visible || _area.Visible || _finale.Visible) return;
@@ -231,20 +236,9 @@ namespace ResortEmpire.Game.Ui
                 return;
             }
             if (_game.CurrentPhase == WavePhase.WaveComplete) return;
-            var state = _game.Resort.Get(building);
-            if (state == null) return;
-            if (!state.HasWorker)
-            {
-                _sheet.Open(building);
-                return;
-            }
-            // Tapping a staffed building offers the move toward the building that stands empty.
-            foreach (var b in _game.Resort.Buildings)
-                if (!b.HasWorker)
-                {
-                    _sheet.Open(b.Id);
-                    return;
-                }
+            if (_game.Resort.Get(building) == null) return;   // a construction site has nothing to show during a wave
+            _sheet.Close();
+            _window.Open(building);
         }
 
         // Status shifts drive the guest-voice toasts; the panel rows carry the persistent signal.
@@ -295,6 +289,8 @@ namespace ResortEmpire.Game.Ui
             if (homeVisible) _home.Refresh();
             _needs.SetVisible(waveRunning);
             if (waveRunning) _needs.Refresh();
+            if (waveRunning) _window.Refresh();
+            else _window.Close();
             _resume.Refresh(_shell.IsOpen);
             _rush.Refresh();
             _suggestion.Refresh();

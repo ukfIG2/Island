@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using ResortEmpire.Sim;
 
 namespace ResortEmpire.Game
@@ -65,5 +66,11 @@ namespace ResortEmpire.Game
             if (!resort.IsUnlocked(BuildingId.Bungalows) && resort.WavesCompleted >= t.BungalowsEligibleAfterWave) return BuildingId.Bungalows;
             return null;
         }
+
+        // CAM-130: the label on a construction site whose area can be built, "Build Pool · 1,200". Shown both when it is
+        // affordable and when Coins are still missing; null while locked or once built.
+        public string SiteLabel => State == AreaState.Available || State == AreaState.NotAffordable
+            ? "Build " + GameController.DisplayName(Building) + " · " + Cost.ToString("N0", CultureInfo.InvariantCulture)
+            : null;
     }
 }

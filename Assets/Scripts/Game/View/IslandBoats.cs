@@ -49,15 +49,17 @@ namespace ResortEmpire.Game.View
             _seaLevel = seaLevel;
         }
 
-        // A new wave's vessels are made once the last wave's have gone.
-        public void Tick(int wave, bool atBeach, float dt, float time)
+        // A new wave's vessels are made once the last wave's have gone (CAM-143): an earlier wave's vessels wait only
+        // while its guests are still boarding, then leave, and only then do the next wave's come in.
+        public void Tick(int wave, bool atBeach, bool boarding, float dt, float time)
         {
             if (wave != _wave && _crafts.TrueForAll(c => c.Progress <= 0f))
             {
                 _wave = wave;
                 Rebuild(ByWave[Mathf.Clamp(wave, 1, ByWave.Length) - 1]);
             }
-            foreach (var craft in _crafts) Steer(craft, atBeach, dt, time);
+            bool stay = wave == _wave ? atBeach : boarding;
+            foreach (var craft in _crafts) Steer(craft, stay, dt, time);
         }
 
         void Steer(Craft craft, bool atBeach, float dt, float time)

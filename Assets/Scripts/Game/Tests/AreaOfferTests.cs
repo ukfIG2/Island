@@ -75,5 +75,21 @@ namespace ResortEmpire.Game.Tests
             Assert.IsTrue(resort.Unlock(BuildingId.Pool));
             Assert.IsNull(AreaOffer.DueAfterWave(resort, T));
         }
+
+        // CAM-129: the banner opens the area that waits, the Pool first, for as long as it waits.
+        [Test]
+        public void TheWaitingArea_IsThePoolFirst_AndStaysUntilItIsBuilt()
+        {
+            Assert.IsNull(AreaOffer.Waiting(Resort(2, 9999), T), "nothing before wave 3 is done");
+            Assert.AreEqual(BuildingId.Pool, AreaOffer.Waiting(Resort(3, 0), T), "waiting even without the Coins");
+            Assert.AreEqual(BuildingId.Pool, AreaOffer.Waiting(Resort(5, 0), T), "skipped, it still waits");
+            Assert.AreEqual(BuildingId.Pool, AreaOffer.Waiting(Resort(7, 0), T), "both wait: the Pool comes first");
+
+            var resort = Resort(6, 5000);
+            Assert.IsTrue(resort.Unlock(BuildingId.Pool));
+            Assert.AreEqual(BuildingId.Bungalows, AreaOffer.Waiting(resort, T));
+            Assert.IsTrue(resort.Unlock(BuildingId.Bungalows));
+            Assert.IsNull(AreaOffer.Waiting(resort, T), "everything built");
+        }
     }
 }

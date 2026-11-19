@@ -5,7 +5,7 @@ namespace ResortEmpire.Game.View
 {
     // The vessels that bring each wave, as in the web (arrivalComposition.ts, ResortArrivalActivity.tsx): the island
     // shuttle, speedboats, the resort ferry or a seaplane, depending on the wave. They come in to the main beach
-    // when a wave starts, wait there side by side while guests arrive, then turn and leave once arrivals close.
+    // when a wave starts, wait there side by side for as long as the wave lasts (CAM-142), then turn and leave.
     // Shapes, colours, bobbing and wakes are the web's; the course is fitted to this island's beach, because the
     // web's own course still belongs to its earlier island.
     sealed class IslandBoats

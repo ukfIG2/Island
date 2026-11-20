@@ -6,6 +6,7 @@ using ResortEmpire.Sim;
 namespace ResortEmpire.Game.Tests
 {
     // CAM-50: the main menu says PLAY for a new resort and CONTINUE for one that is under way.
+    // CAM-125: New Game and the start-over question appear only when there is something to start over.
     public class MainMenuTests
     {
         // Finishing a wave saves the game; each test saves into its own temporary folder, never into the player's real save.
@@ -58,6 +59,34 @@ namespace ResortEmpire.Game.Tests
                 Assert.IsNull(game.ActiveWave, "between waves again");
                 Assert.IsTrue(game.HasProgress);
             });
+        }
+
+        // CAM-131: on a new resort New Game would do what PLAY does, so it is not shown and Settings takes its place.
+        [Test]
+        public void NewGame_ShowsOnlyWhenThereIsProgress_AndSettingsMovesUpWhenItIsGone()
+        {
+            var canvas = new UnityEngine.GameObject("TestCanvas", typeof(UnityEngine.RectTransform));
+            try
+            {
+                var menu = new Ui.MainMenuUi(canvas.transform, null, null, null);
+                var settings = (UnityEngine.RectTransform)menu.Root.transform.Find("Card/Settings");
+                var newGame = (UnityEngine.RectTransform)menu.Root.transform.Find("Card/NewGame");
+
+                menu.Show(false);
+                Assert.IsFalse(menu.NewGameShown, "a new resort has nothing to start over");
+                Assert.AreEqual(newGame.anchoredPosition.y, settings.anchoredPosition.y, "Settings sits where New Game was");
+
+                menu.Show(true);
+                Assert.IsTrue(menu.NewGameShown, "a resort under way can start over");
+                Assert.Less(settings.anchoredPosition.y, newGame.anchoredPosition.y, "Settings is below New Game again");
+
+                menu.Show(false);
+                Assert.IsFalse(menu.NewGameShown, "and it goes away again after a start over");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(canvas);
+            }
         }
     }
 }

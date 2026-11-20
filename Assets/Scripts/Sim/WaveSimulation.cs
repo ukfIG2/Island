@@ -189,6 +189,14 @@ namespace ResortEmpire.Sim
         public int ServedUnits(NeedId n) => _lanes[(int)n].Served;
         public NeedStatus StatusOf(NeedId n) => _lanes[(int)n].Status;
 
+        // CAM-138: how long the guest at the front of this line has waited so far, in wave seconds, measured as the
+        // results measure waits. 0 for an empty line. A read-only signal for the building window; it changes nothing.
+        public float LongestWait(NeedId n)
+        {
+            var queue = _lanes[(int)n].Queue;
+            return queue.Count == 0 ? 0f : Math.Max(0f, TimeInWave - queue.Peek().SpawnTime);
+        }
+
         // Only a warning carries a cause; Recovering and calm lines need nothing.
         public QueueCause CauseOf(NeedId n)
         {

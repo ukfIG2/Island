@@ -19,6 +19,7 @@ namespace ResortEmpire.Game.Ui
         public static readonly Color Positive = Hex(0x3E8E5A);
         public static readonly Color Neutral = Hex(0x7FB2BF);
         public static readonly Color Premium = new Color(0.94f, 0.78f, 0.37f);
+        public static readonly Color WorkerHere = new Color(0.62f, 0.86f, 0.66f);   // the green of "What went well" on the result card
 
         static Font _font;
         static Sprite _rounded;

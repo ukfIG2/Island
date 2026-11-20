@@ -19,6 +19,7 @@ namespace ResortEmpire.Game.Ui
         public static readonly Color Positive = Hex(0x3E8E5A);
         public static readonly Color Neutral = Hex(0x7FB2BF);
         public static readonly Color Premium = new Color(0.94f, 0.78f, 0.37f);
+        public static readonly Color WorkerHere = new Color(0.62f, 0.86f, 0.66f);   // the green of "What went well" on the result card
 
         static Font _font;
         static Sprite _rounded;
@@ -64,11 +65,21 @@ namespace ResortEmpire.Game.Ui
             new Vector2(0.68f, 0.98f)
         };
 
+        static readonly Vector2[] ArrowShape =
+        {
+            new Vector2(0.06f, 0.40f), new Vector2(0.56f, 0.40f), new Vector2(0.56f, 0.18f),
+            new Vector2(0.95f, 0.50f), new Vector2(0.56f, 0.82f), new Vector2(0.56f, 0.60f),
+            new Vector2(0.06f, 0.60f)
+        };
+
+        static Sprite _arrow;
+
         static readonly Vector2[] AlertShape =
             { new Vector2(0.5f, 0.96f), new Vector2(0.03f, 0.07f), new Vector2(0.97f, 0.07f) };
 
         public static Sprite Star => _star != null ? _star : _star = MakeIcon(InStar);
         public static Sprite Bolt => _bolt != null ? _bolt : _bolt = MakeIcon((x, y) => InPolygon(BoltShape, x, y));
+        public static Sprite Arrow => _arrow != null ? _arrow : _arrow = MakeIcon((x, y) => InPolygon(ArrowShape, x, y));
 
         // Triangle with the exclamation mark cut out of it.
         public static Sprite Alert => _alert != null ? _alert : _alert = MakeIcon((x, y) =>
@@ -177,6 +188,15 @@ namespace ResortEmpire.Game.Ui
             return rt;
         }
 
+        // A full-screen dim that blocks taps and camera drags behind it.
+        public static Image Overlay(Transform parent, string name, Color dim)
+        {
+            var img = Go(parent, name).AddComponent<Image>();
+            img.color = dim;
+            Place(img.gameObject, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            return img;
+        }
+
         public static Image PanelImage(Transform parent, string name, Color color)
         {
             var img = Go(parent, name).AddComponent<Image>();
@@ -219,6 +239,7 @@ namespace ResortEmpire.Game.Ui
             b.targetGraphic = img;
             var t = Label(img.transform, "Label", label, fontSize, fg, TextAnchor.MiddleCenter, FontStyle.Bold);
             Place(t.gameObject, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            b.onClick.AddListener(() => Sound.Sfx.Play(Sound.SoundCue.Click));   // every button answers with the same soft click
             if (onClick != null) b.onClick.AddListener(onClick);
             return b;
         }

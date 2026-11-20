@@ -117,6 +117,9 @@ namespace ResortEmpire.Game.View
 
         public Vector3 EntranceWorld => _entrance;
 
+        // CAM-130: the point above the construction site's marker where the "Build ..." label hangs.
+        public Vector3 SiteLabelWorld => _site.transform.TransformPoint(new Vector3(0f, 0.68f, 0f));
+
         // Waiting guests stand in rows of three from behind the seats toward the path they came by.
         public Vector3 QueueSlotWorld(int index)
         {

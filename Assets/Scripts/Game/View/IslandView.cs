@@ -42,7 +42,6 @@ namespace ResortEmpire.Game.View
         WaveSimulation _trackedSim;
         readonly int[] _lastArrived = new int[System.Enum.GetValues(typeof(NeedId)).Length];
         readonly int[] _lastServed = new int[System.Enum.GetValues(typeof(NeedId)).Length];
-        int _spawnSequence;
         int _servedSequence;
 
         public void Init(GameController game)
@@ -151,8 +150,7 @@ namespace ResortEmpire.Game.View
                 for (int k = 0; k < Mathf.Min(newcomers, MaxSpawnsPerFrame); k++)
                 {
                     if (_guests.ArrivalsWalking >= MaxWalkingArrivals) break;
-                    _guests.SpawnArrival(need, arrival, WalkStart, view.QueueSlotWorld(Mathf.Min(line + k, 11)),
-                        _spawnSequence++);
+                    _guests.SpawnArrival(need, arrival, WalkStart, view.QueueSlotWorld(Mathf.Min(line + k, 11)));
                 }
 
                 int served = sim.ServedUnits(need);

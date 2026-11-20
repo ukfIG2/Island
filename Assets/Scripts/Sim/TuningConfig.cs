@@ -25,6 +25,8 @@ namespace ResortEmpire.Sim
         public float[] CoinsRatingMult = { 0.4f, 0.6f, 0.8f, 1.0f, 1.2f, 1.3f }; // 1..5 stars, Perfect
         public int[] EnergyDropByStars = { 0, 1, 2, 3, 5 };                      // 1..5 stars
         public int ResortValuePerStar = 5;            // TUNING — spec leaves the exact gain open
+        public int ResortValuePerUpgrade = 20;        // TUNING — GDD: Resort Value grows with buildings and upgrades, never decreases
+        public int ResortValuePerUnlock = 50;         // TUNING — same rule; a new building counts more than a level
 
         public int BottleneckThresholdUnits = 4;      // queued units, seated do not count
         public float BottleneckHysteresisSeconds = 3f;
@@ -47,6 +49,9 @@ namespace ResortEmpire.Sim
         public float RushTimeSeconds = 45f;
         public int RushUnits = 6;
         public float RushDurationSeconds = 10f;
+
+        public double EndlessGrowthPerWave = 1.06;    // P10: every need x 1.06 per wave after wave 8, rounded
+        public int EndlessRushEveryNthWave = 3;       // P10: generated waves 9, 12, 15, ... carry a Sudden rush
 
         public int StartingCoins = 0;
         public int StartingEnergy = 3;

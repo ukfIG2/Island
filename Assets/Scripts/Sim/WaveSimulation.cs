@@ -29,6 +29,7 @@ namespace ResortEmpire.Sim
             public int PrevQueue;
             public float NonDecreasingSeconds;
             public float BottleneckSeconds;
+            public float UnstaffedBottleneckSeconds;          // part of BottleneckSeconds with no Worker on the building
             public float HelpGrace;                           // AC2: no return to Bottleneck while > 0
         }
 
@@ -50,6 +51,8 @@ namespace ResortEmpire.Sim
         public bool IsPaused { get; set; }
         public float TimeInWave { get; private set; } // seconds inside WaveActive, pause-frozen
         public WaveResult Result { get; private set; }
+        public NeedId? RushNeed { get; private set; }   // the need the Sudden rush landed on; null until it fires
+        public bool RushFired => RushNeed != null;      // true from the trigger tick on; pause-frozen with the clock
 
         public WaveSimulation(ResortState resort, WaveDef wave, TuningConfig tuning)
         {
@@ -85,12 +88,7 @@ namespace ResortEmpire.Sim
             }
         }
 
-        static BuildingId BuildingFor(NeedId need)
-        {
-            foreach (BuildingId b in Enum.GetValues(typeof(BuildingId)))
-                if (BuildingNeeds.Serves(b) == need) return b;
-            return BuildingId.Reception;
-        }
+        static BuildingId BuildingFor(NeedId need) => BuildingNeeds.BuildingFor(need);
 
         public void StartWave()
         {
@@ -179,6 +177,9 @@ namespace ResortEmpire.Sim
 
         public float BoostRemaining(BuildingId b) => _boosts[b].Remaining;
 
+        // True once this building has used its Speed Up allowance in this wave.
+        public bool BoostSpent(BuildingId b) => _boosts[b].Used >= _t.MaxBoostsPerBuildingPerWave;
+
         // --- per-need queries -----------------------------------------------
 
         public int DemandTotal(NeedId n) => _lanes[(int)n].Demand;
@@ -187,6 +188,14 @@ namespace ResortEmpire.Sim
         public int SeatedCount(NeedId n) => _lanes[(int)n].Seated.Count;
         public int ServedUnits(NeedId n) => _lanes[(int)n].Served;
         public NeedStatus StatusOf(NeedId n) => _lanes[(int)n].Status;
+
+        // CAM-138: how long the guest at the front of this line has waited so far, in wave seconds, measured as the
+        // results measure waits. 0 for an empty line. A read-only signal for the building window; it changes nothing.
+        public float LongestWait(NeedId n)
+        {
+            var queue = _lanes[(int)n].Queue;
+            return queue.Count == 0 ? 0f : Math.Max(0f, TimeInWave - queue.Peek().SpawnTime);
+        }
 
         // Only a warning carries a cause; Recovering and calm lines need nothing.
         public QueueCause CauseOf(NeedId n)
@@ -208,6 +217,148 @@ namespace ResortEmpire.Sim
             }
         }
 
+        // --- saving and restoring a wave in progress (CAM-109) ---------------------------------------------
+
+        // The wave exactly as it is now, or null before it starts and after it has completed.
+        public WaveSnapshot ToSnapshot()
+        {
+            if (Phase == WavePhase.AwaitingWave || Phase == WavePhase.WaveComplete) return null;
+            var snap = new WaveSnapshot
+            {
+                waveIndex = _wave.Index,
+                phase = (int)Phase,
+                timeInWave = TimeInWave,
+                incomingElapsed = _incomingElapsed,
+                rushTriggered = _rushTriggered,
+                rushNeed = RushNeed == null ? -1 : (int)RushNeed.Value,
+                lanes = new LaneSnapshot[_lanes.Length]
+            };
+            for (int i = 0; i < _lanes.Length; i++)
+            {
+                var lane = _lanes[i];
+                snap.lanes[i] = new LaneSnapshot
+                {
+                    need = (int)lane.Need,
+                    demand = lane.Demand,
+                    pending = lane.Pending.ToArray(),
+                    nextSpawn = lane.NextSpawn,
+                    queue = ToUnits(lane.Queue),
+                    seated = ToUnits(lane.Seated),
+                    served = lane.Served,
+                    waitSum = lane.WaitSum,
+                    contributionSum = lane.ContributionSum,
+                    status = (int)lane.Status,
+                    prevQueue = lane.PrevQueue,
+                    nonDecreasingSeconds = lane.NonDecreasingSeconds,
+                    bottleneckSeconds = lane.BottleneckSeconds,
+                    unstaffedBottleneckSeconds = lane.UnstaffedBottleneckSeconds,
+                    helpGrace = lane.HelpGrace
+                };
+            }
+            var buildings = (BuildingId[])Enum.GetValues(typeof(BuildingId));
+            snap.boosts = new BoostSnapshot[buildings.Length];
+            for (int i = 0; i < buildings.Length; i++)
+                snap.boosts[i] = new BoostSnapshot { building = (int)buildings[i], used = _boosts[buildings[i]].Used, remaining = _boosts[buildings[i]].Remaining };
+            return snap;
+        }
+
+        // Rebuilds the wave from a snapshot, on a resort restored to the same moment. Returns null when the snapshot
+        // does not fit this wave or holds impossible values; the resort is left untouched in that case. The wave
+        // comes back not paused: the caller pauses it.
+        public static WaveSimulation FromSnapshot(ResortState resort, WaveDef wave, TuningConfig tuning, WaveSnapshot snap)
+        {
+            if (resort == null || wave == null || tuning == null || !Fits(snap, wave)) return null;
+
+            var sim = new WaveSimulation(resort, wave, tuning);
+            for (int i = 0; i < sim._lanes.Length; i++)       // check every lane against the resort before changing anything
+            {
+                var ls = snap.lanes[i];
+                bool locked = resort.Get(BuildingFor(sim._lanes[i].Need)) == null;
+                if (locked != ((NeedStatus)ls.status == NeedStatus.Locked)) return null;
+                if (locked && (ls.queue.Length > 0 || ls.seated.Length > 0 || ls.nextSpawn > 0)) return null; // locked needs never spawn (WR9)
+            }
+
+            sim.Phase = (WavePhase)snap.phase;
+            sim.TimeInWave = snap.timeInWave;
+            sim._incomingElapsed = snap.incomingElapsed;
+            sim._rushTriggered = snap.rushTriggered;
+            sim.RushNeed = snap.rushNeed < 0 ? (NeedId?)null : (NeedId)snap.rushNeed;
+            for (int i = 0; i < sim._lanes.Length; i++)
+            {
+                var lane = sim._lanes[i];
+                var ls = snap.lanes[i];
+                lane.Building = resort.Get(BuildingFor(lane.Need));
+                lane.Demand = ls.demand;
+                lane.Pending = new List<float>(ls.pending);
+                lane.NextSpawn = ls.nextSpawn;
+                lane.Queue = new Queue<Unit>();
+                foreach (var u in ls.queue) lane.Queue.Enqueue(ToUnit(u));
+                lane.Seated = new List<Unit>();
+                foreach (var u in ls.seated) lane.Seated.Add(ToUnit(u));
+                lane.Served = ls.served;
+                lane.WaitSum = ls.waitSum;
+                lane.ContributionSum = ls.contributionSum;
+                lane.Status = (NeedStatus)ls.status;
+                lane.PrevQueue = ls.prevQueue;
+                lane.NonDecreasingSeconds = ls.nonDecreasingSeconds;
+                lane.BottleneckSeconds = ls.bottleneckSeconds;
+                lane.UnstaffedBottleneckSeconds = ls.unstaffedBottleneckSeconds;
+                lane.HelpGrace = ls.helpGrace;
+            }
+            foreach (var b in snap.boosts)
+            {
+                var boost = sim._boosts[(BuildingId)b.building];
+                boost.Used = b.used;
+                boost.Remaining = b.remaining;
+            }
+            resort.InWave = true;
+            return sim;
+        }
+
+        static UnitSnapshot[] ToUnits(IEnumerable<Unit> units)
+        {
+            var list = new List<UnitSnapshot>();
+            foreach (var u in units) list.Add(new UnitSnapshot { spawn = u.SpawnTime, wait = u.Wait, progress = u.Progress });
+            return list.ToArray();
+        }
+
+        static Unit ToUnit(UnitSnapshot u) => new Unit { SpawnTime = u.spawn, Wait = u.wait, Progress = u.progress };
+
+        static bool Ok(float f) => !float.IsNaN(f) && !float.IsInfinity(f) && f >= 0f;
+
+        // Structure and numbers only; whether the lanes agree with the resort is checked by the caller.
+        static bool Fits(WaveSnapshot snap, WaveDef wave)
+        {
+            if (snap == null || snap.version != WaveSnapshot.CurrentVersion || snap.waveIndex != wave.Index) return false;
+            var phase = (WavePhase)snap.phase;
+            if (phase != WavePhase.WaveIncoming && phase != WavePhase.WaveActive && phase != WavePhase.WaveResolving) return false;
+            if (!Ok(snap.timeInWave) || !Ok(snap.incomingElapsed)) return false;
+            if (snap.rushNeed != -1 && (!Enum.IsDefined(typeof(NeedId), snap.rushNeed) || !snap.rushTriggered)) return false;
+
+            var needs = (NeedId[])Enum.GetValues(typeof(NeedId));
+            if (snap.lanes == null || snap.lanes.Length != needs.Length) return false;
+            for (int i = 0; i < needs.Length; i++)
+            {
+                var ls = snap.lanes[i];
+                if (ls == null || ls.need != (int)needs[i] || ls.pending == null || ls.queue == null || ls.seated == null) return false;
+                if (ls.demand < 0 || ls.served < 0 || ls.prevQueue < 0 || ls.nextSpawn < 0 || ls.nextSpawn > ls.pending.Length) return false;
+                if (!Enum.IsDefined(typeof(NeedStatus), ls.status)) return false;
+                if (!Ok(ls.waitSum) || !Ok(ls.contributionSum) || !Ok(ls.nonDecreasingSeconds) || !Ok(ls.bottleneckSeconds) || !Ok(ls.unstaffedBottleneckSeconds) || !Ok(ls.helpGrace)) return false;
+                foreach (float f in ls.pending) if (!Ok(f)) return false;
+                foreach (var u in ls.queue) if (u == null || !Ok(u.spawn) || !Ok(u.wait) || !Ok(u.progress)) return false;
+                foreach (var u in ls.seated) if (u == null || !Ok(u.spawn) || !Ok(u.wait) || !Ok(u.progress)) return false;
+            }
+
+            var buildings = (BuildingId[])Enum.GetValues(typeof(BuildingId));
+            if (snap.boosts == null || snap.boosts.Length != buildings.Length) return false;
+            for (int i = 0; i < buildings.Length; i++)
+            {
+                var b = snap.boosts[i];
+                if (b == null || b.building != (int)buildings[i] || b.used < 0 || !Ok(b.remaining)) return false;
+            }
+            return true;
+        }
+
         // --- internals --------------------------------------------------------
 
         void TriggerRush()
@@ -221,6 +372,7 @@ namespace ResortEmpire.Sim
             for (int j = 0; j < _t.RushUnits; j++)
                 target.Pending.Add(_t.RushTimeSeconds + j * _t.RushDurationSeconds / _t.RushUnits);
             target.Pending.Sort();                      // rush times never precede already-spawned ones
+            RushNeed = target.Need;
         }
 
         void SpawnDue()
@@ -309,7 +461,11 @@ namespace ResortEmpire.Sim
                         break;
                 }
 
-                if (lane.Status == NeedStatus.Bottleneck) lane.BottleneckSeconds += dt;
+                if (lane.Status == NeedStatus.Bottleneck)
+                {
+                    lane.BottleneckSeconds += dt;
+                    if (!lane.Building.HasWorker) lane.UnstaffedBottleneckSeconds += dt;
+                }
                 lane.PrevQueue = q;
             }
         }
@@ -371,6 +527,10 @@ namespace ResortEmpire.Sim
                 {
                     worstSeconds = lane.BottleneckSeconds;
                     r.WorstNeed = lane.Need;
+                    // Empty for more than half of its trouble: a staffing problem; otherwise too small for the crowd.
+                    r.WorstNeedCause = lane.UnstaffedBottleneckSeconds * 2f > lane.BottleneckSeconds
+                        ? BottleneckCause.Staffing
+                        : BottleneckCause.Capacity;
                 }
             }
 
@@ -390,6 +550,7 @@ namespace ResortEmpire.Sim
             _resort.Coins += r.CoinsEarned;
             _resort.Energy += r.EnergyEarned;
             _resort.ResortValue += r.ResortValueGain;
+            _resort.StarsEarned += r.Stars;
             _resort.WavesCompleted = Math.Max(_resort.WavesCompleted, _wave.Index);
             _resort.InWave = false;
         }

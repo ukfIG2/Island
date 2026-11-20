@@ -40,9 +40,11 @@ namespace ResortEmpire.Game.View
         Vector3[] _beachSpots;
 
         WaveSimulation _trackedSim;
+        WaveSimulation _homeFrom;                                   // the wave whose guests have been sent home
+        readonly List<Homecoming.Departure> _homecoming = new List<Homecoming.Departure>();
+        float _homecomingClock;
         readonly int[] _lastArrived = new int[System.Enum.GetValues(typeof(NeedId)).Length];
         readonly int[] _lastServed = new int[System.Enum.GetValues(typeof(NeedId)).Length];
-        int _spawnSequence;
         int _servedSequence;
 
         public void Init(GameController game)
@@ -64,7 +66,16 @@ namespace ResortEmpire.Game.View
 
         // The camera can be turned and zoomed; the UI offers to bring it back.
         public bool ViewMoved => _camera != null && _camera.Moved;
+        public bool Raining => _light != null && _light.Raining;       // the island's weather, also for the sound of rain
         public void ResetView() => _camera?.ResetView();
+
+        // CAM-130: where a construction site's label hangs in the world; null for a building the island does not have.
+        public Vector3? SitePoint(BuildingId id)
+        {
+            foreach (var view in _views)
+                if (view.Id == id) return view.SiteLabelWorld;
+            return null;
+        }
 
         void Update()
         {
@@ -81,6 +92,7 @@ namespace ResortEmpire.Game.View
 
             float animDt = sim != null && sim.IsPaused ? 0f : Time.deltaTime * _game.SimSpeed;
             if (sim != null) ReconcileGuests(sim);
+            SendGuestsHome(sim, animDt);
             foreach (var lift in _paths.Lifts) lift.Tick(animDt);
             _guests.Tick(animDt);
             _workers.Sync(_game.Resort, animDt);
@@ -96,10 +108,37 @@ namespace ResortEmpire.Game.View
                     status, showStatus, time);
             }
 
-            // The wave's vessels wait at the beach while its guests arrive.
-            bool atBeach = sim != null &&
-                           (sim.Phase == WavePhase.WaveIncoming || (sim.Phase == WavePhase.WaveActive && !sim.ArrivalsClosed));
-            _boats.Tick(_game.NextWaveIndex, atBeach, animDt, Time.time);
+            // The wave's vessels wait at the beach for as long as the wave lasts, Wave Complete included (CAM-142), and
+            // after it until the guests going home have boarded (CAM-143).
+            bool boarding = _homecoming.Count > 0 || _guests.Departing > 0;
+            bool atBeach = Homecoming.VesselWaits(sim?.Phase, boarding);
+            _boats.Tick(_game.NextWaveIndex, atBeach, boarding, animDt, Time.time);
+        }
+
+        // CAM-143: at Wave Complete the guests walk back from the buildings and board; the impatient ones first.
+        void SendGuestsHome(WaveSimulation sim, float dt)
+        {
+            if (sim != null && sim.Phase == WavePhase.WaveComplete && sim.Result != null && _homeFrom != sim)
+            {
+                _homeFrom = sim;
+                var needs = new List<NeedId>();
+                foreach (var view in _views)
+                    if (_game.Resort.IsUnlocked(view.Id)) needs.Add(view.Need);
+                _homecoming.Clear();
+                _homecoming.AddRange(Homecoming.Plan(sim.Result.Stars, sim.Result.Perfect, needs));
+                _homecomingClock = 0f;
+            }
+            if (_homecoming.Count == 0) return;
+            _homecomingClock += dt;
+            for (int i = 0; i < _homecoming.Count; i++)
+            {
+                var leaving = _homecoming[i];
+                if (leaving.Delay > _homecomingClock) continue;
+                var view = _byNeed[leaving.Need];
+                _guests.SpawnDeparture(leaving.Need, _paths.Route(PlaceName(leaving.Need), "beach"), view.EntranceWorld,
+                    WalkStart, leaving.Impatient ? Homecoming.ImpatientPace : 1f);
+                _homecoming.RemoveAt(i--);
+            }
         }
 
         void Tap(Vector2 screen)
@@ -116,8 +155,13 @@ namespace ResortEmpire.Game.View
         void TrackNewWave(WaveSimulation sim)
         {
             _trackedSim = sim;
-            System.Array.Clear(_lastArrived, 0, _lastArrived.Length);
-            System.Array.Clear(_lastServed, 0, _lastServed.Length);
+            // Count from where the wave stands: a wave restored from a save is already under way, and the guests that
+            // arrived before must stand in their lines, not walk in from the boat again. A new wave starts at zero.
+            foreach (NeedId need in System.Enum.GetValues(typeof(NeedId)))
+            {
+                _lastArrived[(int)need] = sim != null ? sim.ArrivedUnits(need) : 0;
+                _lastServed[(int)need] = sim != null ? sim.ServedUnits(need) : 0;
+            }
             _guests.ClearArrivals();
         }
 
@@ -137,8 +181,7 @@ namespace ResortEmpire.Game.View
                 for (int k = 0; k < Mathf.Min(newcomers, MaxSpawnsPerFrame); k++)
                 {
                     if (_guests.ArrivalsWalking >= MaxWalkingArrivals) break;
-                    _guests.SpawnArrival(need, arrival, WalkStart, view.QueueSlotWorld(Mathf.Min(line + k, 11)),
-                        _spawnSequence++);
+                    _guests.SpawnArrival(need, arrival, WalkStart, view.QueueSlotWorld(Mathf.Min(line + k, 11)));
                 }
 
                 int served = sim.ServedUnits(need);

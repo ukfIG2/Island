@@ -14,8 +14,24 @@ namespace ResortEmpire.Game.Ui
             public Text Count;
         }
 
+        // CAM-130: the "Build Pool · 1,200" label that hangs over a construction site while its area can be built.
+        sealed class SiteTag
+        {
+            public BuildingId Building;
+            public RectTransform Rect;
+            public Image Background;
+            public Text Label;
+            public bool Wanted;
+        }
+
+        const float SiteTagHeight = 50f;
+        const float SiteTagPadding = 36f;
+
         readonly GameController _game;
         readonly WorkerSheetUi _sheet;
+        readonly System.Action<BuildingId> _openArea;
+        readonly System.Func<BuildingId, Vector3?> _sitePoint;
+        readonly SiteTag[] _siteTags;
         readonly GameObject _root;
         readonly Button _start;
         readonly Text _startLabel;
@@ -36,12 +52,35 @@ namespace ResortEmpire.Game.Ui
         readonly Text _workerLabel;
         BuildingId? _cardBuilding;
 
-        public HomeUi(Transform canvas, GameController game, WorkerSheetUi sheet)
+        // openArea shows the area offer (S9) for an area that can be built; sitePoint gives where a construction site's
+        // label hangs in the world (null in tests without an island).
+        public HomeUi(Transform canvas, GameController game, WorkerSheetUi sheet, System.Action<BuildingId> openArea,
+            System.Func<BuildingId, Vector3?> sitePoint = null)
         {
             _game = game;
             _sheet = sheet;
+            _openArea = openArea;
+            _sitePoint = sitePoint;
             _root = UiFactory.Go(canvas, "Home");
             UiFactory.Place(_root, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+
+            // First on the screen, so the forecast, the banner and the building card all draw over the site labels.
+            var areas = new[] { BuildingId.Pool, BuildingId.Bungalows };
+            _siteTags = new SiteTag[areas.Length];
+            for (int i = 0; i < areas.Length; i++)
+            {
+                var area = areas[i];
+                var button = UiFactory.TextButton(_root.transform, "SiteLabel" + area, "", 24, UiFactory.Cta, UiFactory.Cream,
+                    () => OpenAreaOf(area));
+                var rect = UiFactory.PlaceFixed(button.gameObject, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0f),
+                    Vector2.zero, new Vector2(240f, SiteTagHeight));
+                _siteTags[i] = new SiteTag
+                {
+                    Building = area, Rect = rect, Background = (Image)button.targetGraphic,
+                    Label = UiFactory.ButtonLabel(button)
+                };
+                button.gameObject.SetActive(false);
+            }
 
             _start = UiFactory.TextButton(_root.transform, "StartWave", "START WAVE", 40, UiFactory.Cta, UiFactory.Cream,
                 () => _game.StartNextWave());
@@ -73,10 +112,15 @@ namespace ResortEmpire.Game.Ui
                 _rows[i] = new ForecastRow { Need = needs[i], Rect = rect, Count = count };
             }
 
-            _banner = UiFactory.PanelImage(_root.transform, "UnlockBanner", UiFactory.Panel).gameObject;
+            // CAM-129: the banner is a button too; it opens the offer of the area that waits. Same place, same text.
+            var bannerImage = UiFactory.PanelImage(_root.transform, "UnlockBanner", UiFactory.Panel);
+            _banner = bannerImage.gameObject;
             UiFactory.PlaceFixed(_banner, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, -132f), new Vector2(580f, 52f));
             var bannerText = UiFactory.Label(_banner.transform, "Text", "New area available — tap the site", 24, UiFactory.Cream, TextAnchor.MiddleCenter);
             UiFactory.Place(bannerText.gameObject, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            var bannerButton = _banner.AddComponent<Button>();
+            bannerButton.targetGraphic = bannerImage;
+            bannerButton.onClick.AddListener(OnBanner);
 
             // Building action card: one at a time, bottom right, X to close.
             var cardImg = UiFactory.PanelImage(_root.transform, "ActionCard", UiFactory.Panel);
@@ -108,6 +152,76 @@ namespace ResortEmpire.Game.Ui
             _workerLabel = UiFactory.ButtonLabel(_worker);
 
             _card.SetActive(false);
+        }
+
+        void OnBanner()
+        {
+            var area = AreaOffer.Waiting(_game.Resort, _game.Tuning);
+            if (area == null) return;
+            Sound.Sfx.Play(Sound.SoundCue.Click);
+            OpenAreaOf(area.Value);
+        }
+
+        void OpenAreaOf(BuildingId area)
+        {
+            CloseCard();
+            _openArea?.Invoke(area);
+        }
+
+        // The labels whose area can be built, kept over their sites. Called every frame, so they stay on the site
+        // while the camera turns or zooms; a site behind the camera hides its label.
+        public void TrackSites()
+        {
+            var cam = Camera.main;
+            var rootRect = (RectTransform)_root.transform;
+            foreach (var tag in _siteTags)
+            {
+                bool show = tag.Wanted && _root.activeInHierarchy;
+                if (show && cam != null && _sitePoint != null)
+                {
+                    var world = _sitePoint(tag.Building);
+                    if (world == null) show = false;
+                    else
+                    {
+                        var screen = cam.WorldToScreenPoint(world.Value);
+                        if (screen.z <= 0f) show = false;
+                        else if (RectTransformUtility.ScreenPointToLocalPointInRectangle(rootRect, screen, null, out var local))
+                            tag.Rect.anchoredPosition = local;
+                    }
+                }
+                if (tag.Rect.gameObject.activeSelf != show) tag.Rect.gameObject.SetActive(show);
+            }
+        }
+
+        public bool SiteLabelShown(BuildingId area, out string text)
+        {
+            foreach (var tag in _siteTags)
+                if (tag.Building == area)
+                {
+                    text = tag.Label.text;
+                    return tag.Rect.gameObject.activeSelf;
+                }
+            text = null;
+            return false;
+        }
+
+        // Available reads in the call-to-action colour; with Coins still missing the label stays, in the calm panel colour.
+        void RefreshSiteTags()
+        {
+            foreach (var tag in _siteTags)
+            {
+                var offer = AreaOffer.For(_game.Resort, _game.Tuning, _game.Waves, tag.Building);
+                string text = offer?.SiteLabel;
+                tag.Wanted = text != null;
+                if (!tag.Wanted) continue;
+                if (tag.Label.text != text)
+                {
+                    tag.Label.text = text;
+                    tag.Rect.sizeDelta = new Vector2(tag.Label.preferredWidth + SiteTagPadding, SiteTagHeight);
+                }
+                tag.Background.color = offer.State == AreaState.Available ? UiFactory.Cta : UiFactory.Panel;
+            }
+            TrackSites();
         }
 
         void OnUpgrade()
@@ -152,7 +266,8 @@ namespace ResortEmpire.Game.Ui
             var wave = _game.NextWaveDef;               // the waves go on past wave 8, so there is always a next one
             _startLabel.text = "START WAVE " + wave.Index;
             RefreshForecast(wave);
-            _banner.SetActive(UnlockWaiting());
+            _banner.SetActive(AreaOffer.Waiting(_game.Resort, _game.Tuning) != null);
+            RefreshSiteTags();
             RefreshCard();
         }
 
@@ -172,14 +287,6 @@ namespace ResortEmpire.Game.Ui
                 shown++;
             }
             _forecastRect.sizeDelta = new Vector2(380f, 112f + shown * 44f);
-        }
-
-        bool UnlockWaiting()
-        {
-            var r = _game.Resort;
-            var t = _game.Tuning;
-            if (!r.IsUnlocked(BuildingId.Pool) && r.WavesCompleted >= t.PoolEligibleAfterWave) return true;
-            return !r.IsUnlocked(BuildingId.Bungalows) && r.WavesCompleted >= t.BungalowsEligibleAfterWave;
         }
 
         void RefreshCard()

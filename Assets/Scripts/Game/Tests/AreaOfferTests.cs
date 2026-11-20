@@ -75,5 +75,36 @@ namespace ResortEmpire.Game.Tests
             Assert.IsTrue(resort.Unlock(BuildingId.Pool));
             Assert.IsNull(AreaOffer.DueAfterWave(resort, T));
         }
+
+        // CAM-129: the banner opens the area that waits, the Pool first, for as long as it waits.
+        [Test]
+        public void TheWaitingArea_IsThePoolFirst_AndStaysUntilItIsBuilt()
+        {
+            Assert.IsNull(AreaOffer.Waiting(Resort(2, 9999), T), "nothing before wave 3 is done");
+            Assert.AreEqual(BuildingId.Pool, AreaOffer.Waiting(Resort(3, 0), T), "waiting even without the Coins");
+            Assert.AreEqual(BuildingId.Pool, AreaOffer.Waiting(Resort(5, 0), T), "skipped, it still waits");
+            Assert.AreEqual(BuildingId.Pool, AreaOffer.Waiting(Resort(7, 0), T), "both wait: the Pool comes first");
+
+            var resort = Resort(6, 5000);
+            Assert.IsTrue(resort.Unlock(BuildingId.Pool));
+            Assert.AreEqual(BuildingId.Bungalows, AreaOffer.Waiting(resort, T));
+            Assert.IsTrue(resort.Unlock(BuildingId.Bungalows));
+            Assert.IsNull(AreaOffer.Waiting(resort, T), "everything built");
+        }
+
+        // CAM-130: the construction site names the area and its price while it can be built, and nothing otherwise.
+        [Test]
+        public void TheSiteLabel_NamesTheAreaAndItsPrice_OnlyWhileItCanBeBuilt()
+        {
+            Assert.AreEqual("Build Pool · 1,200", AreaOffer.For(Resort(3, 5000), T, Waves, BuildingId.Pool).SiteLabel);
+            Assert.AreEqual("Build Pool · 1,200", AreaOffer.For(Resort(3, 100), T, Waves, BuildingId.Pool).SiteLabel,
+                "also while Coins are missing");
+            Assert.AreEqual("Build Bungalows · 2,500", AreaOffer.For(Resort(6, 0), T, Waves, BuildingId.Bungalows).SiteLabel);
+
+            Assert.IsNull(AreaOffer.For(Resort(2, 5000), T, Waves, BuildingId.Pool).SiteLabel, "locked: no label");
+            var resort = Resort(3, 5000);
+            Assert.IsTrue(resort.Unlock(BuildingId.Pool));
+            Assert.IsNull(AreaOffer.For(resort, T, Waves, BuildingId.Pool).SiteLabel, "built: no label");
+        }
     }
 }

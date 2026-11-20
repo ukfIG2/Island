@@ -83,9 +83,16 @@ namespace ResortEmpire.Game.Ui
             ShowSettings();
         }
 
+        // CAM-132: the question is only asked when there is something to lose. A resort with no wave played yet has
+        // nothing to erase, so it starts over at once.
         void AskStartOver(Action back)
         {
             HideAll();
+            if (!_game.HasProgress)
+            {
+                _startOver();
+                return;
+            }
             _confirm.Show(StartOverTitle, StartOverMessage, "Start over", _startOver, back);
         }
 

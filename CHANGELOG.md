@@ -2,6 +2,84 @@
 
 One entry per release; each sprint ends with a release tagged on `main`.
 
+## v0.3.0 — Sprint 3 (10. 11. – 24. 11. 2026)
+
+### Done
+
+Sprint goal: *close the prototype loop: all 8 waves can be played at x1, x2 or x4 speed and end in a Resort
+summary; the full result, upgrade and area screens; the app shell (main menu, settings, saving and pausing when
+the app is left); and the Sudden rush and Energy sources.* Endless waves, the Worker marker and sound came in with
+it, and five stories from Ivan's playtest of 19. 11. close the sprint.
+
+#### Waves and results
+
+| Jira | Item | What was delivered |
+|---|---|---|
+| CAM-27 | Wave table | The eight waves are pinned to the build document, with the designer's beat of each wave in the tests. |
+| CAM-28 | Endless waves | After the Resort summary, "Keep playing" goes on with generated waves: every need +6 % per wave, a Sudden rush every third wave, no new needs. |
+| CAM-112 | Game speed | x1 / x2 / x4; the result of a wave is the same at every speed. Not saved: every launch starts at x1. |
+| CAM-38 | Wave Complete screen (S4) | Stars, satisfaction, needs served, the rewards, "What went well" and "Needs improvement" (naming no Worker or too few seats). |
+| CAM-39 | Wave rewards | Coins, Energy and Resort Value for every finished wave. Built and covered by tests. |
+| CAM-40 | Resort Value | Grows with waves (+5 per star), upgrades (+20) and unlocks (+50); never falls. |
+| CAM-113 | Resort summary | After wave 8: waves cleared, stars out of 40, Resort Value and every building with its level. |
+| CAM-54 | No degradation | Time away changes nothing: no decay, no offline Coins or Energy. Proven by tests. |
+
+#### Building, Workers and growth
+
+| Jira | Item | What was delivered |
+|---|---|---|
+| CAM-31 | Worker marker on the wave panel | Every need row shows "Worker here" or "No Worker", with the status and the queue bar. |
+| CAM-41 | Upgrade suggestion (S5) | After a wave: the building behind the worst line, its seats before and after, the Coin cost, and UPGRADE or Later. |
+| CAM-42 | Upgrade to Lv2 and Lv3 | Seats grow with each level (3, 5, 7). Built and covered by tests. |
+| CAM-44 | Area offer (S9) | The Pool after wave 3 and the Bungalows after wave 6: name, the need it adds, the Worker that comes with it, the price, BUILD or Later. Reopened from the construction site, its tag or the banner (CAM-124). |
+| CAM-45 | Pool and Bungalows with a new Worker | A new building arrives with its own Worker, keeping Workers = buildings − 1. Built and covered by tests. |
+| CAM-49 | 5★ without Energy | 5★ is reachable without Energy. Checked by tests. |
+
+#### Rush, Energy and the app shell
+
+| Jira | Item | What was delivered |
+|---|---|---|
+| CAM-48 | Sudden-rush prompt | In wave 2 a card appears under the need rows: Move Worker here, Speed Up or the test ad, Ignore. It never pauses the wave. |
+| CAM-74 | Energy sources | Energy from finished waves; a test rewarded video ("Test ad +3") stands in where Speed Up is short of Energy. Energy is never a gate. |
+| CAM-53 | Save and restore the exact wave | Leaving the app pauses a running wave and saves it; a restored wave comes back paused behind a Resume card. Sub-tasks: CAM-108 safe save file (temporary file and backup); CAM-109 wave snapshot with tests over 8 waves; CAM-110 save on leaving and every 10 seconds; CAM-111 restore with the guests in their lines. |
+| CAM-50 | Main menu | Opens over the live island: PLAY or CONTINUE, New Game (once there is something to start over, CAM-125), Settings. A Menu button under the top bar opens the pause menu. |
+| CAM-51 | Settings | Sound and Music switches (remembered on the device), Reset progress behind a "Start over?" confirmation. |
+| CAM-114 | App identity | Name Island, company ukfstudent, package `com.ukfstudent.island`. |
+| CAM-117 | Sound effects, atmosphere and music | Placeholder sounds made in code for Workers, lines that grow or catch up, the Sudden rush, the wave start, the result (one more note per star), rewards, boats arriving and leaving, the sea and rain, and calm music that changes with the wave. Sub-tasks: CAM-118 sound system and switches; CAM-119 sound effects; CAM-120 boat sounds; CAM-121 atmosphere; CAM-122 music. |
+
+#### From the playtest of 19. 11. 2026
+
+| Jira | Item | What was delivered |
+|---|---|---|
+| CAM-125 | Main menu: New Game and Start over only when there is something to start over | New Game shows only when the resort has progress, and Settings moves up into its place on a new resort (CAM-131). "Start over?" is asked only when there is something to erase (CAM-132). |
+| CAM-124 | Show where a new area can be built | The "New area available" banner is a button that opens the area offer (CAM-129). While the Pool or the Bungalows can be built, a "Build Pool · 1,200" tag hangs over its construction site, orange when affordable; tapping it opens the offer too (CAM-130). |
+| CAM-133 | Building window during a wave | A tap on a building during a wave opens its window; the wave keeps running. It shows Worker here or No Worker, seats in use, guests waiting, the status word and "Guests are waiting a while" (CAM-138); no satisfaction number. Move a Worker here or Move this Worker opens the Worker sheet, and Speed Up appears where it is offered (CAM-139). Between waves a tap still opens the building card. |
+| CAM-134 | Walking guests keep apart | Each guest keeps to its own side of the path, so guests going up and coming down pass side by side (CAM-140), and keeps a gap behind the guest ahead (CAM-141). No physics. |
+| CAM-135 | The vessel takes the guests home | The wave's vessel waits at the beach until the wave is complete (CAM-142). At Wave Complete guests walk back and board, the impatient ones first, as many as the stars say (none at 5★, a few at 3★, a group at 1★); then the vessel leaves before the next wave's vessel comes in (CAM-143). |
+
+### Checked by the team
+
+- **CAM-75** Playtest of the Pool and Bungalows unlock (Ivan): the unlock works; the hint on the island became CAM-124.
+- **CAM-76** Android build and touch check (Ivan): the phone runs the app; zoom, turning and camera angles work.
+- **CAM-77** Economist check of wave 2: passed, with the wave-2 numbers left as they are.
+
+### Not in this release
+
+- **CAM-123** Real sound files: the placeholder sounds stay, by Ivan's decision of 19. 11.
+
+### Known gaps
+
+- Sound is made in code, not from recorded files. The sea, the boats and the music sound synthetic.
+- Walking guests can still brush past each other briefly where the island's own path folds back on itself (the
+  hairpin landing on the stairs above the beach) and at the foot of the beach steps.
+- The new building window, site tags and banner were tried in the editor with taps sent by code; not yet by hand
+  on a phone.
+- The Menu button and the pause menu have no Jira item of their own.
+- To install, uninstall the old test APK first: the package name changed to `com.ukfstudent.island`.
+- Speed Up shows "Speeding up" instead of a countdown (the game shows no countdowns).
+
+App version 0.3.0, Android version code 3. How to test: Test Runner → EditMode → Run All (179 tests).
+
 ## v0.2.0 — Sprint 2 (26. 10. – 9. 11. 2026)
 
 ### Done
